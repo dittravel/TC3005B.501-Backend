@@ -10,7 +10,7 @@ export const authenticateToken = (req, res, next) => {
 
             const requestIp = req.headers['x-forwarded-for'] || req.ip;
 
-            if (decoded.ip !== requestIp) {
+            if (process.env.NODE_ENV === 'production' && decoded.ip !== requestIp) {
                 return res.status(403).json({ error: 'Token mismatch: unauthorized device' });
             }
 

@@ -6,7 +6,7 @@ import { authenticateToken, authorizeRole } from '../middleware/auth.js';
 import { loginRateLimiter, generalRateLimiter } from '../middleware/rateLimiters.js';
 
 router.route("/get-user-data/:user_id")
-    .get(generalRateLimiter, authenticateToken, authorizeRole(['Solicitante', 'N1', 'N2', 'Cuentas por pagar', 'Agencia de viajes']), validateId, validateInputs, userController.getUserData);
+    .get(generalRateLimiter, authenticateToken, authorizeRole(['Solicitante', 'N1', 'N2', 'Cuentas por pagar', 'Agencia de viajes', 'Administrador']), validateId, validateInputs, userController.getUserData);
 
 router.route('/login')
     .post(loginRateLimiter, userController.login);
