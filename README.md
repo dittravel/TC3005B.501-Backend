@@ -2,6 +2,31 @@
 
 API and Database for the conection and the functioning of the trip management system portal developed in course TC3005B by group 501.
 
+## File Structure
+
+```
+TC3005B.501-Backend/
+├─ index.js                    # Entry point of the application
+├─ controllers/                # Controllers for handling API logic for different modules (accounts payable, admin, applicant, authorizer, file, travel agent, user)
+├─ models/                     # Data models for database entities
+├─ routes/                     # API route definitions for different endpoints
+├─ services/                   # Business logic services for processing data and operations
+├─ middleware/                 # Authentication, validation, rate limiting, decryption, and sanitization middleware
+├─ database/                   # Database configuration, schemas, and initialization scripts
+├─ openapi/                    # OpenAPI specifications for API documentation
+├─ backup_scripts/             # Scripts for backing up MariaDB and MongoDB databases
+├─ certs/                      # Scripts and configuration for generating HTTPS certificates
+├─ email/                      # Email service utilities and templates
+├─ CHANGELOG.md                # Changelog of project updates
+├─ CONTRIBUTING.md             # Guidelines for contributing to the project
+├─ mongodb_installation.md     # Instructions for MongoDB installation
+├─ package.json                # Node.js dependencies and scripts
+├─ pnpm-lock.yaml              # Lock file for pnpm package manager
+└─ README.md                   # This file
+```
+
+---
+
 ## Getting Started
 
 In order to run this Backend, the following steps are required:

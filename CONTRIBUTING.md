@@ -292,7 +292,6 @@
 
 ---
 
-─────────────────────────────  
 # **Architecture & Best Practices Guide for Endpoints in Node.js/Express**
 
 *Note: Everything presented below is an example to illustrate one approach. You should adapt these examples to fit your specific requirements and production standards.*
@@ -323,7 +322,7 @@ The recommended organization is as follows:
 ```
 
 ─────────────────────────────  
-## **1. MODELS (Data Access)**
+## **1. Models (Data Access)**
 
 **Role:**  
 Models encapsulate data access and contain functions that perform SQL queries, call stored procedures, or use views.
@@ -356,7 +355,7 @@ export async function getProductById(productId) {
 - Always ensure that connections are released after each query.
 
 ─────────────────────────────  
-## **2. SERVICES (Business Logic)**
+## **2. Services (Business Logic)**
 
 **Role:**  
 The Services layer contains business logic, validations, calculations, and data transformations. It coordinates operations between the Models and prepares the information for the Controllers.
@@ -415,7 +414,7 @@ export async function getProductWithDiscount(productId, quantity) {
 - Write functions as purely as possible to facilitate unit testing.
 
 ─────────────────────────────  
-## **3. CONTROLLERS**
+## **3. Controllers**
 
 **Role:**  
 Controllers handle HTTP requests, perform basic parameter validations, call the Services, and send responses back to the client.
@@ -451,7 +450,7 @@ export async function getProductInfo(req, res) {
 - Properly handle and propagate errors, responding with the appropriate HTTP status codes.
 
 ─────────────────────────────  
-## **4. ROUTER**
+## **4. Router**
 
 **Role:**  
 The Router defines and groups the API endpoints by associating each route with its corresponding Controller. This maintains organization and enhances scalability.
