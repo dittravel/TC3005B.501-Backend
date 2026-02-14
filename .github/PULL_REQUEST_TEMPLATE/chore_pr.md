@@ -1,3 +1,29 @@
+<!-- ------------------------------------------------------------------
+Chore Pull Request Template
+
+Use this template for maintenance-related changes that do NOT directly
+implement user-facing functionality or user stories.
+
+Chores typically include:
+- Code formatting and linting
+- Documentation updates
+- Refactoring with no functional change
+- Configuration updates
+- Dependency upgrades
+- Build / tooling improvements
+
+Rules:
+- Must be linked to a standalone `chore` Task issue
+- Must follow conventional commits (style, docs, refactor, chore)
+- Must originate from `development`
+- Must target the `development` branch
+
+This ensures:
+- Clean project history
+- Clear separation between features and maintenance
+- Stable development workflow
+------------------------------------------------------------------- -->
+
 # Chore PR
 
 ## Before Submitting

@@ -1,4 +1,28 @@
-# This workflow will do a clean installation of node dependencies, cache/restore them, build the source code and run tests across different versions of node
+# ------------------------------------------------------------------
+# Node.js Continuous Integration (CI) Workflow
+#
+# Purpose:
+# This workflow performs automated testing for the backend Node.js
+# application. It ensures that the code builds correctly, dependencies
+# are installed, and unit tests pass across supported Node.js versions.
+#
+# Key Features:
+# - Runs on pushes and pull requests to `main` and `development`
+# - Supports Node.js version matrix (currently 22.x)
+# - Uses service containers for MariaDB and MongoDB
+# - Creates a test .env configuration for local database and JWT secrets
+# - Installs Node.js dependencies with caching
+# - Waits for MariaDB to be ready before running database setup
+# - Executes unit tests using `npm test`
+#
+# Services:
+# - MariaDB 10.6 with a test database and user
+# - MongoDB latest version
+#
+# Notes:
+# - Ensures database schemas are created via dev_db.js
+# - Designed for automated CI in GitHub Actions
+# - Reference: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-nodejs
 # For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-nodejs
 
 name: Node.js CI

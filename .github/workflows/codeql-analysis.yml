@@ -1,3 +1,32 @@
+# ------------------------------------------------------------------
+# CodeQL Analysis Workflow - Backend
+#
+# Purpose:
+# Runs static security and quality analysis on backend JavaScript code
+# using GitHub CodeQL.
+#
+# Triggers:
+# - On every push to any branch
+# - On pull requests targeting `main` or `development`
+# - On a scheduled weekly scan (every Monday at 07:00 UTC)
+#
+# What this workflow does:
+# 1. Checks out repository code
+# 2. Installs project dependencies
+# 3. Initializes CodeQL with a custom configuration
+# 4. Executes CodeQL analysis
+#
+# Security:
+# - Grants permission to upload security events (SARIF results)
+# - Reads packages if needed for dependency resolution
+#
+# Notes:
+# - Uses a custom config file located at:
+#   .github/codeql/codeql-config.yml
+# - Designed for backend JavaScript projects
+# - Intended to enforce continuous security scanning in CI
+# ------------------------------------------------------------------
+
 name: "CodeQL Analysis - Backend"
 
 on:
