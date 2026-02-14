@@ -1,8 +1,24 @@
+# ------------------------------------------------------------------
+# Sub-Task Issue Template
+# Use this template for highly specific, focused units of work that
+# contribute toward completing a larger Task.
+#
+# Sub-Tasks should:
+# - Be small and independently completable
+# - Be assignable to a single individual where possible
+# - Have clearly defined scope and outcome
+# - Roll up into a parent Task
+#
+# This template automatically:
+# - Prefixes the issue title with [Sub-Task]
+# - Adds the issue to the dittravel project board
+# ------------------------------------------------------------------
+
 name: Sub-Task
 description: A highly specific piece of work that builds towards a task, and that requires to be tracked, discussed, and worked on independently. Probably by a single individual.
 title: "[Sub-Task]: "
 type: 5-Sub-Task
-projects: 101-Coconsulting/1
+projects: dittravel/1
 body:
   - type: textarea
     id: details
