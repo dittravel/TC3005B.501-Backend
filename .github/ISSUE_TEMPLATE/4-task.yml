@@ -1,15 +1,8 @@
-# ------------------------------------------------------------------
-# Task Issue Template
-# Use this template to create a development task that contributes
-# toward implementing a feature.
-# This will automatically add the issue to Project dittravel.
-# ------------------------------------------------------------------
-
 name: Task
 description: A specific piece of work that builds towards a feature. This could be seen as a development teams contribution towards the implementation of a feature.
 title: "[Task]: "
 type: 4-Task
-projects: dittravel
+projects: 101-Coconsulting/1
 body:
   - type: textarea
     id: details
