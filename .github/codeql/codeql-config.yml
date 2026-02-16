@@ -1,3 +1,25 @@
+# ------------------------------------------------------------------
+# Custom CodeQL Configuration
+#
+# This configuration overrides GitHub's default CodeQL query set
+# and explicitly defines which query packs should be used during
+# static analysis.
+#
+# Settings:
+# - disable-default-queries: true
+#     Disables GitHub’s default CodeQL query suite.
+#     Only the query packs defined below will run.
+#
+# - packs:
+#     Specifies the CodeQL query packs to execute.
+#     In this case, only the official JavaScript query pack is used.
+#
+# Purpose:
+# - Provide tighter control over security and quality analysis
+# - Reduce noise from irrelevant default queries
+# - Allow future extension with custom or additional packs
+# ------------------------------------------------------------------
+
 name: "Custom CodeQL Config"
 disable-default-queries: true
 packs:

@@ -1,3 +1,12 @@
+/*
+ * File Routes
+ *
+ * This module defines the routes for handling file uploads and retrievals
+ * related to receipts in the travel request system.
+ * It includes routes for uploading receipt files (PDF and XML), retrieving a specific receipt file,
+ * and getting metadata for all receipt files associated with a specific receipt.
+ */
+
 import express from 'express';
 import multer from 'multer';
 import { generalRateLimiter } from '../middleware/rateLimiters.js';

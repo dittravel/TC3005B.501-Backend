@@ -1,3 +1,28 @@
+<!-- ------------------------------------------------------------------
+Feature Pull Request Template
+
+Use this template for Pull Requests that introduce new functionality
+or implement a User Story within the system.
+
+Feature PRs should:
+- Be linked to a corresponding Issue (Feature/Task)
+- Originate from a feature branch created from `development`
+- Target the `development` branch
+- Follow git conventional commit standards
+
+Feature PRs may:
+- Add new UI screens or components
+- Introduce new business logic
+- Extend existing functionality
+- Modify APIs to support new features
+
+This template ensures:
+- Clear traceability between issues and code
+- Structured review process
+- Clean and maintainable project history
+- Controlled feature integration into `development`
+------------------------------------------------------------------- -->
+
 # Feature PR
 
 ## Before Submitting

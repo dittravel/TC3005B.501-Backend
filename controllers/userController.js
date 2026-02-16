@@ -1,3 +1,14 @@
+/*
+ * User Controller
+ * 
+ * This module handles general user operations and business logic
+ * for all user roles in the travel request system. It includes functionality
+ * for authentication (login/logout), user data retrieval, travel request queries,
+ * and wallet management.
+ * 
+ * Role-based access control is implemented to ensure users can only access
+ * data and operations appropriate to their role and department.
+ */
 import * as userService from '../services/userService.js';
 import User from '../models/userModel.js';
 import { decrypt } from '../middleware/decryption.js';
@@ -32,18 +43,21 @@ export async function getUserData(req, res) {
   }
 }
 
-
+// Authenticate user and set secure session cookies
 export const login = async (req, res) => {
   try {
     const { username, password } = req.body;
+    
+    // Authenticate user credentials through service layer
     const result = await userService.authenticateUser(username, password, req);
-    //res.json(result);
-     res
+    
+    // Set secure HTTP-only cookies for session management
+    res
       .cookie("token", result.token, {
         httpOnly: true,
         secure: process.env.NODE_ENV === "production",
         sameSite: "Strict",
-        maxAge: 1000 * 60 * 60, // 1 hora
+        maxAge: 1000 * 60 * 60, // 1 hour expiration
       })
       .cookie("role", result.role, {
         sameSite: "Strict",
@@ -75,10 +89,12 @@ export const login = async (req, res) => {
   }
 }
 
+// Get travel requests filtered by department and status with optional limit
 export const getTravelRequestsByDeptStatus = async (req, res) => {
+  // Parse URL parameters for filtering
   const deptId = Number(req.params.dept_id);
   const statusId = Number(req.params.status_id);
-  const n = req.params.n ? Number(req.params.n) : null;
+  const n = req.params.n ? Number(req.params.n) : null; // Optional limit
 
   try {
     const travelRequests = await User.getTravelRequestsByDeptStatus(deptId, statusId, n);
@@ -87,6 +103,7 @@ export const getTravelRequestsByDeptStatus = async (req, res) => {
       return res.status(404).json({ error: "No travel requests found" });
     }
 
+    // Format response data for frontend consumption
     const formatted = travelRequests.map((req) => ({
       request_id: req.request_id,
       user_id: req.user_id,
@@ -103,6 +120,7 @@ export const getTravelRequestsByDeptStatus = async (req, res) => {
   }
 };
 
+// Get detailed travel request information by ID with routes and user data
 export const getTravelRequestById = async (req, res) => {
   const { request_id } = req.params;
 
@@ -113,10 +131,12 @@ export const getTravelRequestById = async (req, res) => {
       return res.status(404).json({ error: "Travel request not found" });
     }
 
+    // Extract base data and decrypt sensitive information
     const base = requestData[0];
     const decryptedEmail = decrypt(base.user_email);
     const decryptedPhone = decrypt(base.user_phone_number);
 
+    // Build comprehensive response with request details and all routes
     const response = {
       request_id: base.request_id,
       request_status: base.request_status,
@@ -130,6 +150,7 @@ export const getTravelRequestById = async (req, res) => {
         user_email: decryptedEmail,
         user_phone_number: decryptedPhone
       },
+      // Map all rows to routes array (one row per route)
       routes: requestData.map((row) => ({
         router_index: row.router_index,
         origin_country: row.origin_country,
@@ -152,6 +173,7 @@ export const getTravelRequestById = async (req, res) => {
   }
 };
 
+// Get user's wallet information and balance
 export const getUserWallet = async (req, res) => {
   const { user_id } = req.params;
 
@@ -162,6 +184,7 @@ export const getUserWallet = async (req, res) => {
       return res.status(404).json({ error: `No user with id ${user_id} found`  });
     }
 
+    // Return formatted wallet data
     const formatted = {
       user_id: user.user_id,
       user_name: user.user_name,
@@ -174,11 +197,14 @@ export const getUserWallet = async (req, res) => {
   }
 };
 
+// Helper function to format dates to YYYY-MM-DD
 const formatDate = (date) => {
   return new Date(date).toISOString().split('T')[0];
 };
 
+// Clear all session cookies and log user out
 export const logout = (req, res) => {
+  // Cookie options for secure clearing
   const cookieOptions = {
     path: '/',
     httpOnly: true,
@@ -186,6 +212,7 @@ export const logout = (req, res) => {
     sameSite: "Strict",
   };
 
+  // Clear all authentication-related cookies
   res
     .clearCookie("token", cookieOptions)
     .clearCookie("role", cookieOptions)

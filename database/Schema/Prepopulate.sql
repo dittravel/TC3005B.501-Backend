@@ -1,6 +1,6 @@
 USE CocoScheme;
 
-INSERT INTO `Role` (role_name) VALUES
+INSERT INTO Role (role_name) VALUES
     ('Solicitante'),
     ('Agencia de viajes'),
     ('Cuentas por pagar'),

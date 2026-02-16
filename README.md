@@ -1,6 +1,31 @@
-# TC3005B.501-Backend
+# ARCHIVED-REPOSITORY: TC3005B.501-Backend
 
 API and Database for the conection and the functioning of the trip management system portal developed in course TC3005B by group 501.
+
+## File Structure
+
+```
+TC3005B.501-Backend/
+├─ index.js                    # Entry point of the application
+├─ controllers/                # Controllers for handling API logic for different modules (accounts payable, admin, applicant, authorizer, file, travel agent, user)
+├─ models/                     # Data models for database entities
+├─ routes/                     # API route definitions for different endpoints
+├─ services/                   # Business logic services for processing data and operations
+├─ middleware/                 # Authentication, validation, rate limiting, decryption, and sanitization middleware
+├─ database/                   # Database configuration, schemas, and initialization scripts
+├─ openapi/                    # OpenAPI specifications for API documentation
+├─ backup_scripts/             # Scripts for backing up MariaDB and MongoDB databases
+├─ certs/                      # Scripts and configuration for generating HTTPS certificates
+├─ email/                      # Email service utilities and templates
+├─ CHANGELOG.md                # Changelog of project updates
+├─ CONTRIBUTING.md             # Guidelines for contributing to the project
+├─ mongodb_installation.md     # Instructions for MongoDB installation
+├─ package.json                # Node.js dependencies and scripts
+├─ pnpm-lock.yaml              # Lock file for pnpm package manager
+└─ README.md                   # This file
+```
+
+---
 
 ## Getting Started
 
@@ -83,7 +108,7 @@ In order to properly setup MariaDB, the following steps are required:
 1. [Download `mariadb`](https://mariadb.com/kb/en/where-to-download-mariadb/).
 2. It is recommended that you [secure your MariaDB installation](https://mariadb.com/kb/en/mysql_secure_installation/).
 3. [Start the `mariadb` server](https://mariadb.com/kb/en/starting-and-stopping-mariadb-automatically/).
-4. To setup the database with dummy data, run `pnpm dummy_db` or `node database/config/dev_db.js`from the root of the repository.
+4. To setup the database with dummy data, run `pnpm dummy_db` or `node database/config/dev_db.js dev`from the root of the repository.
 5. To setup only the database, run `pnpm empty_db` or `node database/config/init_db.js` from the root of the repository.
 
 #### Manual MariaDB Setup
