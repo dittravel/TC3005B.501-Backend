@@ -22,7 +22,7 @@ This ensures:
 - Clean project history
 - Clear separation between features and maintenance
 - Stable development workflow
-------------------------------------------------------------------- -->
+---------------------------------------------------------------------->
 
 # Chore PR
 

@@ -8,14 +8,33 @@
 name: Task
 description: A specific piece of work that builds towards a feature. This could be seen as a development teams contribution towards the implementation of a feature.
 title: "[Task]: "
-type: 4-Task
+type: 1-Task
 projects: dittravel
 body:
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: Clear explanation of what needs to be done or what the issue is about.
+      placeholder: Describe the task or issue in detail.
+    validations:
+      required: true
   - type: textarea
     id: details
     attributes:
       label: Details
-      description: The details of what the task entails. What is required in terms of software.
-      placeholder: New screen which shows a list of all the applications an applicant has both current and past.
+      description: Provide additional details about the task.
+      placeholder: |
+        - Bullet point 1
+        - Bullet point 2
+        - Bullet point 3
     validations:
       required: true
+  - type: textarea
+    id: checklist
+    attributes:
+      label: Checklist to complete issue
+      description: List of tasks to complete this issue.
+      placeholder: |
+        - To-Do 1
+        - To-Do 2
