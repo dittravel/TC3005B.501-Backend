@@ -1,6 +1,15 @@
+/*
+ * Decryption Middleware
+ * 
+ * This module provides AES-256-CBC decryption functionality for the
+ * travel request system. It handles secure decryption of sensitive
+ * data that has been encrypted before storage or transmission.
+ */
+
 import crypto from 'crypto';
 const AES_SECRET_KEY = process.env.AES_SECRET_KEY;
 
+// Decrypts AES-256-CBC encrypted data
 export const decrypt = (encryptedData) => {
   try {
     if (!encryptedData || typeof encryptedData !== 'string') {
