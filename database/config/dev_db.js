@@ -1,3 +1,10 @@
+/*
+ * This script initializes the database for development and testing purposes.
+ * It executes a series of SQL scripts to create the schema, prepopulate data, create triggers and views.
+ * If the environment is set to 'dev', it also executes a dummy data script and populates 
+ * the Department table with data from a CSV file.
+ */
+
 import dotenv from 'dotenv';  // For environment variable loading.
 import mariadb from 'mariadb';  // For connection to `mariadb` DataBase.
 
@@ -7,6 +14,7 @@ import { parseCSV } from "../../services/adminService.js"
 
 dotenv.config();
 
+// Create a connection pool to the database using .env variables
 const pool = mariadb.createPool({
     multipleStatements: true,
     host: process.env.DB_HOST,
@@ -17,6 +25,11 @@ const pool = mariadb.createPool({
 
 const environment = process.argv[2];
 
+/*
+Function to initialize the database for development and testing purposes.
+@param - none
+@return - none. Executes the SQL scripts to create the schema, prepopulate data, create triggers and views
+*/
 async function devdb() {
     let conn;
 
@@ -30,7 +43,9 @@ async function devdb() {
         console.log("Scheme.sql executed.");
 
         console.log("Executing Prepopulate.sql...");
-        await conn.importFile({file: "./database/Schema/Prepopulate.sql"});
+        await conn.query({
+            sql: fs.readFileSync("./database/Schema/Prepopulate.sql", "utf8")
+        });
         console.log("Prepopulate.sql executed.");
 
         console.log("Executing Triggers.sql...");
@@ -40,7 +55,9 @@ async function devdb() {
         console.log("Triggers.sql executed.");
 
         console.log("Executing Views.sql...");
-        await conn.importFile({file: "./database/Schema/Views.sql"});
+        await conn.query({
+            sql: fs.readFileSync("./database/Schema/Views.sql", "utf8")
+        });
         console.log("Views.sql executed.");
 
         if (environment === 'dev') {
@@ -64,8 +81,14 @@ async function devdb() {
             conn.release();
         }
         pool.end()
-            .then(() => console.log("Database connection pool closed."))
-            .catch(err => console.error("Error closing database connection pool:", err));
+            .then(() => {
+                console.log("Database connection pool closed.");
+                process.exit(0);
+            })
+            .catch(err => {
+                console.error("Error closing database connection pool:", err);
+                process.exit(1);
+            });
     }
 }
 

@@ -1,11 +1,14 @@
-/*DB connection
-To use this functionality, please refer to the example
-under this same folder 'db_example.js'*/
+/*
+ * This script sets up the database connection pool for the application.
+ * It does not execute any queries itself, so no schema or data is created here.
+ */
+
 import dotenv from 'dotenv';
 import mariadb from 'mariadb';
 
 dotenv.config();
 
+// Create a connection pool to the database using .env variables
 const pool = mariadb.createPool({
      host: process.env.DB_HOST,
      port: process.env.DB_PORT, 
