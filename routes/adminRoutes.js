@@ -1,9 +1,9 @@
 /*
- * Admin Routes
- *
- * This module defines the routes and role-based access control
- * for the "Administrador" functionalities
- */
+* Admin Routes
+*
+* This module defines the routes and role-based access control
+* for the "Administrador" functionalities
+*/
 
 import express from "express";
 import multer from "multer";
@@ -16,37 +16,37 @@ const router = express.Router();
 
 // Multer used for handling file uploads
 const upload = multer({
-    dest: "uploads/"
+  dest: "uploads/"
 });
 
 router.use((req, res, next) => {
-    next();
+  next();
 });
 
 // Get list of all users
 router.route("/get-user-list")
-    .get(generalRateLimiter, authenticateToken, authorizeRole(['Administrador']), adminController.getUserList);
+  .get(generalRateLimiter, authenticateToken, authorizeRole(['Administrador']), adminController.getUserList);
 
 // Create a new user
 router.route('/create-user')
-    .post(generalRateLimiter, authenticateToken, authorizeRole(['Administrador']), validateCreateUser, validateInputs, adminController.createUser);
+  .post(generalRateLimiter, authenticateToken, authorizeRole(['Administrador']), validateCreateUser, validateInputs, adminController.createUser);
 
 // Create multiple
 // Expects a CSV file
 router.route("/create-multiple-users")
-    .post(
-        generalRateLimiter,
-        authenticateToken, authorizeRole(['Administrador']),
-        upload.single("file"),
-        adminController.createMultipleUsers
-    );
+  .post(
+    generalRateLimiter,
+    authenticateToken, authorizeRole(['Administrador']),
+    upload.single("file"),
+    adminController.createMultipleUsers
+  );
 
 // Update user information by user ID
 router.route('/update-user/:user_id')
-    .put(generalRateLimiter, authenticateToken, authorizeRole(['Administrador']), adminController.updateUser);
+  .put(generalRateLimiter, authenticateToken, authorizeRole(['Administrador']), adminController.updateUser);
 
 // Delete a user by user ID
 router.route("/delete-user/:user_id")
-    .put(generalRateLimiter, authenticateToken, authorizeRole(['Administrador']), adminController.deactivateUser);
+  .put(generalRateLimiter, authenticateToken, authorizeRole(['Administrador']), adminController.deactivateUser);
 
 export default router;

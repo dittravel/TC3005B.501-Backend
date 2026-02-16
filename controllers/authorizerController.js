@@ -1,12 +1,22 @@
 /*
-Authorizer Controller
-*/
+ * Authorizer Controller
+ * 
+ * This module handles business logic and approval workflows for travel requests
+ * by managers and department heads (N1/N2 authorization levels). It manages
+ * the review, approval, and rejection processes for travel requests within
+ * the organizational hierarchy.
+ * 
+ * Role-based access control ensures only authorized managers can access
+ * and approve travel requests for their respective departments and subordinates.
+ */
 import Authorizer from "../models/authorizerModel.js";
 import authorizerServices from "../services/authorizerService.js";
 import { Mail } from "../services/email/mail.cjs";
 import mailData from "../services/email/mailData.js"
 
+// Get pending travel requests alerts for department
 const getAlerts = async (req, res) => {
+  // Parse and convert URL parameters to numbers
   const id = Number(req.params.dept_id);
   const status = Number(req.params.status_id);
   const n = Number(req.params.n);
@@ -21,11 +31,15 @@ const getAlerts = async (req, res) => {
   }
 }
 
+// Approve travel request and send notification email
 const authorizeTravelRequest = async (req, res) => {
   const { request_id, user_id } = req.params;
 
   try {
+    // Authorize request through service layer
     const { new_status } = await authorizerServices.authorizeRequest(Number(request_id), Number(user_id));
+    
+    // Send email notification to applicant
     const { user_email, user_name, requestId, status } = await mailData(request_id);
     await Mail(user_email, user_name, request_id, status);
     return res.status(200).json({
@@ -41,11 +55,15 @@ const authorizeTravelRequest = async (req, res) => {
   }
 };
 
+// Decline travel request and send notification email
 const declineTravelRequest = async (req, res) => {
   const { request_id, user_id } = req.params;
 
   try {
+    // Decline request through service layer
     const result = await authorizerServices.declineRequest(Number(request_id), Number(user_id));
+    
+    // Send email notification to applicant
     const { user_email, user_name, requestId, status } = await mailData(request_id);
     await Mail(user_email, user_name, request_id, status);
     return res.status(200).json(result); 
@@ -62,5 +80,4 @@ export default {
   getAlerts,
   authorizeTravelRequest,
   declineTravelRequest,
-  // other functions go here
 };

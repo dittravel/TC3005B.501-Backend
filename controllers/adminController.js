@@ -1,6 +1,13 @@
 /*
-Admin Controller
-*/
+ * Admin Controller
+ * 
+ * This module handles system administration functions and business logic
+ * for the "Administrador" role. It provides functionality for user management,
+ * administrative oversight, and bulk operations such as CSV file processing.
+ * 
+ * All functions require proper authentication and authorization to ensure
+ * only administrators can access these sensitive operations.
+ */
 
 import parseCSV from "../services/adminService.js";
 import * as adminService from "../services/adminService.js";
@@ -34,7 +41,7 @@ export const getUserList = async (req, res) => {
     }
 }
 
-
+// Create multiple users from CSV file upload
 export const createMultipleUsers = async (req, res) => {
     if (!req.file) {
         return res.status(400).json({ error: 'No CSV file uploaded' });
@@ -68,6 +75,7 @@ export const createUser = async (req, res) => {
     }
 }
 
+// Update existing user information
 export const updateUser = async (req, res) => {
     try {
         const userId = req.params.user_id;
@@ -81,17 +89,9 @@ export const updateUser = async (req, res) => {
     }
 };
 
+// Deactivate user account (soft delete)
 export const deactivateUser = async (req, res) => {
     try {
-        /* This doesn't work currently because there's no login yet
-        
-        if (!req.user || req.user.role_name !== 'Admin') {
-            return res.status(401).json({
-                error: "Admin privileges required"
-            });
-        }
-        */
-
         const user_id = parseInt(req.params.user_id);
         
         const user = await userModel.getUserData(user_id);

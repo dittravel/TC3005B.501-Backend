@@ -24,9 +24,9 @@ const PORT = process.env.PORT || 3000;
 
 // CORS configuration
 app.use(cors({
-  origin: 'https://localhost:4321',
+  origin: ['https://localhost:4321', 'http://localhost:4321'],
   credentials: true,
-  methods: ['GET', 'POST', 'PUT']
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS']
 }));
 
 // Middleware for parsing JSON
@@ -52,7 +52,6 @@ app.get("/", (req, res) => {
     message: "This is my backend endpoint for the travel management system",
   });
 });
-
 
 // Certificates credentials for usage of HTTPS
 const privateKey = fs.readFileSync("./certs/server.key", "utf8");

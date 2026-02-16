@@ -1,13 +1,21 @@
 /*
-CPP Controller
-Miguel Soria 09.05/25
-Manages parameters and checks for CPP endpoints
-*/
+ * Accounts Payable Controller
+ * 
+ * This module handles business logic and financial processing operations
+ * for the "Cuentas por pagar" role. It manages expense validation,
+ * receipt processing, travel request approval, and financial oversight
+ * for the travel management system.
+ * 
+ * Role-based access control ensures only authorized accounts payable
+ * personnel can access financial data and approve expense validations.
+ */
 import AccountsPayable from "../models/accountsPayableModel.js";
 import AccountsPayableService from '../services/accountsPayableService.js';
 import mailData from "../services/email/mailData.js";
 import { Mail } from "../services/email/mail.cjs";
 
+// Process authorized travel requests and handle fee assignment
+// Routes to travel agency if hotel/flight needed
 const attendTravelRequest = async (req, res) => {
     const requestId = req.params.request_id;
     const imposedFee = req.body.imposed_fee;
@@ -21,13 +29,13 @@ const attendTravelRequest = async (req, res) => {
 
         const current_status = request.request_status_id;
 
-        //Validate if this request can be attended by cpp
+        // Validate if this request can be attended by accounts payable
         if (current_status == 4){
            var new_status = 6;
            const hotel = request.hotel_needed_list;
            const plane = request.plane_needed_list;
 
-           //If a hotel or plane is needed, send request to Travel Agency
+           // If a hotel or plane is needed, send request to Travel Agency
            if (hotel.includes(1) || plane.includes(1)){
             new_status = 5;
            }
@@ -41,7 +49,7 @@ const attendTravelRequest = async (req, res) => {
                     message: "Travel request status updated successfully",
                     requestId: requestId,
                     imposedFee: imposedFee,
-                    newStatus: new_status, // Atencion Agencia de Viajes
+                    newStatus: new_status, 
                 });
             } else {
                 return res
@@ -58,6 +66,7 @@ const attendTravelRequest = async (req, res) => {
     }
 };
 
+// Validate all receipts for a travel request and update status
 const validateReceiptsHandler = async (req, res) => {
     const requestId = req.params.request_id;
 
@@ -72,6 +81,7 @@ const validateReceiptsHandler = async (req, res) => {
     }
 };
 
+// Approve or reject individual expense receipts
 const validateReceipt = async (req, res) => {
     const receiptId = req.params.receipt_id;
     const approval = req.body.approval;
@@ -89,15 +99,17 @@ const validateReceipt = async (req, res) => {
             return res.status(404).json({ error: "Receipt not found" });
         }
 
-        //Check if the receipt was already validated
+        // Check if the receipt was already validated
         if(receipt.validation != "Pendiente"){
             return res.status(404).json({ error: "Receipt already approved or rejected" });
         }
 
-        /* Since the "rejected" state is 3 and the "approved" state
-        is 2, by subtracting the approval value (1 or 0) we can send
-        the desired value for the validation (3 for rejected or 2 for
-        approved*/
+        /* 
+         * Since the "rejected" state is 3 and the "approved" state
+         * is 2, by subtracting the approval value (1 or 0) we can send
+         * the desired value for the validation (3 for rejected or 2 for
+         * approved 
+        */
         const updated = await AccountsPayable.validateReceipt(receiptId, 3 - approval);
         
         if(!updated){
@@ -133,6 +145,7 @@ const validateReceipt = async (req, res) => {
     }
 };
 
+// Get expense validation details for a specific travel request
 const getExpenseValidations = async (req, res) => {
     const request_id = Number(req.params.request_id);
 
