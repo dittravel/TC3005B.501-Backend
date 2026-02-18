@@ -1,24 +1,39 @@
+/**
+ * Email service for sending travel request status notifications.
+ * Uses Nodemailer to send formatted HTML emails to users when their
+ * travel request status changes.
+ */
+
 require('dotenv').config();
 const nodemailer = require("nodemailer");
 
-let currentDate = new Date().toJSON().slice(0, 10);
-
 const transporter = nodemailer.createTransport({
-    host: "smtp.gmail.com",
-    port: 465,
-    secure: true,
-    auth: {
-        user: process.env.MAIL_USER,
-        pass: process.env.MAIL_PASSWORD,
-    },
+  host: "smtp.gmail.com",
+  port: 465,
+  secure: true,
+  auth: {
+    user: process.env.MAIL_USER,
+    pass: process.env.MAIL_PASSWORD,
+  },
 });
 
-const Mail = async (email, username, request_id, status) => {
-    const mailOptions = {
-        from: 'Portal de Viajes" <tu-correo@gmail.com>',
-        to: email,
-        subject: "Actualización de Solicitud de Viaje",
-        html: `
+/**
+ * Send an email notification when a travel request status changes.
+ * @param {string} email - The recipient's email address
+ * @param {string} username - The user's name for personalization
+ * @param {number} requestId - The travel request ID
+ * @param {string} status - The current status of the request
+ * @returns {Promise<void>}
+ * @throws {Error} If email fails to send
+ */
+const sendMail = async (email, username, requestId, status) => {
+  const currentDate = new Date().toJSON().slice(0, 10);
+  
+  const mailOptions = {
+    from: 'Portal de Viajes" <tu-correo@gmail.com>',
+    to: email,
+    subject: "Actualización de Solicitud de Viaje",
+    html: `
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -44,7 +59,7 @@ const Mail = async (email, username, request_id, status) => {
     <p>Queremos informarte que el estado de tu solicitud de viaje ha cambiado. A continuación te compartimos los nuevos detalles:</p>
 
     <ul>
-      <li><strong>Número de solicitud: </strong>${request_id}</li>
+      <li><strong>Número de solicitud: </strong>${requestId}</li>
       <li><strong>Estado actual: </strong> ${status}</li>
       <li><strong>Fecha de actualización:</strong> ${currentDate}</li>
     </ul>
@@ -54,14 +69,14 @@ const Mail = async (email, username, request_id, status) => {
 </body>
 </html>
     `,
-    };
-    try {
-        const info = await transporter.sendMail(mailOptions);
-        console.log("Email Sent Succesfully: " + info.response);
-    } catch (error) {
-        console.error("Error sending email: ", error, email);
-        throw new Error("Error sending email");
-    }
+  };
+  
+  try {
+    const info = await transporter.sendMail(mailOptions);
+    // Email sent successfully
+  } catch (error) {
+    throw new Error("Error sending email");
+  }
 };
 
-exports.Mail = Mail;
+exports.sendMail = sendMail;

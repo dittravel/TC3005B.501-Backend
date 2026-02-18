@@ -10,7 +10,7 @@
  * can access assigned travel requests and update booking information.
  */
 import TravelAgent from "../models/travelAgentModel.js";
-import { Mail } from "../services/email/mail.cjs";
+import { sendMail } from "../services/email/mail.cjs";
 import mailData from "../services/email/mailData.js";
 
 // Process travel requests requiring hotel/flight arrangements
@@ -30,7 +30,7 @@ const attendTravelRequest = async (req, res) => {
         if (updated) {
             // Notify applicant that travel arrangements are being processed
             const { user_email, user_name, request_id, status } = await mailData(requestId);
-            await Mail(user_email, user_name, request_id, status);
+            await sendMail(user_email, user_name, request_id, status);
             
             return res.status(200).json({
                 message: "Travel request status updated successfully",
