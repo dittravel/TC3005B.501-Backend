@@ -1,5 +1,6 @@
 /* 
 Admin Model
+hola
 */
 import db from '../database/config/db.js';
 import pool from '../database/config/db.js';
