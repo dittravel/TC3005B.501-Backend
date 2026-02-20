@@ -5,21 +5,4 @@
 # Owners can be individual GitHub usernames or teams within the organization.
 # ------------------------------------------------------------------------------
 
-# Itegrators
-* @dittravel/integrators
-
-# Scrum Master
-* @lorechewtat
-
-# Backend Codeowner
-/controllers/ @aquiba-benarroch
-/routes/ @aquiba-benarroch
-/services/ @aquiba-benarroch
-/middleware/ @aquiba-benarroch
-/models/ @aquiba-benarroch
-/index.js @aquiba-benarroch
-
-# Database Codeowner
-/database/ @lorechewtat
-/openapi/ @lorechewtat
-/backup_scripts/ @lorechewtat
+* @dittravel/backend
