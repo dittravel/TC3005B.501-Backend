@@ -1,19 +1,5 @@
--- ============================================================================
--- CocoScheme Database - Views for Data Access
--- ============================================================================
--- This file defines database views that simplify complex queries and provide
--- denormalized data for application consumption.
--- ============================================================================
-
 USE CocoScheme;
 
--- ============================================================================
--- VIEW: UserRequestHistory
--- ============================================================================
--- Purpose: Provides a simplified history of travel requests per user
--- Usage: Display request lists with basic travel destination information
--- Returns: Request ID, user ID, creation date, status, and aggregated destinations
--- Note: Consolidates multiple route segments into comma-separated lists
 CREATE OR REPLACE VIEW UserRequestHistory AS
     SELECT
         Request.request_id,
@@ -21,9 +7,7 @@ CREATE OR REPLACE VIEW UserRequestHistory AS
         Request.creation_date,
         Request_status.status,
 
-        -- Aggregate all origin countries for this request
         GROUP_CONCAT(DISTINCT Country_origin.country_name ORDER BY Route.router_index SEPARATOR ', ') AS trip_origins,
-        -- Aggregate all destination countries for this request
         GROUP_CONCAT(DISTINCT Country_destination.country_name ORDER BY Route.router_index SEPARATOR ', ') AS trip_destinations
     FROM
         Request
@@ -46,17 +30,8 @@ CREATE OR REPLACE VIEW UserRequestHistory AS
 
 
 
--- ============================================================================
--- VIEW: RequestWithRouteDetails
--- ============================================================================
--- Purpose: Complete denormalized view of requests with all related information
--- Usage: Request detail pages, full request information display
--- Returns: All request fields plus user info, department, status, and route details
--- Performance: Pre-aggregates route segments to avoid N+1 query problems
--- Note: This is the primary view for displaying complete request information
 CREATE OR REPLACE VIEW RequestWithRouteDetails AS
     SELECT
-        -- Core request information
         Request.request_id,
         Request.user_id,
         Request.request_status_id,
@@ -68,19 +43,15 @@ CREATE OR REPLACE VIEW RequestWithRouteDetails AS
         Request.last_mod_date,
         Request.active,
 
-        -- User information
         `User`.user_name,
         `User`.email AS user_email,
         `User`.phone_number AS user_phone_number,
 
-        -- Request status
         Request_status.status,
 
-        -- Department information
         Department.department_name,
         Department.department_id,
 
-        -- Route details aggregated as comma-separated lists (ordered by route index)
         GROUP_CONCAT(DISTINCT Country_origin.country_name ORDER BY Route.router_index SEPARATOR ', ') AS origin_countries,
         GROUP_CONCAT(DISTINCT City_origin.city_name ORDER BY Route.router_index SEPARATOR ', ') AS origin_cities,
         GROUP_CONCAT(DISTINCT Country_destination.country_name ORDER BY Route.router_index SEPARATOR ', ') AS destination_countries,
@@ -135,22 +106,15 @@ CREATE OR REPLACE VIEW RequestWithRouteDetails AS
 
 
 
--- ============================================================================
--- VIEW: UserFullInfo
--- ============================================================================
--- Purpose: User profile information with role and department details
--- Usage: User management, profile pages, authentication context
--- Returns: User ID, name, email, active status, role name, and department info
--- Note: Simplifies queries that need user information with related entities
 CREATE OR REPLACE VIEW UserFullInfo AS
     SELECT
         u.user_id,
         u.user_name,
         u.email,
         u.active,
-        r.role_name,  -- User's role (Applicant, Agent, etc.)
-        d.department_name,  -- Department name
-        d.department_id  -- Department ID for filtering
+        r.role_name,
+        d.department_name,
+        d.department_id
     FROM
         `User` u
         LEFT JOIN `Role` r ON u.role_id = r.role_id

@@ -1,54 +1,42 @@
 #!/bin/bash
-# MariaDB Backup Script
-# Automatically backs up the database and transfers it to a remote server
-
 echo "[$(date)] Inicio del script" >> ~/debug_cron.log
+USER="CocoAdmin"
+PASSWORD="CocoPassword"
+DATABASE="CocoScheme"
+BACKUP_DIR="/var/backups/mariadb"
+DATE=$(date +"%Y%m%d_%H%M%S")
+FILENAME="${DATABASE}_${DATE}.sql"
 
-# Database credentials
-user="CocoAdmin"
-password="CocoPassword"
-database="CocoScheme"
+# Remove old backup (if it exists)
+rm -fr $BACKUP_DIR
+mkdir -p $BACKUP_DIR
 
-# Local backup configuration
-backupDir="/var/backups/mariadb"
-date=$(date +"%Y%m%d_%H%M%S")
-filename="${database}_${date}.sql"
-
-# Clean up and prepare local backup directory
-# Remove old backup (if it exists) to save disk space
-rm -fr $backupDir
-mkdir -p $backupDir
-
-# Create database backup using mysqldump
+# Create backup
 echo "Ejecutando mysqldump..." >> /var/backups/mariadb/debug_cron.log
-mysqldump -u $user -p$password $database > "$backupDir/$filename"
+mysqldump -u $USER -p$PASSWORD $DATABASE > "$BACKUP_DIR/$FILENAME"
 echo "mysqldump finalizado" >> /var/backups/mariadb/debug_cron.log
 
-# Remote server configuration for backup transfer
-remoteUser="backupUser"
-remotePassword="backupPassword"
-remoteHost="172.16.61.151"
-remoteDir="~/backups"
+# SCP transfer to remote VM
+REMOTE_USER="backupUser"
+REMOTE_PASSWORD="backupPassword"
+REMOTE_HOST="172.16.61.151"
+REMOTE_DIR="~/backups"
 
 # Clean up remote backup directory before transferring new backup
-# This ensures we don't accumulate old backups on the remote server
 echo "Limpiando directorio remoto..." >> /var/backups/mariadb/debug_cron.log
-sshpass -p "${remotePassword}" ssh ${remoteUser}@${remoteHost} "rm -fr ${remoteDir}/* && mkdir -p ${remoteDir}"
-sshStatus=$?
+sshpass -p "${REMOTE_PASSWORD}" ssh ${REMOTE_USER}@${REMOTE_HOST} "rm -fr ${REMOTE_DIR}/* && mkdir -p ${REMOTE_DIR}"
+SSH_STATUS=$?
 
-# Check if remote directory cleanup was successful
-if [ $sshStatus -ne 0 ]; then
-    echo "Error al limpiar directorio remoto (código: $sshStatus)" >> ~/debug_cron.log
+if [ $SSH_STATUS -ne 0 ]; then
+    echo "Error al limpiar directorio remoto (c�digo: $SSH_STATUS)" >> ~/debug_cron.log
 fi
 
-# Transfer backup file to remote server using SCP
 echo "Iniciando transferencia SCP..." >> /var/backups/mariadb/debug_cron.log
-sshpass -p "${remotePassword}" scp "$backupDir/$filename" ${remoteUser}@${remoteHost}:${remoteDir}/
-scpStatus=$?
+sshpass -p "${REMOTE_PASSWORD}" scp "$BACKUP_DIR/$FILENAME" ${REMOTE_USER}@${REMOTE_HOST}:${REMOTE_DIR}/
+SCP_STATUS=$?
 
-# Verify transfer completion and log results
-if [ $scpStatus -eq 0 ]; then
+if [ $SCP_STATUS -eq 0 ]; then
     echo "Transferencia SCP completada exitosamente" >> /var/backups/mariadb/debug_cron.log
 else
-    echo "Error en la transferencia SCP (código: $scpStatus)" >> /var/backups/mariadb/debug_cron.log
+    echo "Error en la transferencia SCP (c?digo: $SCP_STATUS)" >/var/backups/mariadb/debug_cron.log
 fi
