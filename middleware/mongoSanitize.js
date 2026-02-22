@@ -5,6 +5,7 @@
  * injection attacks. It sanitizes request parameters, query strings, and
  * request bodies to remove potentially malicious MongoDB operators.
  */
+
 import sanitize from 'mongo-sanitize';
 
 // Middleware to sanitize request parameters, query, and body

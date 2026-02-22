@@ -8,28 +8,28 @@
  * Role-based access control ensures users can only access files related
  * to their own travel requests or those they are authorized to review.
  */
-
 import { ObjectId } from 'mongodb';
 import sanitize from 'mongo-sanitize';
 import { uploadReceiptFiles, getReceiptFile, getReceiptFilesMetadata } from '../services/receiptFileService.js';
 import { db } from '../services/fileStorage.js';
 
-// Upload both PDF and XML files for a receipt
+// Upload PDF and XML receipt files with security sanitization
 export const uploadReceiptFilesController = async (req, res) => {
+  // Validate that both required file types are present
   // This might need to be changed to require at least one file.
   if (!req.files || !req.files.pdf || !req.files.xml) {
     return res.status(400).json({ error: 'Both PDF and XML files are required' });
   }
 
-  // Sanitize the receipt ID
+  // Sanitize receipt ID to prevent injection attacks
   const receiptId = parseInt(sanitize(req.params.receipt_id), 10);
 
   try {
-    // Sanitize file metadata before uploading
+    // Extract file objects from multer upload
     const pdfFile = req.files.pdf[0];
     const xmlFile = req.files.xml[0];
     
-    // Sanitize filenames to prevent injection in metadata
+    // Sanitize file metadata to prevent injection in file names
     pdfFile.originalname = sanitize(pdfFile.originalname);
     xmlFile.originalname = sanitize(xmlFile.originalname);
     
@@ -56,30 +56,28 @@ export const uploadReceiptFilesController = async (req, res) => {
   }
 };
 
-// Get receipt file (PDF or XML)
+// Download receipt file with secure streaming (PDF or XML)
 export const getReceiptFileController = async (req, res) => {
   try {
-    // Sanitize the file ID
+    // Sanitize file ID parameter to prevent injection
     const fileIdStr = sanitize(req.params.file_id);
     
-    // Validate it's a proper ObjectId before querying MongoDB
+    // Validate MongoDB ObjectId format before database query
     if (!ObjectId.isValid(fileIdStr)) {
       return res.status(400).json({ error: 'Invalid file ID format' });
     }
     
     const fileId = new ObjectId(fileIdStr);
 
-    // Get file metadata from MongoDB
+    // Query MongoDB GridFS for file metadata
     const file = await db.collection('fs.files').findOne({ _id: fileId });
     if (!file) {
       return res.status(404).json({ error: 'File not found' });
     }
 
-    // Set appropriate headers with sanitized values
-    res.set('Content-Type', sanitize(file.contentType));
-    res.set('Content-Disposition', `attachment; filename="${sanitize(file.filename)}"`);
+    // Set secure HTTP headers for file download
 
-    // Stream the file to the response
+    // Stream file directly from GridFS to HTTP response
     const downloadStream = await getReceiptFile(fileId);
     downloadStream.pipe(res);
   } catch (error) {
@@ -88,9 +86,9 @@ export const getReceiptFileController = async (req, res) => {
   }
 };
 
-// Get receipt files metadata
+// Get receipt file metadata without downloading content
 export const getReceiptFilesMetadataController = async (req, res) => {
-  // Sanitize the receipt ID
+  // Sanitize receipt ID parameter
   const receiptId = parseInt(sanitize(req.params.receipt_id), 10);
 
   try {

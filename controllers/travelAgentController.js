@@ -11,9 +11,10 @@
 */
 
 import TravelAgent from "../models/travelAgentModel.js";
-import { Mail } from "../services/email/mail.cjs";
+import { sendMail } from "../services/email/mail.cjs";
 import mailData from "../services/email/mailData.js";
 
+// Process travel requests requiring hotel/flight arrangements
 const attendTravelRequest = async (req, res) => {
   const requestId = req.params.request_id;
   
@@ -48,7 +49,7 @@ const attendTravelRequest = async (req, res) => {
   }
 };
 
-// exports for the router
+// Export travel agent controller functions for router configuration
 export default {
   attendTravelRequest,
 };

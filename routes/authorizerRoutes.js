@@ -14,19 +14,19 @@ import { generalRateLimiter } from "../middleware/rateLimiters.js";
 const router = express.Router();
 
 router.use((req, res, next) => {
-    next();
+  next();
 });
 
 // Get alerts for pending travel requests by department ID, status ID, and number of alerts
 router.route("/get-alerts/:dept_id/:status_id/:n")
-    .get(generalRateLimiter, authenticateToken, authorizeRole(['N1', 'N2']), validateDeptStatus, validateInputs, authorizerController.getAlerts);
+  .get(generalRateLimiter, authenticateToken, authorizeRole(['N1', 'N2']), validateDeptStatus, validateInputs, authorizerController.getAlerts);
 
 // Get pending travel requests for a department by request ID and user ID
 router.route("/authorize-travel-request/:request_id/:user_id")
-    .put(generalRateLimiter, authenticateToken, authorizeRole(['N1', 'N2']), validateId, validateInputs, authorizerController.authorizeTravelRequest);
+  .put(generalRateLimiter, authenticateToken, authorizeRole(['N1', 'N2']), validateId, validateInputs, authorizerController.authorizeTravelRequest);
 
 // Decline a travel request by request ID and user ID
 router.route("/decline-travel-request/:request_id/:user_id")
-    .put(generalRateLimiter, authenticateToken, authorizeRole(['N1', 'N2']), validateId, validateInputs, authorizerController.declineTravelRequest);
+  .put(generalRateLimiter, authenticateToken, authorizeRole(['N1', 'N2']), validateId, validateInputs, authorizerController.declineTravelRequest);
 
 export default router;

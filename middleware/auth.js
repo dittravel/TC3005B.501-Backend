@@ -8,6 +8,7 @@
 
 import jwt from 'jsonwebtoken';
 
+// Middleware to authenticate JWT token and verify IP address
 export const authenticateToken = (req, res, next) => {
   const token = req.headers.authorization;
   if (token) {
@@ -31,6 +32,7 @@ export const authenticateToken = (req, res, next) => {
   }
 };
 
+// Middleware to authorize based on user roles
 export const authorizeRole = (roles) => {
   return (req, res, next) => {
     if (!req.user || !roles.includes(req.user.role)) {

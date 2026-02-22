@@ -1,69 +1,84 @@
 #!/bin/bash
+
+# ============================================================================
+# MongoDB Backup Script
+# ============================================================================
+# This script creates a backup of a MongoDB database, compresses it, and
+# transfers it to a remote server using SCP. Old backups are automatically
+# cleaned up both locally and remotely to conserve disk space.
+# ============================================================================
+
+# Log script start time for debugging and monitoring
 echo "[$(date)] Inicio del script de backup MongoDB" >> /var/backups/mongodb/debug_cron.log
 
 # MongoDB connection parameters
-MONGO_HOST="172.16.61.137"
-MONGO_PORT="27017"
-MONGO_DB="fileStorage"
-# If authentication is required, uncomment and set these
-#MONGO_USER="db_user"
-#MONGO_PASSWORD="your_secure_password"
+mongoHost="172.16.61.137"       # IP address or hostname of the MongoDB server
+mongoPort="27017"               # MongoDB port (default is 27017)
+mongoDatabase="fileStorage"     # Name of the MongoDB database to backup
 
-# Backup settings
-BACKUP_DIR="/var/backups/mongodb"
-DATE=$(date +"%Y%m%d_%H%M%S")
-FILENAME="${MONGO_DB}_${DATE}"
+# MongoDB authentication (if required, uncomment and configure these)
+#mongoUser="db_user"            # MongoDB username with read access to the database
+#mongoPassword="your_secure_password"  # MongoDB user password
 
-# Remote server settings
-REMOTE_USER="backupUser"
-REMOTE_PASSWORD="backupPassword"  # Add the remote password here
-REMOTE_HOST="172.16.61.151"
-REMOTE_DIR="~/backupsmongo"
+# Local backup configuration
+backupDir="/var/backups/mongodb"              # Local directory for storing backups
+timestamp=$(date +"%Y%m%d_%H%M%S")            # Current timestamp for unique filenames
+backupFilename="${mongoDatabase}_${timestamp}"  # Backup folder name (before compression)
 
-# Remove old backup locally (if it exists)
+# Remote server configuration for SCP transfer
+remoteUser="backupUser"         # SSH user on the remote backup server
+remotePassword="backupPassword" # SSH password for remote server authentication
+remoteHost="172.16.61.151"      # IP address of the remote backup server
+remoteDir="~/backupsmongo"      # Directory on remote server for MongoDB backups
+
+# Remove old backup locally (if it exists) to free up disk space
 echo "Limpiando directorio local de backups..." >> /var/backups/mongodb/debug_cron.log
-rm -fr $BACKUP_DIR
-mkdir -p $BACKUP_DIR
+rm -fr $backupDir
+mkdir -p $backupDir
 
-# Create MongoDB backup
+# Create MongoDB backup using mongodump
 echo "Ejecutando mongodump..." >> /var/backups/mongodb/debug_cron.log
 
-# Choose one of these commands based on whether you need authentication
-# Without authentication:
-mongodump --host $MONGO_HOST --port $MONGO_PORT --db $MONGO_DB --out "$BACKUP_DIR/$FILENAME"
+# Choose one of these commands based on whether you need authentication:
+# Without authentication (current configuration):
+mongodump --host $mongoHost --port $mongoPort --db $mongoDatabase --out "$backupDir/$backupFilename"
 
-# With authentication (uncomment if needed):
-#mongodump --host $MONGO_HOST --port $MONGO_PORT --username $MONGO_USER --password $MONGO_PASSWORD --authenticationDatabase admin --db $MONGO_DB --out "$BACKUP_DIR/$FILENAME"
+# With authentication (uncomment and configure mongoUser/mongoPassword if needed):
+#mongodump --host $mongoHost --port $mongoPort --username $mongoUser --password $mongoPassword --authenticationDatabase admin --db $mongoDatabase --out "$backupDir/$backupFilename"
 
-DUMP_STATUS=$?
-if [ $DUMP_STATUS -eq 0 ]; then
+# Check if mongodump completed successfully
+dumpStatus=$?
+if [ $dumpStatus -eq 0 ]; then
     echo "mongodump completado exitosamente" >> /var/backups/mongodb/debug_cron.log
 else
-    echo "Error en mongodump (código: $DUMP_STATUS)" >> /var/backups/mongodb/debug_cron.log
-    exit 1
+    echo "Error en mongodump (código: $dumpStatus)" >> /var/backups/mongodb/debug_cron.log
+    exit 1  # Exit script if backup creation failed
 fi
 
-# Compress the backup
+# Compress the backup to save storage space and reduce transfer time
 echo "Comprimiendo backup..." >> /var/backups/mongodb/debug_cron.log
-tar -czf "$BACKUP_DIR/${FILENAME}.tar.gz" -C "$BACKUP_DIR" "$FILENAME"
-rm -rf "$BACKUP_DIR/$FILENAME"  # Remove uncompressed directory
+tar -czf "$backupDir/${backupFilename}.tar.gz" -C "$backupDir" "$backupFilename"
+rm -rf "$backupDir/$backupFilename"  # Remove uncompressed directory after compression
 
 # Clean up remote backup directory before transferring new backup
+# This ensures only the latest backup is kept on the remote server
 echo "Limpiando directorio remoto..." >> /var/backups/mongodb/debug_cron.log
-sshpass -p "${REMOTE_PASSWORD}" ssh -o StrictHostKeyChecking=no ${REMOTE_USER}@${REMOTE_HOST} "rm -fr ${REMOTE_DIR}/* && mkdir -p ${REMOTE_DIR}"
-SSH_STATUS=$?
+sshpass -p "${remotePassword}" ssh -o StrictHostKeyChecking=no ${remoteUser}@${remoteHost} "rm -fr ${remoteDir}/* && mkdir -p ${remoteDir}"
+sshStatus=$?
 
-if [ $SSH_STATUS -ne 0 ]; then
-    echo "Error al limpiar directorio remoto (código: $SSH_STATUS)" >> /var/backups/mongodb/debug_cron.log
+# Check if remote cleanup was successful
+if [ $sshStatus -ne 0 ]; then
+    echo "Error al limpiar directorio remoto (código: $sshStatus)" >> /var/backups/mongodb/debug_cron.log
 fi
 
-# Transfer new backup file
+# Transfer compressed backup file to remote server using SCP
 echo "Iniciando transferencia SCP..." >> /var/backups/mongodb/debug_cron.log
-sshpass -p "${REMOTE_PASSWORD}" scp -o StrictHostKeyChecking=no "$BACKUP_DIR/${FILENAME}.tar.gz" ${REMOTE_USER}@${REMOTE_HOST}:${REMOTE_DIR}/
-SCP_STATUS=$?
+sshpass -p "${remotePassword}" scp -o StrictHostKeyChecking=no "$backupDir/${backupFilename}.tar.gz" ${remoteUser}@${remoteHost}:${remoteDir}/
+scpStatus=$?
 
-if [ $SCP_STATUS -eq 0 ]; then
+# Verify SCP transfer success and log the result
+if [ $scpStatus -eq 0 ]; then
     echo "Transferencia SCP completada exitosamente" >> /var/backups/mongodb/debug_cron.log
 else
-    echo "Error en la transferencia SCP (código: $SCP_STATUS)" >> /var/backups/mongodb/debug_cron.log
+    echo "Error en la transferencia SCP (código: $scpStatus)" >> /var/backups/mongodb/debug_cron.log
 fi

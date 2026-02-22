@@ -40,7 +40,7 @@ export const getUserList = async (req, res) => {
   }
 }
 
-
+// Create multiple users from CSV file upload
 export const createMultipleUsers = async (req, res) => {
   if (!req.file) {
     return res.status(400).json({ error: 'No CSV file uploaded' });
@@ -74,6 +74,7 @@ export const createUser = async (req, res) => {
   }
 }
 
+// Update existing user information
 export const updateUser = async (req, res) => {
   try {
     const userId = req.params.user_id;
@@ -87,6 +88,7 @@ export const updateUser = async (req, res) => {
   }
 };
 
+// Deactivate user account (soft delete)
 export const deactivateUser = async (req, res) => {
   try {
     const user_id = parseInt(req.params.user_id);

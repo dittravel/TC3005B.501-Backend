@@ -14,23 +14,23 @@ import AccountsPayableController from "../controllers/accountsPayableController.
 const router = express.Router();
 
 router.use((req, res, next) => {
-    next();
+  next();
 });
 
 // Get pending travel request by request ID
 router.route("/attend-travel-request/:request_id")
-    .put(generalRateLimiter, authenticateToken, authorizeRole(['Cuentas por pagar']), validateId, validateInputs, AccountsPayableController.attendTravelRequest);
+  .put(generalRateLimiter, authenticateToken, authorizeRole(['Cuentas por pagar']), validateId, validateInputs, AccountsPayableController.attendTravelRequest);
 
 // Validate expense receipts for a travel request by request ID
 router.route("/validate-receipts/:request_id")
-    .put(generalRateLimiter, authenticateToken, authorizeRole(['Cuentas por pagar']), validateId, validateInputs, AccountsPayableController.validateReceiptsHandler);
+  .put(generalRateLimiter, authenticateToken, authorizeRole(['Cuentas por pagar']), validateId, validateInputs, AccountsPayableController.validateReceiptsHandler);
 
 // Validate a single receipt by receipt ID
 router.route("/validate-receipt/:receipt_id")
-    .put(generalRateLimiter, authenticateToken, authorizeRole(['Cuentas por pagar']), validateId, validateInputs, AccountsPayableController.validateReceipt);
+  .put(generalRateLimiter, authenticateToken, authorizeRole(['Cuentas por pagar']), validateId, validateInputs, AccountsPayableController.validateReceipt);
 
 // Get expense validations for a travel request by request ID
 router.route("/get-expense-validations/:request_id")
-    .get(generalRateLimiter, authenticateToken, authorizeRole(['Cuentas por pagar', 'Solicitante', 'N1', 'N2']), validateId, validateInputs, AccountsPayableController.getExpenseValidations);
+  .get(generalRateLimiter, authenticateToken, authorizeRole(['Cuentas por pagar', 'Solicitante', 'N1', 'N2']), validateId, validateInputs, AccountsPayableController.getExpenseValidations);
 
 export default router;

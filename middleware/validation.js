@@ -8,10 +8,7 @@
 
 import { body, param, validationResult } from 'express-validator';
 
-/*
- * This will validate and sanitize the field of user id, given in any endpoint
- * (LuisDa)
- */
+// Validate and sanitize ID parameters in endpoints
 export const validateId = [
   param('id')
     .optional()
@@ -41,10 +38,7 @@ export const validateId = [
   }
 ];
 
-/*
- * This will validate and sanitize the Department, status ID and N
- * (LuisDa)
- */
+// Validate department, status ID and pagination parameters
 export const validateDeptStatus = [
   param('dept_id')
     .isInt()
@@ -61,11 +55,9 @@ export const validateDeptStatus = [
     .withMessage('N must be a valid number')
 ];
 
-/*
- * This will validate the fields in the Travel Request
- * (Sosa)
- */
+// Validate travel request form fields and data
 export const validateTravelRequest = [
+  // Basic request information
   body('router_index')
     .isInt({ min: 0 })
     .withMessage('Router index must be a valid number')
@@ -78,6 +70,7 @@ export const validateTravelRequest = [
     .withMessage('Notes have to be a string')
     .bail(),
 
+  // Financial information
   body('requested_fee')
     .isFloat({min: 0})
     .exists()
@@ -89,6 +82,7 @@ export const validateTravelRequest = [
     .withMessage('The minimum imposed fee is 0')
     .bail(),
   
+  // Main route locations
   body('origin_country_name')
     .isString()
     .trim()
@@ -114,6 +108,7 @@ export const validateTravelRequest = [
     .withMessage('Destination city cannot be left empty.')
     .bail(),
 
+  // Main route dates and times
   body('beginning_date')
     .isString()
     .trim()
@@ -139,6 +134,7 @@ export const validateTravelRequest = [
     .withMessage('Trip end time cannot be empty.')
     .bail(),
 
+  // Transportation and accommodation requirements
   body('plane_needed')
     .isBoolean()
     .toBoolean()
@@ -152,16 +148,21 @@ export const validateTravelRequest = [
     .withMessage('Please select if hotel reservation is required or not.')
     .bail(),
 
+  // Additional routes validation
   body('additionalRoutes')
     .optional()
     .isArray()
     .withMessage('Additional routes must be an array')
     .bail(),
+    
+  // Additional routes - basic information
   body('additionalRoutes.*.router_index')
     .isInt()
     .exists()
     .withMessage("Router index must be a valid number")
     .bail(),
+    
+  // Additional routes - locations
   body('additionalRoutes.*.origin_country_name')
     .isString()
     .trim()
@@ -187,6 +188,7 @@ export const validateTravelRequest = [
     .withMessage('Destination city cannot be left empty.')
     .bail(),
 
+  // Additional routes - dates and times
   body('additionalRoutes.*.beginning_date')
     .isString()
     .trim()
@@ -212,6 +214,7 @@ export const validateTravelRequest = [
     .withMessage('Trip end time cannot be empty.')
     .bail(),
 
+  // Additional routes - transportation and accommodation
   body('additionalRoutes.*.plane_needed')
     .isBoolean()
     .toBoolean()
@@ -226,10 +229,7 @@ export const validateTravelRequest = [
     .bail(),
 ];
 
-/*
- * This will validate and sanitize the receipts as they are created
- * (LuisDa)
- */
+// Validate expense receipt submissions and amounts
 export const validateExpenseReceipts = [
   body('receipts')
     .isArray()
@@ -249,11 +249,9 @@ export const validateExpenseReceipts = [
     .withMessage('Amounts needs to be a valid number'),
 ];
 
-/*
- * This will validate and sanitize the draft of travel requests as they are created
- * (Sosa)
- */
+// Validate draft travel request parameters
 export const validateDraftTravelRequest = [
+  // Basic request information 
   body('router_index')
     .optional()
     .isInt({ min: 0 })
@@ -268,6 +266,7 @@ export const validateDraftTravelRequest = [
     .withMessage('Notes have to be a string')
     .bail(),
 
+  // Financial information 
   body('requested_fee')
     .optional()
     .isFloat({min: 0})
@@ -281,6 +280,7 @@ export const validateDraftTravelRequest = [
     .withMessage('The minimum imposed fee is 0')
     .bail(),
   
+  // Main route locations 
   body('origin_country_name')
     .optional()
     .isString()
@@ -310,6 +310,7 @@ export const validateDraftTravelRequest = [
     .withMessage('Destination city cannot be left empty.')
     .bail(),
 
+  // Main route dates and times 
   body('beginning_date')
     .optional()
     .isString()
@@ -339,6 +340,7 @@ export const validateDraftTravelRequest = [
     .withMessage('Trip end time cannot be empty.')
     .bail(),
 
+  // Transportation and accommodation requirements
   body('plane_needed')
     .optional()
     .isBoolean()
@@ -354,17 +356,22 @@ export const validateDraftTravelRequest = [
     .withMessage('Please select if hotel reservation is required or not.')
     .bail(),
 
+  // Additional routes validation
   body('additionalRoutes')
     .optional()
     .isArray()
     .withMessage('Additional routes must be an array')
     .bail(),
+    
+  // Additional routes - basic information
   body('additionalRoutes.*.router_index')
     .optional()
     .isNumeric()
     .exists()
     .withMessage("Router index must be a valid number")
     .bail(),
+    
+  // Additional routes - locations
   body('additionalRoutes.*.origin_country_name')
     .optional()
     .isString()
@@ -394,6 +401,7 @@ export const validateDraftTravelRequest = [
     .withMessage('Destination city cannot be left empty.')
     .bail(),
 
+  // Additional routes - dates and times
   body('additionalRoutes.*.beginning_date')
     .optional()
     .isString()
@@ -423,6 +431,7 @@ export const validateDraftTravelRequest = [
     .withMessage('Trip end time cannot be empty.')
     .bail(),
 
+  // Additional routes - transportation and accommodation
   body('additionalRoutes.*.plane_needed')
     .optional()
     .isBoolean()
@@ -439,7 +448,9 @@ export const validateDraftTravelRequest = [
     .bail(),
 ];
 
+// Validate user creation form data
 export const validateCreateUser = [
+  // System identifiers
   body('role_id')
     .isInt({ min: 1 })
     .toInt()
@@ -448,6 +459,8 @@ export const validateCreateUser = [
     .isInt({ min: 1 })
     .toInt()
     .withMessage('Department ID must be a valid number'),
+    
+  // Authentication credentials
   body('user_name')
     .isString()
     .trim()
@@ -462,6 +475,8 @@ export const validateCreateUser = [
     .escape()
     .matches(/^\S+$/)
     .withMessage('Password cannot be empty neither contain spaces.'),
+    
+  // User identification and contact information
   body('workstation')
     .isString()
     .trim()
@@ -482,9 +497,7 @@ export const validateCreateUser = [
     .withMessage('Phone number cannot be empty.')
 ];
 
-/*
- * This reviews any errors received in previous validations
- */
+// Generic validation error handler
 export const validateInputs = (req, res, next) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {

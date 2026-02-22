@@ -9,6 +9,7 @@
 import crypto from 'crypto';
 const AES_SECRET_KEY = process.env.AES_SECRET_KEY;
 
+// Decrypts AES-256-CBC encrypted data
 export const decrypt = (encryptedData) => {
   try {
     // If the input is not a string or is empty, return it as is (not encrypted)

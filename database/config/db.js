@@ -8,6 +8,7 @@ import mariadb from 'mariadb';
 
 dotenv.config();
 
+// Create a connection pool to the database using .env variables
 const pool = mariadb.createPool({
   host: process.env.DB_HOST,
   port: process.env.DB_PORT, 

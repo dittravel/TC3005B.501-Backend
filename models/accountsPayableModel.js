@@ -1,10 +1,10 @@
 /**
-* Accounts Payable Model
-* 
-* This module defines the data access layer for accounts payable operations,
-* including updating travel request statuses, validating receipts, and
-* retrieving expense validations.
-*/
+  * Accounts Payable Model
+  * 
+  * This module defines the data access layer for accounts payable operations,
+  * including updating travel request statuses, validating receipts, and
+  * retrieving expense validations.
+  */
 
 import pool from "../database/config/db.js";
 

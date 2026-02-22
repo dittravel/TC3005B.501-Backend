@@ -8,13 +8,13 @@
  * Role-based access control ensures only authorized applicants and their
  * supervisors can access and modify travel request data.
  */
-
 import Applicant from "../models/applicantModel.js";
 import { cancelTravelRequestValidation, createExpenseValidationBatch, sendReceiptsForValidation } from '../services/applicantService.js';
 import { decrypt } from '../middleware/decryption.js';
-import { Mail } from "../services/email/mail.cjs";
+import { sendMail } from "../services/email/mail.cjs";
 import mailData from "../services/email/mailData.js";
 
+// Get basic applicant information by ID
 export const getApplicantById = async (req, res) => {
   const id = req.params.id;
   try {
@@ -32,6 +32,7 @@ export const getApplicantById = async (req, res) => {
   }
 };
 
+// Get list of travel requests for a specific applicant
 export const getApplicantRequests = async (req, res) => {
   const userId = req.params.user_id;
   try {
@@ -56,6 +57,7 @@ export const getApplicantRequests = async (req, res) => {
   }
 };
 
+// Get detailed travel request information with routes and user data
 export const getApplicantRequest = async (req, res) => {
   const userId = req.params.user_id;
   try {
@@ -64,10 +66,14 @@ export const getApplicantRequest = async (req, res) => {
       return res.status(404).json({ error: "No user request found" });
     }
 
+    // Get base data from first row (request details are same across all rows)
     const baseData = requestData[0];
+    
+    // Decrypt sensitive user information
     const decryptedEmail = decrypt(baseData.user_email);
     const decryptedPhone = decrypt(baseData.user_phone_number);
 
+    // Build comprehensive response object
     const response = {
       request_id: baseData.request_id,
       request_status: baseData.request_status,
@@ -81,6 +87,7 @@ export const getApplicantRequest = async (req, res) => {
         user_email: decryptedEmail,
         user_phone_number: decryptedPhone,
       },
+      // Map all rows to create routes array (each row represents one route)
       routes: requestData.map((row) => ({
         router_index: row.router_index,
         origin_country: row.origin_country,
@@ -103,6 +110,7 @@ export const getApplicantRequest = async (req, res) => {
   }
 };
 
+// Get cost center information for a user
 export const getCostCenterByUserId = async (req, res) => {
   const user_id = req.params.user_id;
   try {
@@ -119,6 +127,7 @@ export const getCostCenterByUserId = async (req, res) => {
   }
 };
 
+// Create a new travel request and send notification email
 export const createTravelRequest = async (req, res) => {
   const applicantId = Number(req.params.user_id);
   const travelDetails = req.body;
@@ -128,7 +137,7 @@ export const createTravelRequest = async (req, res) => {
       travelDetails,
     );
     const { user_email, user_name, requestId, status } = await mailData(travelRequest.requestId);
-    await Mail(user_email, user_name, travelRequest.requestId, status);
+    await sendMail(user_email, user_name, travelRequest.requestId, status);
     res.status(201).json(travelRequest);
   } catch (err) {
     console.error("Controller error:", err);
@@ -136,6 +145,7 @@ export const createTravelRequest = async (req, res) => {
   }
 };
 
+// Edit existing travel request details
 export const editTravelRequest = async (req, res) => {
   const travelRequestId = Number(req.params.user_id);
   const travelDetails = req.body;
@@ -151,13 +161,14 @@ export const editTravelRequest = async (req, res) => {
   }
 };
 
+// Cancel a travel request and send notification
 export const cancelTravelRequest = async (req, res) => {
   const { request_id } = req.params;
 
   try {
     const result = await cancelTravelRequestValidation(Number(request_id));
     const { user_email, user_name, requestId, status } = await mailData(request_id);
-    await Mail(user_email, user_name, request_id, status);
+    await sendMail(user_email, user_name, request_id, status);
     return res.status(200).json(result);
   } catch (err) {
     if (err.status) {
@@ -168,6 +179,7 @@ export const cancelTravelRequest = async (req, res) => {
   }
 };
 
+// Create expense validation batch from receipt data
 export async function createExpenseValidationHandler(req, res) {
   try {
     const count = await createExpenseValidationBatch(req.body.receipts);
@@ -184,16 +196,21 @@ export async function createExpenseValidationHandler(req, res) {
   }
 }
 
+// Get completed travel requests for a user
 export const getCompletedRequests = async (req, res) => {
+  // Validate and parse user ID parameter
   const userId = parseInt(req.params.user_id, 10);
   if (!Number.isInteger(userId)) {
     return res.status(400).json({ error: "Invalid user ID" });
   }
+  
   try {
     const completedRequests = await Applicant.getCompletedRequests(userId);
     if (!completedRequests || completedRequests.length === 0) {
       return res.status(404).json({ error: "No completed requests found for the user" });
     }
+    
+    // Map database results to formatted response structure
     const formattedRequests = completedRequests.map(request => ({
       request_id: request.request_id,
       origin_country: request.origin_countries,
@@ -210,6 +227,7 @@ export const getCompletedRequests = async (req, res) => {
   }
 }
 
+// Create draft travel request (not submitted yet)
 export const createDraftTravelRequest = async (req, res) => {
   const applicantId = Number(req.params.user_id);
   const travelDetails = req.body;
@@ -228,10 +246,12 @@ export const createDraftTravelRequest = async (req, res) => {
 
 }
 
+// Helper function to format dates
 const formatDate = (date) => {
   return new Date(date).toISOString().split("T")[0];
 };
 
+// Confirm and submit a draft travel request
 export const confirmDraftTravelRequest = async (req, res) => {
 
   const userId = Number(req.params.user_id);
@@ -240,7 +260,7 @@ export const confirmDraftTravelRequest = async (req, res) => {
   try {
     const result = await Applicant.confirmDraftTravelRequest(userId, requestId);
     const { user_email, user_name, request_id, status } = await mailData(requestId);
-    await Mail(user_email, user_name, requestId, status);
+    await sendMail(user_email, user_name, requestId, status);
     return res.status(200).json(result);
   } catch (err) {
     if (err.status) {
@@ -251,13 +271,14 @@ export const confirmDraftTravelRequest = async (req, res) => {
   }
 };
 
+// Send receipts for expense validation
 export const sendExpenseValidation = async (req, res) => {
   const requestId = req.params.request_id;
 
   try {
     const result = await sendReceiptsForValidation(requestId);
     const { user_email, user_name, request_id, status } = await mailData(requestId);
-    await Mail(user_email, user_name, requestId, status);
+    await sendMail(user_email, user_name, requestId, status);
     return res.status(200).json(result);
   } catch (err) {
     if (err.status) {
@@ -268,18 +289,18 @@ export const sendExpenseValidation = async (req, res) => {
   }
 };
 
-
+// Delete receipt and associated files
 export const deleteReceipt = async (req, res) => {
   const { receipt_id } = req.params;
   
   try {
-    // Import the service to delete files from MongoDB
+    // Dynamically import the service to avoid circular dependencies
     const { deleteReceiptFiles } = await import('../services/receiptFileService.js');
     
-    // First delete the files from MongoDB
+    // Step 1: Delete associated files from MongoDB GridFS
     await deleteReceiptFiles(Number(receipt_id));
     
-    // Then delete the receipt record from the database
+    // Step 2: Delete the receipt record from the main database
     await Applicant.deleteReceipt(Number(receipt_id));
     
     return res.status(200).json({

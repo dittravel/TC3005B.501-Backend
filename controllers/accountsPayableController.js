@@ -13,8 +13,10 @@
 import AccountsPayable from "../models/accountsPayableModel.js";
 import AccountsPayableService from '../services/accountsPayableService.js';
 import mailData from "../services/email/mailData.js";
-import { Mail } from "../services/email/mail.cjs";
+import { sendMail } from "../services/email/mail.cjs";
 
+// Process authorized travel requests and handle fee assignment
+// Routes to travel agency if hotel/flight needed
 const attendTravelRequest = async (req, res) => {
   const requestId = req.params.request_id;
   const imposedFee = req.body.imposed_fee;
@@ -65,6 +67,7 @@ const attendTravelRequest = async (req, res) => {
   }
 };
 
+// Validate all receipts for a travel request and update status
 const validateReceiptsHandler = async (req, res) => {
   const requestId = req.params.request_id;
   
@@ -79,6 +82,7 @@ const validateReceiptsHandler = async (req, res) => {
   }
 };
 
+// Approve or reject individual expense receipts
 const validateReceipt = async (req, res) => {
   const receiptId = req.params.receipt_id;
   const approval = req.body.approval;
@@ -142,6 +146,7 @@ const validateReceipt = async (req, res) => {
   }
 };
 
+// Get expense validation details for a specific travel request
 const getExpenseValidations = async (req, res) => {
   const request_id = Number(req.params.request_id);
   

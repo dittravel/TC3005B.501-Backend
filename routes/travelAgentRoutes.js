@@ -14,11 +14,11 @@ import { generalRateLimiter } from "../middleware/rateLimiters.js";
 const router = express.Router();
 
 router.use((req, res, next) => {
-    next();
+  next();
 });
 
 // Attend a travel request by request ID
 router.route("/attend-travel-request/:request_id")
-    .put(generalRateLimiter, authenticateToken, authorizeRole(['Agencia de viajes']), validateId, validateInputs, travelAgentController.attendTravelRequest);
+  .put(generalRateLimiter, authenticateToken, authorizeRole(['Agencia de viajes']), validateId, validateInputs, travelAgentController.attendTravelRequest);
 
 export default router;

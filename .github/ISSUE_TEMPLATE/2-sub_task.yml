@@ -17,19 +17,36 @@
 name: Sub-Task
 description: A highly specific piece of work that builds towards a task, and that requires to be tracked, discussed, and worked on independently. Probably by a single individual.
 title: "[Sub-Task]: "
-type: 5-Sub-Task
-projects: dittravel/1
+type: 2-Sub-Task
+projects: dittravel
 body:
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: Clear explanation of what this specific sub-task needs to accomplish.
+      placeholder: Describe the exact functionality or component to be implemented in this sub-task.
+    validations:
+      required: true
   - type: textarea
     id: details
     attributes:
       label: Details
-      description: The details for the sub-task to build-up to the completion of a full task.
+      description: Specific technical details and requirements for this sub-task.
       placeholder: |
-        A Table with the columns to display the relevant data for each application.
-        - Date
-        - Destination
-        - Status
-        ...
+        - Specific component or feature to implement
+        - Data structures or APIs involved
+        - UI/UX requirements
+        - Edge cases to handle
     validations:
       required: true
+  - type: textarea
+    id: checklist
+    attributes:
+      label: Checklist to complete issue
+      description: Detailed steps to complete this sub-task.
+      placeholder: |
+        - Step 1: Implement core functionality
+        - Step 2: Add error handling
+        - Step 3: Write unit tests
+        - Step 4: Update documentation

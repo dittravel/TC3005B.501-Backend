@@ -1,13 +1,33 @@
+-- ============================================================================
+-- CocoScheme Test Data (Dummy Data)
+-- ============================================================================
+-- Populates database with sample data for development and testing purposes
+-- WARNING: This file contains test data only - do not use in production!
+-- ============================================================================
+
 USE CocoScheme;
 
+-- ============================================================================
+-- Department Test Data
+-- ============================================================================
+-- Sample company departments with cost centers
+-- Note: 'Operaciones' department is marked inactive for testing soft-delete functionality
 INSERT INTO Department (department_name, costs_center, active) VALUES
   ('Finanzas', 'CC001', TRUE),
   ('Recursos Humanos', 'CC002', TRUE),
   ('IT', 'CC003', TRUE),
   ('Marketing', 'CC004', TRUE),
-  ('Operaciones', 'CC005', FALSE),
+  ('Operaciones', 'CC005', FALSE),  -- Inactive for testing
   ('Admin', 'ADMIN', TRUE);
 
+-- ============================================================================
+-- Travel Request Test Data
+-- ============================================================================
+-- Sample travel requests in various workflow statuses
+-- Covers all status IDs (1-10) for testing each workflow stage
+-- Note: user_id references must exist in User table (populated by init_db.js)
+
+-- User 1 requests (one per status for comprehensive testing)
 INSERT INTO Request (user_id, request_status_id, notes, requested_fee, imposed_fee, request_days, active) VALUES
   (1, 1, 'Solicito viáticos para viaje a conferencia en Barcelona.', 1500.00, NULL, 3.0, TRUE),
   (1, 2, 'Reembolso por gastos médicos durante viaje.', 800.00, NULL, 1.0, TRUE),
@@ -19,6 +39,8 @@ INSERT INTO Request (user_id, request_status_id, notes, requested_fee, imposed_f
   (1, 8, 'Viaje urgente por representación institucional.', 1750.00, 1500.00, 3.5, TRUE),
   (1, 9, 'Solicito anticipo para misión técnica en el extranjero.', 2200.00, 2000.00, 5.0, TRUE),
   (1, 10, 'Solicitud de viáticos por gira de supervisión.', 1300.00, 1200.00, 2.5, TRUE),
+  
+  -- User 4 requests (testing edge cases and unusual data)
   (4, 1, 'Quiero ir a brr brr patapin por favor', 90.00, NULL, 9.0, TRUE),
   (4, 2, 'Yo como cuando', 9999999.00, 10000.0, NULL, TRUE),
   (4, 3, 'Solicito algo para que me den algo porque quiero algo y por eso solicito las cosas, porque el que quiere puede', 10.00, NULL, 3, TRUE),
@@ -29,16 +51,20 @@ INSERT INTO Request (user_id, request_status_id, notes, requested_fee, imposed_f
   (4, 8, '¿Por qué te vas? Me olvidarás Me olvidarás', 99.99, 88, 3.5, TRUE),
   (4, 9, 'que lento el trafico, ¿por qué no pasa el camion :(?', 100, 100, 100, TRUE),
   (4, 10, 'con el te duele el corazon, conmigo te duelen los pies', 9823, 893, 10, TRUE),
+  
+  -- User 5 requests (varied test data)
   (5, 1, 'a caminar en el solazo a 40 grados', 3, NULL, 0.8, TRUE),
-  (5, 2, '', 32, NULL, 10, TRUE),
+  (5, 2, '', 32, NULL, 10, TRUE),  -- Empty notes for testing
   (5, 3, 'imagina hacerte 2 horas en viaje al trabajo, no podria ser yo', 34, NULL, 9, TRUE),
   (5, 4, 'Motivo de solicitud número 43', 93, NULL, 3, TRUE),
   (5, 5, 'Razones: No tengo ninguna razón para estarlo', 3, 93, 01, TRUE),
   (5, 6, 'Evento Vínculo 2025', 2025, 5, 1, TRUE),
-  (5, 7, 'Primera línea de notas.\nSegunda línea de notas.', 3, 4, 9, TRUE),
+  (5, 7, 'Primera línea de notas.\nSegunda línea de notas.', 3, 4, 9, TRUE),  -- Multi-line notes
   (5, 8, 'Mensaje: Mensaje', 92, 38, 10, TRUE),
   (5, 9, 'Solicitando para el evento', 9239, 9823, 2, TRUE),
   (5, 10, 'Llenando espacio', 38, 93, 2, TRUE),
+  
+  -- User 6 requests (generic examples)
   (6, 1, 'Solicitud de ejemplo 1', 100.00, NULL, 5, TRUE),
   (6, 2, 'Solicitud de ejemplo 2', 150.00, NULL, 7, TRUE),
   (6, 3, 'Solicitud de ejemplo 3', 200.00, NULL, 10, TRUE),
@@ -49,6 +75,8 @@ INSERT INTO Request (user_id, request_status_id, notes, requested_fee, imposed_f
   (6, 8, 'Solicitud de ejemplo 8', 250.00, 230.00, 12, TRUE),
   (6, 9, 'Solicitud de ejemplo 9', 75.00, 70.00, 4, TRUE),
   (6, 10, 'Solicitud de ejemplo 10', 400.00, 380.00, 20, TRUE),
+  
+  -- User 9 requests (additional test data)
   (9, 1, 'Hola muy buenas', 423.55, NULL, 12.0, TRUE),
   (9, 2, 'Me voy de aca', 312.40, NULL, 25.0, TRUE),
   (9, 3, 'Ayuda', 267.10, NULL, 9.0, TRUE),
@@ -60,6 +88,8 @@ INSERT INTO Request (user_id, request_status_id, notes, requested_fee, imposed_f
   (9, 9, 'locooooooo', 401.25, 10.10, 22.0, TRUE),
   (9, 10, 'hola', 159.99, 0.00, 1.0, TRUE),
   (9, 1, 'E', 450.50, NULL, 18.0, TRUE),
+  
+  -- User 10 requests (testing character data)
   (10, 1, 'A', 110.20, NULL, 4.0, TRUE),
   (10, 1, 'S', 340.00, NULL, 27.0, TRUE),
   (10, 1, 'T', 205.90, NULL, 13.0, TRUE),
@@ -71,7 +101,11 @@ INSERT INTO Request (user_id, request_status_id, notes, requested_fee, imposed_f
   (10, 1, 'G', 165.75, NULL, 6.0, TRUE),
   (10, 1, '_', 91.00, NULL, 5.0, TRUE);
 
+-- ============================================================================
+-- Geographic Reference Data
+-- ============================================================================
 
+-- Country data: 15 countries covering major travel destinations
 INSERT INTO Country (country_name) VALUES
   ('México'),
   ('Estados Unidos'),
@@ -89,8 +123,14 @@ INSERT INTO Country (country_name) VALUES
   ('China'),
   ('India');
 
-
+-- City data: Major cities in each country for route planning
 INSERT INTO City (city_name) VALUES
+-- Mexican Cities
+  ('CDMX'),
+  ('Guadalajara'),
+  ('Monterrey'),
+  ('Cancún'),
+  ('Mérida'),
 -- Mexican Cities
   ('CDMX'),
   ('Guadalajara'),
@@ -143,24 +183,42 @@ INSERT INTO City (city_name) VALUES
   ('Bombay'),
   ('Nueva Delhi');
 
+-- ============================================================================
+-- Route Test Data
+-- ============================================================================
+-- Sample travel routes with various combinations of transportation needs
+-- router_index: Sequence number for multi-segment trips (0 = single segment or first segment)
+-- plane_needed/hotel_needed: Boolean flags for service requirements
+-- Includes both domestic (within Mexico) and international routes
 
 INSERT INTO `Route` (id_origin_country, id_origin_city, id_destination_country, id_destination_city, router_index,
                      plane_needed, hotel_needed, beginning_date, beginning_time, ending_date, ending_time) VALUES
+  -- Domestic routes (Mexico)
   (1, 1, 1, 2, 0, TRUE, FALSE, '2025-05-01', '08:00:00', '2025-05-01', '11:00:00'),
   (1, 3, 1, 5, 0, TRUE, TRUE,  '2025-05-02', '10:30:00', '2025-05-02', '14:30:00'),
   (1, 2, 1, 1, 0, FALSE, TRUE, '2025-05-03', '12:00:00', '2025-05-03', '15:00:00'),
   (1, 3, 1, 2, 0, TRUE, FALSE, '2025-05-04', '06:00:00', '2025-05-04', '09:00:00'),
+  
+  -- International routes (Mexico to/from other countries)
   (1, 1, 2, 1, 0, TRUE, TRUE, '2025-05-05', '14:00:00', '2025-05-05', '18:00:00'),
   (2, 1, 1, 1, 0, FALSE, FALSE, '2025-05-06', '11:00:00', '2025-05-06', '13:00:00'),
   (1, 1, 8, 31, 0, TRUE, FALSE, '2025-05-07', '09:30:00', '2025-05-07', '12:30:00'),
   (10, 36, 2, 7, 0, TRUE, TRUE, '2025-05-08', '15:00:00', '2025-05-08', '18:30:00'),
   (1, 1, 8, 31, 0, TRUE, TRUE, '2025-05-09', '08:00:00', '2025-05-09', '11:15:00'),
   (10, 25, 7, 29, 0, TRUE, FALSE, '2025-05-10', '07:00:00', '2025-05-10', '09:00:00'),
+  
+  -- European routes (country to country within Europe)
   (11, 27, 12, 29, 0, TRUE, FALSE, '2025-05-11', '12:00:00', '2025-05-11', '15:00:00'),
   (12, 29, 11, 27, 0, TRUE, TRUE, '2025-05-12', '13:00:00', '2025-05-12', '17:00:00'),
+  
+  -- Asian routes
   (13, 31, 14, 33, 0, TRUE, FALSE, '2025-05-13', '06:00:00', '2025-05-13', '08:30:00'),
   (14, 33, 13, 31, 0, TRUE, TRUE, '2025-05-14', '14:00:00', '2025-05-14', '17:00:00'),
+  
+  -- India to Mexico route
   (15, 35, 1, 1, 0, TRUE, TRUE, '2025-05-15', '10:00:00', '2025-05-15', '13:00:00'),
+  
+  -- Americas circuits (testing various route combinations)
   (1, 2, 2, 6, 0, TRUE, FALSE, '2025-05-16', '11:00:00', '2025-05-16', '13:45:00'),
   (2, 6, 3, 11, 0, TRUE, FALSE, '2025-05-17', '07:15:00', '2025-05-17', '09:45:00'),
   (3, 11, 4, 13, 0, TRUE, TRUE, '2025-05-18', '16:00:00', '2025-05-18', '19:00:00'),
@@ -186,6 +244,8 @@ INSERT INTO `Route` (id_origin_country, id_origin_city, id_destination_country, 
   (13, 31, 3, 11, 0, TRUE, FALSE, '2025-06-07', '14:00:00', '2025-06-07', '16:30:00'),
   (14, 33, 2, 6, 0, TRUE, TRUE, '2025-06-08', '15:00:00', '2025-06-08', '17:30:00'),
   (15, 35, 1, 1, 0, FALSE, TRUE, '2025-06-09', '16:00:00', '2025-06-09', '18:30:00'),
+  
+  -- Historical routes (2024 dates for testing past travel)
   (1, 1, 1, 2, 0, FALSE, TRUE, '2024-03-18', '10:23:41', '2024-03-22', '18:05:19'),
   (2, 6, 2, 9, 0, TRUE, TRUE, '2024-11-10', '06:19:07', '2024-11-13', '14:47:55'),
   (3, 11, 3, 12, 0, FALSE, FALSE, '2024-07-05', '09:55:11', '2024-07-07', '11:41:06'),
@@ -207,11 +267,17 @@ INSERT INTO `Route` (id_origin_country, id_origin_city, id_destination_country, 
   (4, 14, 4, 13, 0, FALSE, TRUE, '2024-10-01', '15:02:19', '2024-10-03', '12:38:55'),
   (5, 15, 5, 16, 0, TRUE, FALSE, '2024-06-12', '07:30:00', '2024-06-14', '17:15:20'),
   (6, 17, 6, 18, 0, FALSE, TRUE, '2024-03-03', '12:45:50', '2024-03-06', '09:05:43'),
-  (5, 1, 1, 3, 1, TRUE, TRUE, '2025-05-02', '14:30:00', '2025-05-10', '12:00:33'),
-  (1, 1, 3, 11, 1, TRUE, TRUE, '2025-05-03', '15:00:00', '2025-05-13', '14:35:00'),
-  (3, 11, 3, 12, 2, TRUE, TRUE, '2025-05-13', '14:35:00', '2025-05-23', '12:45:00');
+  
+  -- Multi-segment routes (router_index > 0 indicates continuation of previous route)
+  (5, 1, 1, 3, 1, TRUE, TRUE, '2025-05-02', '14:30:00', '2025-05-10', '12:00:33'),  -- Segment 2 of trip
+  (1, 1, 3, 11, 1, TRUE, TRUE, '2025-05-03', '15:00:00', '2025-05-13', '14:35:00'),  -- Segment 2 of trip
+  (3, 11, 3, 12, 2, TRUE, TRUE, '2025-05-13', '14:35:00', '2025-05-23', '12:45:00'); -- Segment 3 of trip
 
-
+-- ============================================================================
+-- Route-Request Junction Data
+-- ============================================================================
+-- Links requests to their corresponding route segments
+-- One-to-one for simple routes, one-to-many for multi-segment trips
 INSERT INTO Route_Request (request_id, route_id) VALUES
   (1, 1),
   (2, 2),
@@ -242,32 +308,43 @@ INSERT INTO Route_Request (request_id, route_id) VALUES
   (27, 27),
   (28, 28),
   (29, 29),
-  (30, 30),
-  (31, 31),
-  (32, 32),
-  (33, 33),
-  (34, 34),
-  (35, 35),
-  (36, 36),
-  (37, 37),
-  (38, 38),
-  (39, 39),
-  (40, 40),
-  (41, 41),
-  (42, 42),
-  (43, 43),
-  (44, 44),
-  (45, 45),
-  (46, 46),
-  (47, 47),
-  (48, 48),
-  (49, 49),
-  (50, 50), 
-  (51, 51),
-  (52, 52),
-  (53, 53),
-  (54, 54),
-  (55, 55),
+  (30, 30)   -- Request 2 has multi-segment route (segments 62, 63, 64)
+  (3, 63),   -- Request 3 has multi-segment route
+  (3, 64);   -- Request 3, segment 3
+
+-- ============================================================================
+-- Receipt Test Data
+-- ============================================================================
+-- Sample expense receipts with various validation statuses
+-- Tests all three validation states: Pendiente, Aprobado, Rechazado
+-- Includes edge cases: future dates, NULL validation dates, various amounts
+
+INSERT INTO Receipt (receipt_type_id, request_id, validation, amount, validation_date) VALUES
+  -- Pending receipts (awaiting accounts payable review)
+  (4, 7, 'Pendiente', 300.00, '2025-04-19 09:00:00'),
+  (7, 8, 'Pendiente', 600.00, '2025-04-19 18:00:59'),
+  (6, 18, 'Pendiente', 2290.55, '2003-04-19 10:06:43'),
+  (1, 27, 'Pendiente', 4100.00, '2025-06-19 20:17:24'),
+  (6, 28, 'Pendiente', 2788.65, '2003-07-31 06:35:24'),
+  (1, 38, 'Pendiente', 1560.10, '2036-08-31 23:59:59'),  -- Future date for testing
+  (6, 47, 'Pendiente', 420.89, '2025-05-02 14:15:48'),
+  (3, 48, 'Pendiente', 2475.00, NULL),  -- NULL validation_date
+  
+  -- Approved receipts (will trigger wallet addition via trigger)
+  (2, 7, 'Aprobado', 300.00, '2025-04-19 09:03:00'),
+  (2, 17, 'Aprobado', 4550.25, '2025-03-21 10:00:00'),
+  (2, 18, 'Aprobado', 3035.10, '2025-02-23 16:00:00'),
+  (3, 28, 'Aprobado', 1722.80, NULL),
+  (7, 37, 'Aprobado', 2165.44, '2036-07-17 16:50:33'),
+  (5, 48, 'Aprobado', 3500.60, '2024-09-15 11:42:31'),
+  
+  -- Rejected receipts (various reasons for rejection)
+  (3, 8, 'Rechazado', 1000.00, '2025-04-19 18:00:00'),
+  (3, 17, 'Rechazado', 1905.30, '2025-04-22 12:00:00'),
+  (5, 27, 'Rechazado', 498.75, '2025-04-23 18:30:00'),
+  (5, 37, 'Rechazado', 3940.99, '2006-02-08 15:59:45'),
+  (2, 38, 'Rechazado', 3312.77, NULL),
+  (4, 47, 'Rechazado', 1801.23, '2020-03-18 16:15:24
   (56, 56),
   (57, 57),
   (58, 58),
