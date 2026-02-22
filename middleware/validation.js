@@ -1,3 +1,14 @@
+<<<<<<< Updated upstream
+=======
+/**
+ * Validation Middleware
+ * 
+ * This module provides comprehensive input validation and sanitization
+ * middleware for the travel request system. It validates parameters,
+ * request bodies, and ensures data integrity using express-validator.
+ */
+
+>>>>>>> Stashed changes
 import { body, param, validationResult } from 'express-validator';
 
 /*

@@ -1,6 +1,12 @@
+<<<<<<< Updated upstream
 /*
  * Authorizer Routes
  *
+=======
+/**
+ * Authorizer Routes
+ * 
+>>>>>>> Stashed changes
  * This module defines the routes and role-based access control
  * for the "Autorizador" functionalities
  */

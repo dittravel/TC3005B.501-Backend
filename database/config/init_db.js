@@ -1,3 +1,20 @@
+<<<<<<< Updated upstream
+=======
+/**
+ * This script initializes the database by creating the specified database and user with appropriate privileges.
+ * - It connects to the MariaDB server using root credentials, creates the database if it doesn't exist,
+ * - creates a user with the specified username and password, and grants SELECT, INSERT, UPDATE privileges on the database to that user.
+ * - Finally, it releases the connection and ends the connection pool.
+ * 
+ * To run this script:
+ *  1. Ensure you have `mariadb` installed and running.
+ *  2. Set up your `.env` file with the correct database connection parameters (DB_ROOT_USER, DB_ROOT_PASSWORD, DB_USER, DB_PASSWORD, DB_NAME).
+ *  3. Run the script using `node database/config/init_db.js` from the root of the repository.
+ * 
+ * Note: This script is intended for initial database setup and should be used with caution in a production environment.
+ */
+
+>>>>>>> Stashed changes
 import dotenv from 'dotenv';
 import mariadb from 'mariadb';
 
@@ -14,6 +31,13 @@ const pool = mariadb.createPool({
   password: process.env.DB_ROOT_PASSWORD,
 });
 
+<<<<<<< Updated upstream
+=======
+/**
+ * Function to initialize the database by creating the specified database and user with appropriate privileges.
+ * @return - none. Executes the SQL queries to create the database, user and grant privileges.
+ */
+>>>>>>> Stashed changes
 pool.getConnection()
   .then(async (conn) => {
     try {

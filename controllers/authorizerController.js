@@ -1,6 +1,21 @@
+<<<<<<< Updated upstream
 /*
 Authorizer Controller
 */
+=======
+/**
+ * Authorizer Controller
+ * 
+ * This module handles business logic and approval workflows for travel requests
+ * by managers and department heads (N1/N2 authorization levels). It manages
+ * the review, approval, and rejection processes for travel requests within
+ * the organizational hierarchy.
+ * 
+ * Role-based access control ensures only authorized managers can access
+ * and approve travel requests for their respective departments and subordinates.
+ */
+
+>>>>>>> Stashed changes
 import Authorizer from "../models/authorizerModel.js";
 import authorizerServices from "../services/authorizerService.js";
 import { Mail } from "../services/email/mail.cjs";

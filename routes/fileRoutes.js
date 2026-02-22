@@ -1,4 +1,4 @@
-/*
+/**
  * File Routes
  *
  * This module defines the routes for handling file uploads and retrievals

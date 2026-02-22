@@ -1,3 +1,17 @@
+<<<<<<< Updated upstream
+=======
+/**
+ * File Controller
+ * 
+ * This module handles file operations and business logic for document management
+ * in the travel request system. It provides functionality for uploading,
+ * downloading, and managing receipt files and other travel-related documents.
+ * 
+ * Role-based access control ensures users can only access files related
+ * to their own travel requests or those they are authorized to review.
+ */
+
+>>>>>>> Stashed changes
 import { ObjectId } from 'mongodb';
 import sanitize from 'mongo-sanitize';
 import { uploadReceiptFiles, getReceiptFile, getReceiptFilesMetadata } from '../services/receiptFileService.js';

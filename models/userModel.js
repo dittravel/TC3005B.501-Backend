@@ -1,3 +1,10 @@
+/**
+ * User Model
+ * 
+ * This model handles database operations related to users,
+ * including fetching user data, travel requests, and wallet information.
+ */
+
 import pool from '../database/config/db.js';
 
 const User = {
@@ -6,8 +13,8 @@ const User = {
     let conn;
     try {
       conn = await pool.getConnection();
-      const rows = await conn.query(
-        `SELECT 
+      const rows = await conn.query(`
+        SELECT 
           u.user_id, 
           u.user_name, 
           u.email, 
@@ -23,13 +30,14 @@ const User = {
         WHERE u.user_id = ?`,
         [userId]
       );
-
       return rows[0];
+
     } finally {
       if (conn) conn.release();
     }
   },
 
+  // Get travel request details by request ID
   async getTravelRequestById(request_id) {
     let conn;
     const query = `
@@ -75,51 +83,51 @@ const User = {
       conn = await pool.getConnection();
       const rows = await conn.query(query, [request_id]);
       return rows;
+
     } catch (error) {
       console.error('Error in getTravelRequestById:', error);
       throw error;
+
     } finally {
       if (conn) conn.release();
     }
   },
 
+  // Get travel requests by department and status, with optional limit
   async getTravelRequestsByDeptStatus(deptId, statusId, n) {
-  const conn = await pool.getConnection();
-  try {
-    const baseQuery = `
-      SELECT
-        r.request_id,
-        u.user_id,
-        c.country_name AS destination_country,
-        ro.beginning_date,
-        ro.ending_date,
-        rs.status AS request_status
-      FROM Request r
-      JOIN User u ON r.user_id = u.user_id
-      JOIN Request_status rs ON r.request_status_id = rs.request_status_id
-      JOIN Route_Request rr ON r.request_id = rr.request_id
-      JOIN Route ro ON rr.route_id = ro.route_id
-      JOIN Country c ON ro.id_destination_country = c.country_id
-      WHERE u.department_id = ?
-        AND r.request_status_id = ?
-      GROUP BY r.request_id
-      ORDER BY r.creation_date DESC
-      ${n ? 'LIMIT ?' : ''}
-    `;
+    const conn = await pool.getConnection();
+    try {
+      const baseQuery = `
+        SELECT
+          r.request_id,
+          u.user_id,
+          c.country_name AS destination_country,
+          ro.beginning_date,
+          ro.ending_date,
+          rs.status AS request_status
+        FROM Request r
+        JOIN User u ON r.user_id = u.user_id
+        JOIN Request_status rs ON r.request_status_id = rs.request_status_id
+        JOIN Route_Request rr ON r.request_id = rr.request_id
+        JOIN Route ro ON rr.route_id = ro.route_id
+        JOIN Country c ON ro.id_destination_country = c.country_id
+        WHERE u.department_id = ?
+          AND r.request_status_id = ?
+        GROUP BY r.request_id
+        ORDER BY r.creation_date DESC
+        ${n ? 'LIMIT ?' : ''}
+      `;
 
-    const params = n ? [deptId, statusId, Number(n)] : [deptId, statusId];
-    const rows = await conn.query(baseQuery, params);
-    return rows;
-  } finally {
-    conn.release();
-  }
-},
+      const params = n ? [deptId, statusId, Number(n)] : [deptId, statusId];
+      const rows = await conn.query(baseQuery, params);
+      return rows;
 
-/*
- * Get user by username
- * @param {string} username - Username
- * @returns {Promise<Object>} - User data
- */
+    } finally {
+      conn.release();
+    }
+  },
+
+  // Get user data by username
   async getUserUsername(username) {
     const connection = await pool.getConnection();
     try {
@@ -144,26 +152,26 @@ const User = {
     }
   },
 
-async getUserWallet(user_id) {
+  // Get user wallet information by user ID
+  async getUserWallet(user_id) {
     let conn;
     try {
       conn = await pool.getConnection();
-      const rows = await conn.query(
-        `SELECT 
+      const rows = await conn.query(`
+        SELECT 
           user_id,
           user_name,
           wallet
-          FROM User
-          WHERE user_id = ?`,
+        FROM User
+        WHERE user_id = ?`,
         [user_id]
       );
-
       return rows[0];
+      
     } finally {
       if (conn) conn.release();
     }
   },
-
 };
 
 export default User;

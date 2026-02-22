@@ -1,6 +1,15 @@
+<<<<<<< Updated upstream
 /*
  * Miguel Soria 10/06/25
  * middleware to sanitize mongoDB inputs
+=======
+/**
+ * MongoDB Sanitization Middleware
+ * 
+ * This module provides input sanitization middleware to prevent MongoDB
+ * injection attacks. It sanitizes request parameters, query strings, and
+ * request bodies to remove potentially malicious MongoDB operators.
+>>>>>>> Stashed changes
  */
 import sanitize from 'mongo-sanitize';
 

@@ -1,3 +1,11 @@
+/**
+ * User Service
+ * 
+ * This service contains the business logic for handling
+ * user-related operations, such as fetching user data and
+ * authenticating users.
+ */
+
 import userModel from '../models/userModel.js';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcrypt';

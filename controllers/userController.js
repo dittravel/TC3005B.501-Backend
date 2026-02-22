@@ -1,3 +1,18 @@
+<<<<<<< Updated upstream
+=======
+/**
+ * User Controller
+ * 
+ * This module handles general user operations and business logic
+ * for all user roles in the travel request system. It includes functionality
+ * for authentication (login/logout), user data retrieval, travel request queries,
+ * and wallet management.
+ * 
+ * Role-based access control is implemented to ensure users can only access
+ * data and operations appropriate to their role and department.
+ */
+
+>>>>>>> Stashed changes
 import * as userService from '../services/userService.js';
 import User from '../models/userModel.js';
 import { decrypt } from '../middleware/decryption.js';

@@ -1,3 +1,19 @@
+/**
+ * Receipt File Service
+ * 
+ * This service provides functions to handle receipt file operations, including:
+ * - Uploading PDF and XML files for a receipt
+ * - Retrieving receipt files
+ * - Getting metadata for receipt files
+ * - Deleting receipt files from MongoDB when a receipt is deleted
+ * 
+ * The service interacts with the fileStorage service for handling file uploads and retrievals,
+ * and it uses the database connection pool to update receipt records with file information.
+ * 
+ * Note: Ensure that the MONGO_URI environment variable is set to connect to MongoDB for file storage.
+ * Example: MONGO_URI=mongodb://localhost:27017
+ */
+
 import { ObjectId } from 'mongodb';
 import { uploadFile, getFile, db, bucket } from './fileStorage.js';
 import pool from "../database/config/db.js";

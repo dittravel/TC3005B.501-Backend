@@ -1,6 +1,12 @@
+<<<<<<< Updated upstream
 /*
  * Accounts Payable Routes
  *
+=======
+/**
+ * Accounts Payable Routes
+ * 
+>>>>>>> Stashed changes
  * This module defines the routes and role-based access control
  * for the "Cuentas por pagar" functionalities
  */

@@ -1,3 +1,19 @@
+/**
+ * File Storage Service
+ * 
+ * This service provides functions to handle file storage operations using MongoDB's GridFS.
+ * It includes functions to connect to MongoDB, upload files, and retrieve files.
+ * The service also ensures that file names and metadata are sanitized to prevent injection attacks.
+ * 
+ * Functions:
+ * - connectMongo: Connects to MongoDB and initializes the GridFS bucket.
+ * - uploadFile: Uploads a file to GridFS with sanitized file name and metadata.
+ * - getFile: Retrieves a file stream from GridFS using the file ID.
+ * 
+ * Note: Ensure that the MONGO_URI environment variable is set to connect to MongoDB.
+ * Example: MONGO_URI=mongodb://localhost:27017
+ */
+
 import { MongoClient, GridFSBucket, ObjectId } from 'mongodb';
 import dotenv from 'dotenv';
 import { Readable } from 'stream';

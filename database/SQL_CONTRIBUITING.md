@@ -1,4 +1,4 @@
-# SQL Standard Rules for 101-Coconsulting
+# SQL Standard Rules
 
 ## 0. Examples
 

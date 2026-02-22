@@ -1,6 +1,20 @@
+<<<<<<< Updated upstream
 /*
 Applicant Controller
 */
+=======
+/**
+ * Applicant Controller
+ * 
+ * This module handles business logic and operations for the "Solicitante" role.
+ * It manages the complete travel request lifecycle including creation, editing,
+ * cancellation, and expense validation for employees who apply for business travel.
+ * 
+ * Role-based access control ensures only authorized applicants and their
+ * supervisors can access and modify travel request data.
+ */
+
+>>>>>>> Stashed changes
 import Applicant from "../models/applicantModel.js";
 import { cancelTravelRequestValidation, createExpenseValidationBatch, sendReceiptsForValidation } from '../services/applicantService.js';
 import { decrypt } from '../middleware/decryption.js';
@@ -286,7 +300,6 @@ export const deleteReceipt = async (req, res) => {
     return res.status(500).json({ error: "Internal server error" });
   }
 };
-
 
 export default {
   getApplicantById,

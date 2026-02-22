@@ -141,8 +141,5 @@ dist
 *.crt
 *.srl 
 
-# configuration
-*.cnf
-
 #MacOS Stuff
 .DS_Store
