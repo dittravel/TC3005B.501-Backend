@@ -1,8 +1,4 @@
-<<<<<<< Updated upstream
-/*
-=======
 /**
->>>>>>> Stashed changes
  * User Routes
  * 
  * This module defines the routes for user-related operations in the travel request system.

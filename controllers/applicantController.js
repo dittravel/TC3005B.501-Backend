@@ -1,8 +1,3 @@
-<<<<<<< Updated upstream
-/*
-Applicant Controller
-*/
-=======
 /**
  * Applicant Controller
  * 
@@ -14,7 +9,6 @@ Applicant Controller
  * supervisors can access and modify travel request data.
  */
 
->>>>>>> Stashed changes
 import Applicant from "../models/applicantModel.js";
 import { cancelTravelRequestValidation, createExpenseValidationBatch, sendReceiptsForValidation } from '../services/applicantService.js';
 import { decrypt } from '../middleware/decryption.js';

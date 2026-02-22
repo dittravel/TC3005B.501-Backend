@@ -1,12 +1,6 @@
-<<<<<<< Updated upstream
-/*
- * Applicant Routes
- *
-=======
 /**
  * Applicant Routes
  * 
->>>>>>> Stashed changes
  * This module defines the routes and role-based access control
  * for the "Solicitante" functionalities
  */

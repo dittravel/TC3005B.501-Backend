@@ -1,5 +1,3 @@
-<<<<<<< Updated upstream
-=======
 /**
  * Rate Limiting Middleware
  * 
@@ -8,7 +6,6 @@
  * various types of operations to ensure system stability and security.
  */
 
->>>>>>> Stashed changes
 import RateLimit from 'express-rate-limit';
 
 export var generalRateLimiter = RateLimit({

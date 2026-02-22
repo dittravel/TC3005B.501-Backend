@@ -1,5 +1,3 @@
-<<<<<<< Updated upstream
-=======
 /**
 * Authentication Middleware
 * 
@@ -8,7 +6,6 @@
 * access control, and IP address verification for enhanced security.
 */
 
->>>>>>> Stashed changes
 import jwt from 'jsonwebtoken';
 
 export const authenticateToken = (req, res, next) => {

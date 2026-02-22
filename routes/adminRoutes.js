@@ -1,12 +1,6 @@
-<<<<<<< Updated upstream
-/*
- * Admin Routes
- *
-=======
 /**
  * Admin Routes
  * 
->>>>>>> Stashed changes
  * This module defines the routes and role-based access control
  * for the "Administrador" functionalities
  */

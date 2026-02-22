@@ -1,5 +1,3 @@
-<<<<<<< Updated upstream
-=======
 /**
  * Decryption Middleware
  * 
@@ -8,7 +6,6 @@
  * data that has been encrypted before storage or transmission.
  */
 
->>>>>>> Stashed changes
 import crypto from 'crypto';
 const AES_SECRET_KEY = process.env.AES_SECRET_KEY;
 

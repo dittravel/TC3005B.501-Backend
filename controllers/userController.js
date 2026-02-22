@@ -1,5 +1,3 @@
-<<<<<<< Updated upstream
-=======
 /**
  * User Controller
  * 
@@ -12,7 +10,6 @@
  * data and operations appropriate to their role and department.
  */
 
->>>>>>> Stashed changes
 import * as userService from '../services/userService.js';
 import User from '../models/userModel.js';
 import { decrypt } from '../middleware/decryption.js';

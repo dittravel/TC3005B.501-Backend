@@ -1,12 +1,7 @@
 require('dotenv').config();
 const nodemailer = require("nodemailer");
 
-<<<<<<< Updated upstream
-let currentDate = new Date().toJSON().slice(0, 10);
-
-=======
 // Configure the email transporter using Gmail SMTP
->>>>>>> Stashed changes
 const transporter = nodemailer.createTransport({
     host: "smtp.gmail.com",
     port: 465,
@@ -58,16 +53,6 @@ const Mail = async (email, username, request_id, status) => {
 </body>
 </html>
     `,
-<<<<<<< Updated upstream
-    };
-    try {
-        const info = await transporter.sendMail(mailOptions);
-        console.log("Email Sent Succesfully: " + info.response);
-    } catch (error) {
-        console.error("Error sending email: ", error, email);
-        throw new Error("Error sending email");
-    }
-=======
   };
   
   try {
@@ -77,7 +62,6 @@ const Mail = async (email, username, request_id, status) => {
   } catch (error) {
     throw new Error("Error sending email");
   }
->>>>>>> Stashed changes
 };
 
 exports.Mail = Mail;

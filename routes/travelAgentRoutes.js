@@ -1,19 +1,8 @@
-<<<<<<< Updated upstream
-/*
- * Travel Agent Routes
- *
- * This module defines the routes and role-based access control
- * for the "Agencia de viajes" functionalities
- * 
- * Original Author:
- * Miguel Soria - 26/04/25
-=======
 /**
  * Travel Agent Routes
  * 
  * This module defines the routes and role-based access control
  * for the "Agencia de viajes" functionalities
->>>>>>> Stashed changes
  */
 
 import express from "express";

@@ -1,5 +1,3 @@
-<<<<<<< Updated upstream
-=======
 /**
  * This script initializes the database by creating the specified database and user with appropriate privileges.
  * - It connects to the MariaDB server using root credentials, creates the database if it doesn't exist,
@@ -14,7 +12,6 @@
  * Note: This script is intended for initial database setup and should be used with caution in a production environment.
  */
 
->>>>>>> Stashed changes
 import dotenv from 'dotenv';
 import mariadb from 'mariadb';
 
@@ -31,13 +28,10 @@ const pool = mariadb.createPool({
   password: process.env.DB_ROOT_PASSWORD,
 });
 
-<<<<<<< Updated upstream
-=======
 /**
  * Function to initialize the database by creating the specified database and user with appropriate privileges.
  * @return - none. Executes the SQL queries to create the database, user and grant privileges.
  */
->>>>>>> Stashed changes
 pool.getConnection()
   .then(async (conn) => {
     try {

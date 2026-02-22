@@ -1,5 +1,3 @@
-<<<<<<< Updated upstream
-=======
 /**
  * Validation Middleware
  * 
@@ -8,7 +6,6 @@
  * request bodies, and ensures data integrity using express-validator.
  */
 
->>>>>>> Stashed changes
 import { body, param, validationResult } from 'express-validator';
 
 /*

@@ -1,5 +1,3 @@
-<<<<<<< Updated upstream
-=======
 /**
  * File Controller
  * 
@@ -11,7 +9,6 @@
  * to their own travel requests or those they are authorized to review.
  */
 
->>>>>>> Stashed changes
 import { ObjectId } from 'mongodb';
 import sanitize from 'mongo-sanitize';
 import { uploadReceiptFiles, getReceiptFile, getReceiptFilesMetadata } from '../services/receiptFileService.js';

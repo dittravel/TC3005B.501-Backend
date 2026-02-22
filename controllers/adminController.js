@@ -1,7 +1,3 @@
-<<<<<<< Updated upstream
-/*
-Admin Controller
-=======
 /**
 * Admin Controller
 * 
@@ -11,7 +7,6 @@ Admin Controller
 * 
 * All functions require proper authentication and authorization to ensure
 * only administrators can access these sensitive operations.
->>>>>>> Stashed changes
 */
 
 import * as adminService from "../services/adminService.js";
@@ -93,44 +88,12 @@ export const updateUser = async (req, res) => {
 };
 
 export const deactivateUser = async (req, res) => {
-<<<<<<< Updated upstream
-    try {
-        /* This doesn't work currently because there's no login yet
-        
-        if (!req.user || req.user.role_name !== 'Admin') {
-            return res.status(401).json({
-                error: "Admin privileges required"
-            });
-        }
-        */
-
-        const user_id = parseInt(req.params.user_id);
-        
-        const user = await userModel.getUserData(user_id);
-        if (!user) {
-            return res.status(404).json({error: "User not found"});
-        }
-        
-        const result = await Admin.deactivateUserById(user_id);
-        
-        return res.status(200).json({
-            message: "User successfully deactivated",
-            user_id: user_id,
-            active: false
-        });
-    } catch (err) {
-        console.error("Error in deactivateUser:", err);
-        return res.status(500).json({
-            error: "Unexpected error while deactivating user"
-        });
-=======
   try {
     const user_id = parseInt(req.params.user_id);
     
     const user = await userModel.getUserData(user_id);
     if (!user) {
       return res.status(404).json({error: "User not found"});
->>>>>>> Stashed changes
     }
     
     const result = await Admin.deactivateUserById(user_id);

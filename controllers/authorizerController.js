@@ -1,8 +1,3 @@
-<<<<<<< Updated upstream
-/*
-Authorizer Controller
-*/
-=======
 /**
  * Authorizer Controller
  * 
@@ -15,7 +10,6 @@ Authorizer Controller
  * and approve travel requests for their respective departments and subordinates.
  */
 
->>>>>>> Stashed changes
 import Authorizer from "../models/authorizerModel.js";
 import authorizerServices from "../services/authorizerService.js";
 import { Mail } from "../services/email/mail.cjs";
