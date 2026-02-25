@@ -1,9 +1,9 @@
-/*
-* Applicant Routes
-*
-* This module defines the routes and role-based access control
-* for the "Solicitante" functionalities
-*/
+/**
+ * Applicant Routes
+ * 
+ * This module defines the routes and role-based access control
+ * for the "Solicitante" functionalities
+ */
 
 import express from "express";
 import applicantController from "../controllers/applicantController.js";

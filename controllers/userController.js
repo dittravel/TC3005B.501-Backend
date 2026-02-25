@@ -1,4 +1,4 @@
-/*
+/**
  * User Controller
  * 
  * This module handles general user operations and business logic

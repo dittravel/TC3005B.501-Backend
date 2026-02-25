@@ -1,4 +1,14 @@
-// Main entry point for the backend application
+/**
+ * Main entry point for the backend server
+ * 
+ * This file:
+ * - Sets up the Express server
+ * - Configures middleware
+ * - Defines routes for the system.
+ * - Establishes a connection to MongoDB for file storage
+ * - Configures HTTPS using self-signed certificates.
+ */
+
 import dotenv from "dotenv";
 dotenv.config();
 
@@ -19,6 +29,8 @@ import https from "https";
 import express from "express";
 import cors from "cors";
 import cookieParser from 'cookie-parser';
+
+// Initialize Express app
 const app = express();
 const PORT = process.env.PORT || 3000;
 

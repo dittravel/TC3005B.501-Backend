@@ -1,3 +1,14 @@
+/**
+ * Admin service for user management and CSV processing
+ * 
+ * This service provides functionalities for creating users,
+ * fetching user lists, updating user data,
+ * and processing bulk user creation from CSV files.
+ * 
+ * It includes encryption for sensitive data and validation
+ * to ensure data integrity.
+ */
+
 import Admin from "../models/adminModel.js";
 import User from "../models/userModel.js";
 import crypto from 'crypto';
@@ -8,8 +19,10 @@ import { parse } from 'csv-parse';
 import fs, { unlink } from 'fs';
 import { decrypt } from '../middleware/decryption.js';
 
+// Required columns for CSV validation
 const requiredColumns = ['role_name', 'department_name', 'user_name', 'password', 'workstation', 'email'];
 
+// Encryption function for sensitive data
 const encrypt = (data) => {
   const IV = crypto.randomBytes(16);
   const cipher = crypto.createCipheriv('aes-256-cbc', Buffer.from(AES_SECRET_KEY), IV);
@@ -18,11 +31,12 @@ const encrypt = (data) => {
   return IV.toString('hex') + encrypted;
 }
 
+// Hashing function for passwords
 const hash = async (data) => {
   return await bcrypt.hash(data, 10);
 }
 
-/*
+/**
  * Create a new user (admin functionality)
  * @param {Object} userData - User data
  * @returns {Promise<Object>} Created user data
@@ -66,6 +80,14 @@ export async function createUser(userData) {
   }
 };
 
+/**
+ * Validate a single row of CSV data for user creation
+ * @param {Object} rowData - Data for the current row
+ * @param {number} rowNumber - Row number in the CSV file
+ * @param {Set} existingEmailsInCsv - Set of emails already encountered in the CSV for duplicate checking
+ * @param {Set} existingUsernamesInCsv - Set of usernames already encountered in the CSV for duplicate checking
+ * @returns {Promise<Object|null>} Validation result with errors or null if valid
+ */
 const validateUserRow = async (rowData, rowNumber, existingEmailsInCsv, existingUsernamesInCsv) => {
   const rowErrors = [];
 
@@ -109,6 +131,12 @@ const validateUserRow = async (rowData, rowNumber, existingEmailsInCsv, existing
   return null;
 };
 
+/**
+ * Get foreign key values for role and department, and encrypt sensitive data
+ * @param {Object} rowData - Data for the current row
+ * @param {number} rowNumber - Row number in the CSV file
+ * @returns {Promise<Object>} Processed user data with foreign keys and encrypted fields, or error information
+ */
 const getForeignKeyValues = async (rowData, rowNumber) => {
   const rowErrors = [];
   let userData = {...rowData};
@@ -151,6 +179,12 @@ const getForeignKeyValues = async (rowData, rowNumber) => {
   return userData;
 };
 
+/**
+ * Parse CSV file for bulk user creation
+ * @param {string} filePath - Path to the CSV file
+ * @param {boolean} dummy - Flag to indicate if the file should be deleted after processing
+ * @returns {Promise<Object>} Result of the CSV processing with counts and errors
+ */
 export const parseCSV = async (filePath, dummy) => {
   const results = {
     total_records: 0,
@@ -264,6 +298,12 @@ export async function getUserList() {
   }
 };
 
+/**
+ * Update user data (admin functionality)
+ * @param {number} userId - ID of the user to update
+ * @param {Object} newUserData - New data for the user
+ * @returns {Promise<Object>} Result of the update operation
+ */
 export const updateUserData = async (userId, newUserData) => {
     const userData = await User.getUserData(userId);
     if (!userData) {

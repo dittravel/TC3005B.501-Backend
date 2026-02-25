@@ -1,4 +1,4 @@
-/*
+/**
  * MongoDB Sanitization Middleware
  * 
  * This module provides input sanitization middleware to prevent MongoDB

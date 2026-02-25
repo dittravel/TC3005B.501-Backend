@@ -1,4 +1,4 @@
-/*
+/**
  * Authorizer Controller
  * 
  * This module handles business logic and approval workflows for travel requests

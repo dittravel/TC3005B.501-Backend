@@ -1,4 +1,4 @@
-/*
+/**
 * This script initializes the database for development and testing purposes.
 * It executes a series of SQL scripts to create the schema, prepopulate data, create triggers and views.
 * If the environment is set to 'dev', it also executes a dummy data script and populates 

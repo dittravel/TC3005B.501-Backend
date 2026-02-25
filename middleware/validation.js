@@ -1,4 +1,4 @@
-/*
+/**
  * Validation Middleware
  * 
  * This module provides comprehensive input validation and sanitization

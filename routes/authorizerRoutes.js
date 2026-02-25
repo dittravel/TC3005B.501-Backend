@@ -1,9 +1,9 @@
-/*
-* Authorizer Routes
-*
-* This module defines the routes and role-based access control
-* for the "Autorizador" functionalities
-*/
+/**
+ * Authorizer Routes
+ * 
+ * This module defines the routes and role-based access control
+ * for the "Autorizador" functionalities
+ */
 
 import express from "express";
 import authorizerController from "../controllers/authorizerController.js";

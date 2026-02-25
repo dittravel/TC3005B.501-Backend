@@ -1,3 +1,7 @@
+/**
+ * Fetches mail details for a travel request to send notification emails.
+ */
+
 import pool from "../../database/config/db.js";
 import { decrypt } from '../../middleware/decryption.js';
 

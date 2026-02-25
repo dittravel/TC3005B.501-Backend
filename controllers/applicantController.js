@@ -1,4 +1,4 @@
-/*
+/**
  * Applicant Controller
  * 
  * This module handles business logic and operations for the "Solicitante" role.
@@ -315,7 +315,6 @@ export const deleteReceipt = async (req, res) => {
     return res.status(500).json({ error: "Internal server error" });
   }
 };
-
 
 export default {
   getApplicantById,

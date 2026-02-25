@@ -1,9 +1,9 @@
-/*
-* Accounts Payable Routes
-*
-* This module defines the routes and role-based access control
-* for the "Cuentas por pagar" functionalities
-*/
+/**
+ * Accounts Payable Routes
+ * 
+ * This module defines the routes and role-based access control
+ * for the "Cuentas por pagar" functionalities
+ */
 
 import express from "express";
 import { validateId, validateInputs } from "../middleware/validation.js";

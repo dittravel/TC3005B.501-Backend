@@ -1,4 +1,4 @@
-/*
+/**
  * Rate Limiting Middleware
  * 
  * This module provides rate limiting middleware to protect against
@@ -21,5 +21,3 @@ export var loginRateLimiter = RateLimit({
     max: 5, // Limit each IP to 5 login attempts per windowMs
     message: 'Too many login attempts from this IP, please try again after a minute',
 });
-
-

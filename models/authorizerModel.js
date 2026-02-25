@@ -1,39 +1,56 @@
-/*
-Authorizer Model
-*/
+/**
+ * Authorizer Model
+ * 
+ * This model provides functions for authorizers to manage travel requests,
+ * including retrieving alerts, getting user roles, authorizing or declining
+ * travel requests.
+ */
+
 import pool from '../database/config/db.js';
 
 const Authorizer = {
   async getAlerts(id, status_id, n) {
-      let conn;
-const query =  `
-        SELECT Alert.alert_id, User.user_name, Alert.request_id, AlertMessage.message_text, DATE(Alert.alert_date) AS alert_date, TIME(Alert.alert_date) AS alert_time
-        FROM Alert
-        INNER JOIN Request ON Alert.request_id = Request.request_id
-        INNER JOIN User ON Request.user_id = User.user_id
-        INNER JOIN Request_status ON Request.request_status_id = Request_status.request_status_id
-        INNER JOIN AlertMessage ON Alert.message_id = AlertMessage.message_id
-        WHERE User.department_id = ? AND Request_status.request_status_id = ?
-        ${n == 0 ? 'ORDER BY alert_date DESC;' : 'ORDER BY alert_date DESC LIMIT ?;'}`;
-      try {
-        conn = await pool.getConnection();
-        const rows = await conn.query(query, [id, status_id, n]);
-        return rows;
-      } catch (error) {
-        console.error("Error getting completed requests:", error);
-        throw error;
-      } finally {
-        if (conn) {
-          conn.release();
-        }
+    let conn;
+    const query = `
+      SELECT 
+        Alert.alert_id,
+        User.user_name,
+        Alert.request_id,
+        AlertMessage.message_text,
+        DATE(Alert.alert_date) AS alert_date,
+        TIME(Alert.alert_date) AS alert_time
+      FROM Alert
+      INNER JOIN Request ON Alert.request_id = Request.request_id
+      INNER JOIN User ON Request.user_id = User.user_id
+      INNER JOIN Request_status ON Request.request_status_id = Request_status.request_status_id
+      INNER JOIN AlertMessage ON Alert.message_id = AlertMessage.message_id
+      WHERE User.department_id = ? AND Request_status.request_status_id = ?
+      ${n == 0 ? 'ORDER BY alert_date DESC;' : 'ORDER BY alert_date DESC LIMIT ?;'}
+    `;
+
+    try {
+      conn = await pool.getConnection();
+      const rows = await conn.query(query, [id, status_id, n]);
+      return rows;
+
+    } catch (error) {
+      console.error("Error getting completed requests:", error);
+      throw error;
+
+    } finally {
+      if (conn) {
+        conn.release();
       }
-    },
-    
-    async getUserRole(user_id) {
-      let conn;
-      const query = `
-        SELECT role_id FROM User WHERE user_id = ?
-      `;
+    }
+  },
+  
+  // Get user role by user ID
+  async getUserRole(user_id) {
+    let conn;
+    const query = `
+      SELECT role_id FROM User WHERE user_id = ?
+    `;
+
     try {
       conn = await pool.getConnection();
       const rows = await conn.query(query, [user_id]);
@@ -42,51 +59,58 @@ const query =  `
       } else {
         return null;
       }
+
     } catch (error) {
       console.error('Error getting user role:', error);
       throw error;
+
     } finally {
       if (conn) conn.release();
     }
   },
-
+  
   async authorizeTravelRequest(request_id, status_id) {
     let conn;
     const query = `
-            UPDATE Request
-            SET request_status_id = ?
-            WHERE request_id = ?
-        `;
+      UPDATE Request
+      SET request_status_id = ?
+      WHERE request_id = ?
+    `;
+
     try {
       conn = await pool.getConnection();
       const rows = await conn.query(query, [status_id, request_id]);
       return rows;
+
     } catch (error) {
       console.error('Error getting completed requests:', error);
       throw error;
+
     } finally {
       if (conn) {
         conn.release();
       }
     }
   },
-
+  
+  // Decline a travel request
   async declineTravelRequest(request_id) {
     let conn;
     const query = `
-            UPDATE Request
-            SET request_status_id = 10
-            WHERE request_id = ?
-        `;
+      UPDATE Request
+      SET request_status_id = 10
+      WHERE request_id = ?
+    `;
+
     try {
       conn = await pool.getConnection();
-
       const rows = await conn.query(query, [request_id]);
-
       return true;
+
     } catch (error) {
       console.error('Error getting completed requests:', error);
       throw error;
+      
     } finally {
       if (conn) {
         conn.release();

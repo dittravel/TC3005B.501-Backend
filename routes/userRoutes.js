@@ -1,13 +1,13 @@
-/*
-* User Routes
-* 
-* This module defines the routes for user-related operations in the travel request system.
-* It includes routes for user authentication (login/logout), retrieving user data, 
-* and fetching travel requests and wallet information for users.
-* 
-* Role-based access control is implemented to ensure that only 
-* authorized users can access specific routes.
-*/
+/**
+ * User Routes
+ * 
+ * This module defines the routes for user-related operations in the travel request system.
+ * It includes routes for user authentication (login/logout), retrieving user data, 
+ * and fetching travel requests and wallet information for users.
+ * 
+ * Role-based access control is implemented to ensure that only 
+ * authorized users can access specific routes.
+ */
 
 import express from 'express';
 import * as userController from '../controllers/userController.js';

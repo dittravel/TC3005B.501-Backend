@@ -1,4 +1,4 @@
-/*
+/**
  * File Controller
  * 
  * This module handles file operations and business logic for document management

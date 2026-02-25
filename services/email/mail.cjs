@@ -7,6 +7,7 @@
 require('dotenv').config();
 const nodemailer = require("nodemailer");
 
+// Configure the email transporter using Gmail SMTP
 const transporter = nodemailer.createTransport({
   host: "smtp.gmail.com",
   port: 465,
@@ -46,7 +47,7 @@ const sendMail = async (email, username, requestId, status) => {
     <table width="100%" cellspacing="0" cellpadding="0" style="margin-bottom: 20px;">
       <tr>
         <td style="width: 100px; vertical-align: middle;">
-          <img src="https://res.cloudinary.com/dw3ipwzwz/image/upload/v1749059816/Logo101Cocons%C3%BClting_p04mhi.png" alt="Logo del portal" style="max-width: 70px; height: auto;">
+          <img src="https://raw.githubusercontent.com/dittravel/.github/refs/heads/main/profile/logo_dittravel_color.png" alt="Logo del portal" style="max-width: 70px; height: auto;">
         </td>
         <td style="text-align: left; vertical-align: middle;">
           <h2 style=" margin: 0;">Actualización de tu solicitud de viaje</h2>
@@ -72,8 +73,9 @@ const sendMail = async (email, username, requestId, status) => {
   };
   
   try {
-    const info = await transporter.sendMail(mailOptions);
     // Email sent successfully
+    const info = await transporter.sendMail(mailOptions);
+    
   } catch (error) {
     throw new Error("Error sending email");
   }

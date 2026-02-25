@@ -1,9 +1,9 @@
-/*
-* Admin Routes
-*
-* This module defines the routes and role-based access control
-* for the "Administrador" functionalities
-*/
+/**
+ * Admin Routes
+ * 
+ * This module defines the routes and role-based access control
+ * for the "Administrador" functionalities
+ */
 
 import express from "express";
 import multer from "multer";

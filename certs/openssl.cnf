@@ -1,0 +1,15 @@
+[ req ]
+default_bits       = 4096
+prompt             = no
+default_md         = sha256
+distinguished_name = req_distinguished_name
+
+[ req_distinguished_name ]
+C  = MX
+ST = MexicoCity
+L  = MexicoCity
+O  = 101Cocounsulting
+OU = Backend
+CN = localhost
+emailAddress = dittravel@tec.mx
+
