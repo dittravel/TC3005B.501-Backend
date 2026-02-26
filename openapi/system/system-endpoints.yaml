@@ -1,0 +1,58 @@
+paths:
+  /health:
+    get:
+      summary: Get backend health status and metadata
+      tags:
+        - System
+      operationId: getSystemHealth
+      responses:
+        "200":
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  uptime_seconds:
+                    type: number
+                    format: float
+                  service:
+                    type: string
+                  version:
+                    type: string
+                  timestamp:
+                    type: string
+                    format: date-time
+              example:
+                status: "ok"
+                uptime_seconds: 31.46
+                service: "tc3005b-501-backend"
+                version: "0.1.0"
+                timestamp: "2026-02-26T23:00:00.000Z"
+  /version:
+    get:
+      summary: Get backend version metadata
+      tags:
+        - System
+      operationId: getSystemVersion
+      responses:
+        "200":
+          description: Service version metadata
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  service:
+                    type: string
+                  version:
+                    type: string
+                  timestamp:
+                    type: string
+                    format: date-time
+              example:
+                service: "tc3005b-501-backend"
+                version: "0.1.0"
+                timestamp: "2026-02-26T23:00:00.000Z"
