@@ -11,5 +11,6 @@ They delegate the business logic to controllers.
 - `applicantRoutes.js`: Routes for applicant-related operations, such as submitting and managing travel requests.
 - `authorizerRoutes.js`: Routes for authorizer operations, including approving or rejecting travel requests.
 - `fileRoutes.js`: Routes for file upload and download functionalities.
+- `systemRoutes.js`: Routes for system-level health and version metadata checks.
 - `travelAgentRoutes.js`: Routes for travel agent functionalities, such as managing travel itineraries and bookings.
 - `userRoutes.js`: Routes for general user management, including authentication and profile information.
