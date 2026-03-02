@@ -197,3 +197,22 @@ npm run dev
 ```
 
 And you're good to go! `nodemon` should start and you should be able to start sending requests to your specified `PORT` on `localhost` as well as a confirmation message of connection to the file database!
+
+### System Endpoints
+
+The backend exposes operational endpoints under `/api/system` that do not require authentication:
+
+- `GET /api/system/health`: Returns service health status, uptime, and metadata.
+- `GET /api/system/version`: Returns service version metadata.
+
+Example health response:
+
+```json
+{
+  "status": "ok",
+  "uptime_seconds": 31.46,
+  "service": "tc3005b-501-backend",
+  "version": "0.1.0",
+  "timestamp": "2026-02-26T23:00:00.000Z"
+}
+```

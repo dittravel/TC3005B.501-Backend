@@ -51,3 +51,8 @@ This directory contains all the controllers for the travel management API. Contr
 - `uploadReceiptFilesController()` - Upload PDF and XML receipt files with sanitization
 - `getReceiptFileController()` - Retrieve stored receipt files from MongoDB GridFS
 - `getReceiptFilesMetadataController()` - Access file metadata and storage information
+
+### systemController.js
+**System health and runtime metadata**
+- `getHealth()` - Returns backend health status, uptime, and metadata
+- `getVersion()` - Returns backend version metadata
