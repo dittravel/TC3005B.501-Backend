@@ -1,4 +1,4 @@
-# ARCHIVED-REPOSITORY: TC3005B.501-Backend
+# TC3005B.501-Backend
 
 API and Database for the conection and the functioning of the trip management system portal developed in course TC3005B by group 501.
 
@@ -140,11 +140,13 @@ In order to properly setup MariaDB, the following steps are required:
         ```
 
 ### Setup MongoDB
+
 1. [Download `mongodb`](https://www.mongodb.com/docs/manual/installation/) using your preferred method or package manager.
 2. [Download `mongosh`](https://www.mongodb.com/try/download/shell) if you want to interact with the database directly (recommended).
 3. Test that mongo was installed correctly by running the `mongod` or `mongosh` command. `mongod` will usually return error codes since no connection is currently made to then database.
 4. Verify that mongo is running using ` systemctl status mongod `
 5. If the status appears as inactive, use the command ` systemctl start mongod `
+
 ### Environment Variables
 
 Finally, it is crucial that a local `.env` file is created. Based off of the [`.env.example`](/.env.example) file provided, which includes all necessary environment variables to be set in order for the server to be able to connect to the `mariadb` database, as well as the required JSON Web Token(JWT) information required for verifying authorized requests and encryption.
@@ -160,25 +162,51 @@ Finally, it is crucial that a local `.env` file is created. Based off of the [`.
     PORT=3000
     NODE_ENV=development
 
-    # Database Configuration
+    # Database Configuration  
     DB_HOST=localhost
-    DB_PORT=27017
-    DB_NAME=travel_management  # Change this
-    DB_USER=username  # Change this
-    DB_PASSWORD=password  # Change this
-
-    # JWT Configuration
-    JWT_SECRET=your_jwt_secret_key  # Change this
-    JWT_EXPIRES_IN=1d
+    DB_PORT=3306
+    DB_NAME=CocoScheme
+    DB_USER=travel_user
+    DB_PASSWORD=supersecret
 
     # API Keys (if needed)
     # API_KEY=your_api_key
 
     # Other Configuration
-    # CORS_ORIGIN=http://localhost:3000
-
+    # CORS_ORIGIN=https://localhost:3000
     MONGO_URI=mongodb://localhost:27017
+
+    # Keys to be replaced with the keys uploaded to the sharepoint
+    # For the time-being feel free to add any string with that length
+    AES_SECRET_KEY=your_aes_secret_key_here_32_chars
+    AES_IV=your_aes_iv_here_16_chars
+    JWT_SECRET=your_jwt_secret_key_here
+
+    # Please check the sharepoint folder certificates
+    # and environment files for the real user and password
+    MAIL_USER=test.mail@outlook.com
+    MAIL_PASSWORD=password
     ```
+
+## Email Configuration
+
+This system utilizes gmail's SMTP server to send emails. In order to properly configure the email service, the following steps are required:
+
+1. Create a new email account that will be used to send the emails from the system.
+
+2. Enable 2-factor authentication for the email account.
+
+3. Create an app password for the email account:
+
+    - Go to https://myaccount.google.com/apppasswords and sign in with the email account you created in step 1.
+
+    - Create a new app password by entering a name for the app (e.g., "my-app") and copy the generated password.
+
+4. Update the environment variables as follows:
+
+    - Set `MAIL_USER` to the email address of the account you created.
+
+    - Set `MAIL_PASSWORD` to the app password you generated in step 3.
 
 ### Running
 
