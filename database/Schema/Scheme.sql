@@ -160,9 +160,11 @@ CREATE TABLE IF NOT EXISTS Receipt (
     receipt_id INT PRIMARY KEY AUTO_INCREMENT,
     receipt_type_id INT,                     -- Type of expense
     request_id INT,                          -- Related travel request
+    route_id INT,                            -- Related route segment
 
     validation ENUM('Pendiente', 'Aprobado', 'Rechazado') DEFAULT 'Pendiente',
     amount FLOAT NOT NULL,                   -- Receipt amount
+    currency VARCHAR(6) NULL,            -- Currency code (e.g., MXN, USD)
     refund BOOL DEFAULT TRUE,                -- Eligible for reimbursement
 
     submission_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -174,7 +176,7 @@ CREATE TABLE IF NOT EXISTS Receipt (
     xml_file_name VARCHAR(255) NULL,         -- Original XML filename
 
     -- CFDI fields from XML parsing
-    xml_uuid VARCHAR(36) UNIQUE NOT NULL,
+    xml_uuid VARCHAR(36) UNIQUE NULL,
     xml_rfc_emisor VARCHAR(13),
     xml_rfc_receptor VARCHAR(13),
     xml_nombre_emisor VARCHAR(255),
@@ -185,5 +187,6 @@ CREATE TABLE IF NOT EXISTS Receipt (
     xml_moneda VARCHAR(6),
 
     FOREIGN KEY (receipt_type_id) REFERENCES Receipt_Type(receipt_type_id),
-    FOREIGN KEY (request_id) REFERENCES Request(request_id)
+    FOREIGN KEY (request_id) REFERENCES Request(request_id),
+    FOREIGN KEY (route_id) REFERENCES Route(route_id)
 );

@@ -157,8 +157,10 @@ const AccountsPayable = {
         SELECT
           r.receipt_id,
           r.request_id,
+          r.route_id,
           r.validation,
           r.amount,
+          r.currency,
           rt.receipt_type_name,
           r.pdf_file_id,
           r.pdf_file_name,
@@ -199,9 +201,11 @@ const AccountsPayable = {
         status: expense_status,
         Expenses: rows.map(row => ({
           receipt_id: row.receipt_id,
+          route_id: row.route_id,
           receipt_type_name: row.receipt_type_name,
-          amount: row.amount, // Now including the amount field
-          validation: row.validation, // We use the validation as Expense_Status
+          amount: row.amount,
+          currency: row.currency,
+          validation: row.validation,
           pdf_id: row.pdf_file_id,
           pdf_name: row.pdf_file_name,
           xml_id: row.xml_file_id,

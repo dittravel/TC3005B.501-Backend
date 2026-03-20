@@ -89,6 +89,7 @@ export const getApplicantRequest = async (req, res) => {
       },
       // Map all rows to create routes array (each row represents one route)
       routes: requestData.map((row) => ({
+        route_id: row.route_id,
         router_index: row.router_index,
         origin_country: row.origin_country,
         origin_city: row.origin_city,

@@ -544,7 +544,8 @@ const Applicant = {
         ci1.city_name AS origin_city,
         co2.country_name AS destination_country,
         ci2.city_name AS destination_city,
-    
+
+        ro.route_id,
         ro.router_index,
         ro.beginning_date,
         ro.beginning_time,
@@ -595,9 +596,9 @@ const Applicant = {
       
       for (const r of receipts) {
         const result = await conn.query(
-          `INSERT INTO Receipt (receipt_type_id, request_id, amount)
-                VALUES (?, ?, ?)`,
-          [r.receipt_type_id, r.request_id, r.amount]
+          `INSERT INTO Receipt (receipt_type_id, request_id, route_id, amount, currency)
+                VALUES (?, ?, ?, ?, ?)`,
+          [r.receipt_type_id, r.request_id, r.route_id, r.amount, r.currency || 'MXN']
         );
         insertedRows.push(result);
       }
