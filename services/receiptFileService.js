@@ -18,6 +18,9 @@ import { ObjectId } from 'mongodb';
 import { uploadFile, getFile, db, bucket } from './fileStorage.js';
 import pool from "../database/config/db.js";
 
+// XML parsing functions
+import { parseXmlData, extractXmlData } from './xmlParserService.js';
+
 // Upload both PDF and XML files for a receipt
 export async function uploadReceiptFiles(receiptId, pdfFile, xmlFile) {
   try {
@@ -37,24 +40,48 @@ export async function uploadReceiptFiles(receiptId, pdfFile, xmlFile) {
       { receiptId, fileType: 'xml' }
     );
 
+    // Parse CFDI data from XML file
+    let cfdiData = {};
+    try {
+      // Convert XML buffer to string
+      const xmlString = xmlFile.buffer.toString('utf8');
+      const parsedXml = await parseXmlData(xmlString);
+      cfdiData = extractXmlData(parsedXml);
+    } catch (err) {
+      console.warn('Error parsing XML file:', err);
+    }
+
     // Update the receipt record with both file IDs
     const conn = await pool.getConnection();
     try {
       await conn.query(
         `UPDATE Receipt
          SET pdf_file_id = ?, pdf_file_name = ?,
-             xml_file_id = ?, xml_file_name = ?
+            xml_file_id = ?, xml_file_name = ?,
+            xml_uuid = ?, xml_rfc_emisor = ?, xml_rfc_receptor = ?,
+            xml_nombre_emisor = ?, xml_fecha = ?, xml_total = ?, 
+            xml_subtotal = ?, xml_impuestos = ?, xml_moneda = ?
          WHERE receipt_id = ?`,
         [
           pdfResult.fileId, pdfResult.fileName,
           xmlResult.fileId, xmlResult.fileName,
+          cfdiData.uuid || null,
+          cfdiData.rfcEmisor || null,
+          cfdiData.rfcReceptor || null,
+          cfdiData.nombreEmisor || null,
+          cfdiData.fecha || null,
+          cfdiData.total || null,
+          cfdiData.subtotal || null,
+          cfdiData.impuestos || null,
+          cfdiData.moneda || null,
           receiptId
         ]
       );
 
       return {
         pdf: pdfResult,
-        xml: xmlResult
+        xml: xmlResult,
+        cfdiData: cfdiData
       };
     } finally {
       conn.release();

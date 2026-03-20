@@ -1,9 +1,28 @@
-# Changelog 🥥
+# Changelog :clipboard:
 
 All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),  
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [0.5.0] - 2025-03-19: XML Parsing
+
+### Added
+
+- XML Parsing of receipts (`services/xmlParserService.js`)
+- Added fields to the Receipts table to store XML data (`database/Schema/Scheme.sql`)
+- Auto-parse XML on file upload, save to database (`routes/fileRoutes.js` and `controllers/fileController.js`)
+- Endpoint to parse XML files for preview in the frontend before uploading (`routes/fileRoutes.js`)
+
+### Changed 
+
+- `receiptFileService.uploadReceiptFiles()` now extracts and stores CFDI data
+
+- Upload response includes `cfdiData` object with extracted fields
+
+### New Dependencies
+
+- `xml2js` for XML parsing
 
 ## [0.4.0] - 2025-06-12: Login + Configuration
 

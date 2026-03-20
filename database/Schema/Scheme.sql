@@ -173,6 +173,17 @@ CREATE TABLE IF NOT EXISTS Receipt (
     xml_file_id VARCHAR(24) NULL,            -- MongoDB file ID for XML receipt
     xml_file_name VARCHAR(255) NULL,         -- Original XML filename
 
+    -- CFDI fields from XML parsing
+    xml_uuid VARCHAR(36) UNIQUE NOT NULL,
+    xml_rfc_emisor VARCHAR(13),
+    xml_rfc_receptor VARCHAR(13),
+    xml_nombre_emisor VARCHAR(255),
+    xml_fecha DATETIME,
+    xml_total DECIMAL(15,2),
+    xml_subtotal DECIMAL(15,2),
+    xml_impuestos DECIMAL(15,2),
+    xml_moneda VARCHAR(6),
+
     FOREIGN KEY (receipt_type_id) REFERENCES Receipt_Type(receipt_type_id),
     FOREIGN KEY (request_id) REFERENCES Request(request_id)
 );
