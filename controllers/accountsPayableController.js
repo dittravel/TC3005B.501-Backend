@@ -31,15 +31,10 @@ const attendTravelRequest = async (req, res) => {
     const current_status = request.request_status_id;
     
     // Validate if this request can be attended by accounts payable
+    // Status 4 (Cotización del Viaje) -> Status 6 (Comprobación)
+    // At this point, if travel services were needed, they've already been handled by Travel Agent
     if (current_status == 4){
-      var new_status = 6;
-      const hotel = request.hotel_needed_list;
-      const plane = request.plane_needed_list;
-      
-      // If a hotel or plane is needed, send request to Travel Agency
-      if (hotel.includes(1) || plane.includes(1)){
-        new_status = 5;
-      }
+      const new_status = 6;  // Always go to status 6 (receipts/comprobantes)
       
       const updated = await AccountsPayable.attendTravelRequest(requestId, imposedFee, new_status);
       

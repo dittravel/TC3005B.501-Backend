@@ -33,9 +33,9 @@ router.route("/logout")
 router.route('/get-travel-request/:request_id')
   .get(generalRateLimiter, authenticateToken, authorizeRole(['Solicitante', 'N1', 'N2', 'Cuentas por pagar', 'Agencia de viajes']), validateId, validateInputs, userController.getTravelRequestById);
 
-// Get travel requests by department ID and status ID, with optional limit
-router.route('/get-travel-requests/:dept_id/:status_id/:n?')
-  .get(generalRateLimiter, authenticateToken, authorizeRole(['Solicitante', 'N1', 'N2', 'Cuentas por pagar', 'Agencia de viajes']), validateDeptStatus, validateInputs, userController.getTravelRequestsByDeptStatus);
+// Get travel requests assigned to user by status ID, with optional limit
+router.route('/get-travel-requests/:user_id/:status_id/:n?')
+  .get(generalRateLimiter, authenticateToken, authorizeRole(['Solicitante', 'N1', 'N2', 'Cuentas por pagar', 'Agencia de viajes']), validateDeptStatus, validateInputs, userController.getTravelRequestsByUserStatus);
 
 // Get user wallet information by user ID
 router.route('/get-user-wallet/:user_id?')

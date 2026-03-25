@@ -38,6 +38,7 @@ const Admin = {
       const values = users.map(user => [
         user.role_id,
         user.department_id,
+        user.boss_id || null,
         user.user_name,
         user.password,
         user.workstation,
@@ -49,13 +50,14 @@ const Admin = {
         INSERT INTO User (
           role_id,
           department_id,
+          boss_id,
           user_name,
           password,
           workstation,
           email,
           phone_number
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
       `;
       
       try {

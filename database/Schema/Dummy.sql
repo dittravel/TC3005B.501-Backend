@@ -185,7 +185,7 @@ INSERT INTO City (city_name) VALUES
 -- plane_needed/hotel_needed: Boolean flags for service requirements
 -- Includes both domestic (within Mexico) and international routes
 
-INSERT INTO `Route` (id_origin_country, id_origin_city, id_destination_country, id_destination_city, router_index,
+INSERT INTO Route (id_origin_country, id_origin_city, id_destination_country, id_destination_city, router_index,
                      plane_needed, hotel_needed, beginning_date, beginning_time, ending_date, ending_time) VALUES
   -- Domestic routes (Mexico)
   (1, 1, 1, 2, 0, TRUE, FALSE, '2025-05-01', '08:00:00', '2025-05-01', '11:00:00'),

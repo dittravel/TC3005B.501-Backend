@@ -21,4 +21,8 @@ router.use((req, res, next) => {
 router.route("/attend-travel-request/:request_id")
   .put(generalRateLimiter, authenticateToken, authorizeRole(['Agencia de viajes']), validateId, validateInputs, travelAgentController.attendTravelRequest);
 
+// Complete service assignment and route to Accounts Payable for quoting
+router.route("/complete-service-assignment/:request_id")
+  .put(generalRateLimiter, authenticateToken, authorizeRole(['Agencia de viajes']), validateId, validateInputs, travelAgentController.completeServiceAssignment);
+
 export default router;

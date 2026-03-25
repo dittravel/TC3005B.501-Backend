@@ -11,6 +11,12 @@ import { validateId, validateTravelRequest, validateExpenseReceipts, validateInp
 import { authenticateToken, authorizeRole } from "../middleware/auth.js";
 import { generalRateLimiter } from "../middleware/rateLimiters.js";
 
+// Import multer for file uploads
+// Ref: https://www.npmjs.com/package/multer
+// It adds a files property to the request object, which contains the uploaded files
+import multer from 'multer';
+const upload = multer();
+
 const router = express.Router();
 
 router.use((req, res, next) => {
@@ -68,5 +74,30 @@ router.route("/send-expense-validation/:request_id")
 // Delete a receipt by receipt ID
 router.route("/delete-receipt/:receipt_id")
   .delete(generalRateLimiter, authenticateToken, authorizeRole(['Solicitante', 'N1', 'N2']), validateId, validateInputs, applicantController.deleteReceipt);
+
+// Get a specific receipt by receipt ID
+router.route("/get-receipt/:receipt_id")
+  .get(generalRateLimiter, authenticateToken, authorizeRole(['Solicitante', 'N1', 'N2']), validateId, validateInputs, applicantController.getReceipt);
+
+// Update receipt details by receipt ID
+router.route("/update-receipt/:receipt_id")
+  .put(generalRateLimiter, authenticateToken, authorizeRole(['Solicitante', 'N1', 'N2']), validateId, validateInputs, applicantController.updateReceipt);
+
+// Update a travel request status by request ID and status ID
+router.route("/update-request-status/:request_id/:status_id")
+  .put(generalRateLimiter, authenticateToken, authorizeRole(['Solicitante', 'N1', 'N2']), validateId, validateInputs, applicantController.updateRequestStatus);
+
+// Create expense validation with files
+router.route("/create-expense-with-files")
+  .post(
+    generalRateLimiter,
+    authenticateToken,
+    authorizeRole(['Solicitante', 'N1', 'N2']),
+    upload.fields([
+      { name: "pdf", maxCount: 1 }, // Allow one single file
+      { name: "xml", maxCount: 1 }
+    ]),
+    applicantController.createExpenseWithFilesHandler
+  );
 
 export default router;
