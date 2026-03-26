@@ -43,6 +43,11 @@ async function connectMongo() {
 
 // Upload a file to GridFS
 async function uploadFile(fileBuffer, fileName, fileType, metadata = {}) {
+  // Verify MongoDB connection and bucket
+  if (!bucket) {
+    throw new Error('MongoDB bucket not initialized');
+  }
+
   // Sanitize file name and metadata
   const sanitizedFileName = sanitize(fileName);
   const sanitizedFileType = sanitize(fileType);

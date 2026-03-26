@@ -2,30 +2,42 @@
  * Authorizer Controller
  * 
  * This module handles business logic and approval workflows for travel requests
- * by managers and department heads (N1/N2 authorization levels). It manages
- * the review, approval, and rejection processes for travel requests within
- * the organizational hierarchy.
+ * in a hierarchical authorization system. Users can authorize requests assigned
+ * to them through the boss_id chain.
  * 
- * Role-based access control ensures only authorized managers can access
- * and approve travel requests for their respective departments and subordinates.
+ * Authorization control is based on assigned_to matching, not on role.
+ * Any user can be an authorizer if a request is assigned to them.
  */
 import Authorizer from "../models/authorizerModel.js";
 import authorizerServices from "../services/authorizerService.js";
 import { sendMail } from "../services/email/mail.cjs";
 import mailData from "../services/email/mailData.js"
 
-// Get pending travel requests alerts for department
-const getAlerts = async (req, res) => {
-  // Parse and convert URL parameters to numbers
-  const id = Number(req.params.dept_id);
-  const status = Number(req.params.status_id);
-  const n = Number(req.params.n);
+// Get pending requests assigned to user
+const getPendingRequests = async (req, res) => {
+  const user_id = Number(req.params.user_id);
+  const limit = Number(req.params.n) || 0;
+  
   try {
-    const userRequest = await Authorizer.getAlerts(id, status, n);
-    if (!userRequest) {
-      return res.status(404).json({ error: "Not found" });
+    const pendingRequests = await Authorizer.getPendingRequests(user_id, limit);
+    if (!pendingRequests || pendingRequests.length === 0) {
+      return res.status(200).json([]);
     }
-    return res.status(200).json(userRequest);
+    return res.status(200).json(pendingRequests);
+  } catch (error) {
+    console.error("Error fetching pending requests:", error);
+    return res.status(400).json({ error: "Bad Request" });
+  }
+}
+
+// Get alerts for user
+const getAlerts = async (req, res) => {
+  const user_id = Number(req.params.user_id);
+  const limit = Number(req.params.n) || 0;
+  
+  try {
+    const alerts = await Authorizer.getAlerts(user_id, null, limit);
+    return res.status(200).json(alerts);
   } catch (error) {
     return res.status(400).json({ error: "Bad Request" });
   }
@@ -77,6 +89,7 @@ const declineTravelRequest = async (req, res) => {
 };
 
 export default {
+  getPendingRequests,
   getAlerts,
   authorizeTravelRequest,
   declineTravelRequest,

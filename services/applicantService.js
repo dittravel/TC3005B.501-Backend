@@ -138,10 +138,11 @@ export async function createExpenseValidationBatch(receipts) {
     if (
       typeof r.receipt_type_id !== "number" ||
       typeof r.request_id !== "number" ||
+      typeof r.route_id !== "number" ||
       typeof r.amount !== "number"
     ) {
       const err = new Error(
-        'Each receipt must include "receipt_type_id", "request_id", and "amount" (all as numbers)'
+        'Each receipt must include "receipt_type_id", "request_id", "route_id", and "amount" (all as numbers)'
       );
       err.code = "BAD_REQUEST";
       throw err;

@@ -9,7 +9,7 @@
         "dev": "nodemon index.js",
         "dummy_db": "node ./database/config/dev_db.js dev",
         "empty_db": "node ./database/config/dev_db.js prod",
-        "test": "echo \"Error: no test specified\" && exit 1"
+        "test": "echo \"No test specified\""
     },
     "repository": {
         "type": "git",
@@ -37,7 +37,8 @@
         "mongo-sanitize": "^1.1.0",
         "mongodb": "^5.0.0",
         "multer": "^2.0.1",
-        "nodemailer": "^7.0.3"
+        "nodemailer": "^7.0.3",
+        "xml2js": "^0.6.2"
     },
     "devDependencies": {
         "nodemon": "^3.0.1"

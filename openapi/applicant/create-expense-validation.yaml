@@ -20,6 +20,7 @@ paths:
                     required:
                       - receipt_type_id
                       - request_id
+                      - route_id
                       - amount
                     properties:
                       receipt_type_id:
@@ -27,6 +28,10 @@ paths:
                         description: ID of the receipt type (e.g., 1 for Comida, 2 for Vuelo)
                       request_id:
                         type: integer
+                        description: ID of the associated request
+                      route_id:
+                        type: integer
+                        description: ID of the associated route
                       amount:
                         type: number
                         format: float
@@ -34,9 +39,11 @@ paths:
                 receipts:
                   - receipt_type_id: 1
                     request_id: 12312369
+                    route_id: 5
                     amount: 1250.00
                   - receipt_type_id: 3
                     request_id: 12312369
+                    route_id: 6
                     amount: 450.50
       responses:
         "201":

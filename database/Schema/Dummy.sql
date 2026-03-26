@@ -131,12 +131,6 @@ INSERT INTO City (city_name) VALUES
   ('Monterrey'),
   ('Cancún'),
   ('Mérida'),
--- Mexican Cities
-  ('CDMX'),
-  ('Guadalajara'),
-  ('Monterrey'),
-  ('Cancún'),
-  ('Mérida'),
 -- US Cities
   ('Nueva York'),
   ('Los Ángeles'),
@@ -191,7 +185,7 @@ INSERT INTO City (city_name) VALUES
 -- plane_needed/hotel_needed: Boolean flags for service requirements
 -- Includes both domestic (within Mexico) and international routes
 
-INSERT INTO `Route` (id_origin_country, id_origin_city, id_destination_country, id_destination_city, router_index,
+INSERT INTO Route (id_origin_country, id_origin_city, id_destination_country, id_destination_city, router_index,
                      plane_needed, hotel_needed, beginning_date, beginning_time, ending_date, ending_time) VALUES
   -- Domestic routes (Mexico)
   (1, 1, 1, 2, 0, TRUE, FALSE, '2025-05-01', '08:00:00', '2025-05-01', '11:00:00'),
@@ -308,9 +302,9 @@ INSERT INTO Route_Request (request_id, route_id) VALUES
   (27, 27),
   (28, 28),
   (29, 29),
-  (30, 30)   -- Request 2 has multi-segment route (segments 62, 63, 64)
-  (3, 63),   -- Request 3 has multi-segment route
-  (3, 64);   -- Request 3, segment 3
+  (30, 30),
+  (3, 63),
+  (3, 64);
 
 -- ============================================================================
 -- Receipt Test Data
@@ -344,36 +338,6 @@ INSERT INTO Receipt (receipt_type_id, request_id, validation, amount, validation
   (5, 27, 'Rechazado', 498.75, '2025-04-23 18:30:00'),
   (5, 37, 'Rechazado', 3940.99, '2006-02-08 15:59:45'),
   (2, 38, 'Rechazado', 3312.77, NULL),
-  (4, 47, 'Rechazado', 1801.23, '2020-03-18 16:15:24
-  (56, 56),
-  (57, 57),
-  (58, 58),
-  (59, 59),
-  (60, 60),
-  (61, 61),
-  (2, 62),
-  (3, 63),
-  (3, 64);
-
-
-INSERT INTO Receipt (receipt_type_id, request_id, validation, amount, validation_date) VALUES
-  (4, 7, 'Pendiente', 300.00, '2025-04-19 09:00:00'),
-  (2, 7, 'Aprobado', 300.00, '2025-04-19 09:03:00'),
-  (3, 8, 'Rechazado', 1000.00, '2025-04-19 18:00:00'),
-  (7, 8, 'Pendiente', 600.00, '2025-04-19 18:00:59'),
-  (2, 17, 'Aprobado', 4550.25, '2025-03-21 10:00:00'),
-  (3, 17, 'Rechazado', 1905.30, '2025-04-22 12:00:00'),
-  (6, 18, 'Pendiente', 2290.55, '2003-04-19 10:06:43'),
-  (2, 18, 'Aprobado', 3035.10, '2025-02-23 16:00:00'),
-  (5, 27, 'Rechazado', 498.75, '2025-04-23 18:30:00'),
-  (1, 27, 'Pendiente', 4100.00, '2025-06-19 20:17:24'),
-  (3, 28, 'Aprobado', 1722.80, NULL),
-  (6, 28, 'Pendiente', 2788.65, '2003-07-31 06:35:24'),
-  (5, 37, 'Rechazado', 3940.99, '2006-02-08 15:59:45'),
-  (7, 37, 'Aprobado', 2165.44, '2036-07-17 16:50:33'),
-  (1, 38, 'Pendiente', 1560.10, '2036-08-31 23:59:59'),
-  (2, 38, 'Rechazado', 3312.77, NULL),
-  (6, 47, 'Pendiente', 420.89, '2025-05-02 14:15:48'),
   (4, 47, 'Rechazado', 1801.23, '2020-03-18 16:15:24'),
   (3, 48, 'Pendiente', 2475.00, NULL),
   (5, 48, 'Aprobado', 3500.60, '2024-09-15 11:42:31');

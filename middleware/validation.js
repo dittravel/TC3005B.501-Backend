@@ -40,10 +40,10 @@ export const validateId = [
 
 // Validate department, status ID and pagination parameters
 export const validateDeptStatus = [
-  param('dept_id')
+  param('user_id')
     .isInt()
     .toInt()
-    .withMessage('Department cannot be empty.'),
+    .withMessage('User ID cannot be empty.'),
   param('status_id')
     .isInt()
     .toInt()
@@ -243,10 +243,19 @@ export const validateExpenseReceipts = [
     .isInt({ min: 0 })
     .toInt()
     .withMessage('Request ID must be a valid number'),
+  body('receipts.*.route_id')
+    .isInt({ min: 0 })
+    .toInt()
+    .withMessage('Route ID must be a valid number'),
   body('receipts.*.amount')
     .isFloat({ min: 0 })
     .toFloat()
     .withMessage('Amounts needs to be a valid number'),
+  body('receipts.*.currency')
+    .isString()
+    .trim()
+    .isLength({ min: 1, max: 6 })
+    .withMessage('Currency must be a valid currency code (e.g., MXN, USD)'),
 ];
 
 // Validate draft travel request parameters

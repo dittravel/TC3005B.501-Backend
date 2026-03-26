@@ -8,6 +8,7 @@
  * Role-based access control ensures users can only access files related
  * to their own travel requests or those they are authorized to review.
  */
+
 import { ObjectId } from 'mongodb';
 import sanitize from 'mongo-sanitize';
 import { uploadReceiptFiles, getReceiptFile, getReceiptFilesMetadata } from '../services/receiptFileService.js';
@@ -48,7 +49,8 @@ export const uploadReceiptFilesController = async (req, res) => {
       xml: {
         fileId: result.xml.fileId,
         fileName: result.xml.fileName
-      }
+      },
+      cfdiData: result.cfdiData
     });
   } catch (error) {
     console.error('Error uploading files:', error);

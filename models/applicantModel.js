@@ -8,6 +8,7 @@
 
 import pool from "../database/config/db.js";
 import { formatRoutes, getRequestDays, getCountryId, getCityId } from "../services/applicantService.js";
+import { uploadReceiptFiles } from "../services/receiptFileService.js";
 
 const Applicant = {
   // Find applicant by ID
@@ -108,45 +109,54 @@ const Applicant = {
       // Step 1: Insert into Request table
       const request_days = getRequestDays(allRoutes);
       
-      // Get Status from role
-      const role = await conn.query(
-        `SELECT role_id FROM User WHERE user_id = ?`,
+      // Get user role and boss_id
+      const userResult = await conn.query(
+        `SELECT role_id, boss_id FROM User WHERE user_id = ?`,
         [user_id],
       );
       
-      console.log("Role ID:", role[0].role_id);
-      let request_status;
+      const role = userResult[0];
+      if (!role) {
+        throw new Error("User not found");
+      }
 
-      if (role[0].role_id == 1) {
-        console.log("Role ID:", role[0].role_id);
+      console.log("Role ID:", role.role_id);
+      let request_status;
+        
+      if (role.role_id == 1) { // Solicitant
+        console.log("Role ID:", role.role_id);
         request_status = 2; // 2 = First Revision
 
-      } else if (role[0].role_id == 4) {
-        console.log("Role ID:", role[0].role_id);
+      } else if (role.role_id == 4) { // N1
+        console.log("Role ID:", role.role_id);
         request_status = 3; // 3 = Second Revision
 
-      } else if (role[0].role_id == 5) {
-        console.log("Role ID:", role[0].role_id);
+      } else if (role.role_id == 5) { // N2
+        console.log("Role ID:", role.role_id);
         request_status = 4; // 4 = Trip Quote
 
       } else {
-        throw new Error("User role in not allowed to create a travel request");
+        throw new Error("User role is not allowed to create a travel request");
       }
       
       const insertIntoRequestTable = `
         INSERT INTO Request (
           user_id,
           request_status_id,
+          assigned_to,
+          authorization_level,
           notes,
           requested_fee,
           imposed_fee,
           request_days
-        ) VALUES (?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
       `;
       
       const requestTableResult = await conn.execute(insertIntoRequestTable, [
         user_id,
         request_status,
+        role.boss_id || null,  // assigned_to = boss_id (or null if no boss)
+        0,                     // authorization_level = 0 (starting level)
         notes,
         requested_fee,
         imposed_fee,
@@ -499,12 +509,15 @@ const Applicant = {
         rs.status AS status,
         c.country_name AS destination_country,
         ro.beginning_date,
-        ro.ending_date
+        ro.ending_date,
+        r.assigned_to,
+        u.user_name AS assigned_to_name
       FROM Request r
       JOIN Route_Request rr ON r.request_id = rr.request_id
       JOIN Route ro ON rr.route_id = ro.route_id
       JOIN Country c ON ro.id_destination_country = c.country_id
       JOIN Request_status rs ON r.request_status_id = rs.request_status_id
+      LEFT JOIN User u ON r.assigned_to = u.user_id
       WHERE r.user_id = ?
         AND r.request_status_id NOT IN (8, 9, 10)
       GROUP BY r.request_id
@@ -544,7 +557,8 @@ const Applicant = {
         ci1.city_name AS origin_city,
         co2.country_name AS destination_country,
         ci2.city_name AS destination_city,
-    
+
+        ro.route_id,
         ro.router_index,
         ro.beginning_date,
         ro.beginning_time,
@@ -594,10 +608,11 @@ const Applicant = {
       const insertedRows = [];
       
       for (const r of receipts) {
-        const result = await conn.query(
-          `INSERT INTO Receipt (receipt_type_id, request_id, amount)
-                VALUES (?, ?, ?)`,
-          [r.receipt_type_id, r.request_id, r.amount]
+        const result = await conn.query(`
+          INSERT INTO Receipt (receipt_type_id, request_id, route_id, amount, currency)
+          VALUES (?, ?, ?, ?, ?)
+          `,
+          [r.receipt_type_id, r.request_id, r.route_id, r.amount, r.currency || 'MXN']
         );
         insertedRows.push(result);
       }
@@ -661,22 +676,37 @@ const Applicant = {
       // Step 1: Insert into Request table
       const request_days = getRequestDays(allRoutes);
       
+      // Get user boss_id
+      const userResult = await conn.query(
+        `SELECT boss_id FROM User WHERE user_id = ?`,
+        [user_id],
+      );
+      
+      const user = userResult[0];
+      if (!user) {
+        throw new Error("User not found");
+      }
+
       // Set query to insert into Request table
       const insertIntoRequestTable = `
         INSERT INTO Request (
           user_id,
           request_status_id,
+          assigned_to,
+          authorization_level,
           notes,
           requested_fee,
           imposed_fee,
           request_days
-        ) VALUES (?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
       `;
       
       // Set status to 1 ('Abierto')
       const requestTableResult = await conn.execute(insertIntoRequestTable, [
         user_id,
         1, // Set status to 1 ('Abierto')
+        user.boss_id || null,  // assigned_to = boss_id (or null if no boss)
+        0,                     // authorization_level = 0 (starting level)
         notes,
         requested_fee,
         imposed_fee,
@@ -847,6 +877,135 @@ const Applicant = {
       if (conn) conn.release();
     }
   },
+
+  // Update request status to a specific status ID
+  async updateRequestStatus(requestId, statusId) {
+    let conn;
+    try {
+      conn = await pool.getConnection();
+      await conn.query(
+        `UPDATE Request SET request_status_id = ? WHERE request_id = ?`,
+        [statusId, requestId]
+      );
+
+    } finally {
+      if (conn) conn.release();
+    }
+  },
+  
+  // Get a specific receipt by ID
+  async getReceipt(receiptId) {
+    let conn;
+    try {
+      conn = await pool.getConnection();
+      
+      const query = `
+        SELECT
+          r.receipt_id,
+          r.request_id,
+          r.route_id,
+          r.validation,
+          r.amount,
+          r.currency,
+          r.submission_date,
+          rt.receipt_type_name,
+          r.pdf_file_id,
+          r.pdf_file_name,
+          r.xml_file_id,
+          r.xml_file_name
+        FROM Receipt r
+        JOIN Receipt_Type rt ON r.receipt_type_id = rt.receipt_type_id
+        WHERE r.receipt_id = ?
+      `;
+      
+      const [receipt] = await conn.query(query, [receiptId]);
+      
+      return receipt ? {
+        receipt_id: receipt.receipt_id,
+        request_id: receipt.request_id,
+        route_id: receipt.route_id,
+        validation: receipt.validation,
+        amount: receipt.amount,
+        currency: receipt.currency,
+        submission_date: receipt.submission_date,
+        receipt_type_name: receipt.receipt_type_name,
+        pdf_id: receipt.pdf_file_id,
+        pdf_name: receipt.pdf_file_name,
+        xml_id: receipt.xml_file_id,
+        xml_name: receipt.xml_file_name
+      } : null;
+      
+    } catch (error) {
+      console.error('Error getting receipt:', error);
+      throw error;
+    } finally {
+      if (conn) conn.release();
+    }
+  },
+
+  // Update receipt details
+  async updateReceipt(receiptId, data) {
+    let conn;
+    try {
+      conn = await pool.getConnection();
+      await conn.beginTransaction();
+      
+      // First check if the receipt exists
+      const [receipt] = await conn.query(
+        `SELECT receipt_type_id FROM Receipt WHERE receipt_id = ?`,
+        [receiptId]
+      );
+      
+      if (!receipt) {
+        throw new Error('Receipt not found');
+      }
+      
+      // Get the receipt_type_id from the receipt_type_name
+      const [receiptType] = await conn.query(
+        `SELECT receipt_type_id FROM Receipt_Type WHERE receipt_type_name = ?`,
+        [data.receipt_type_name]
+      );
+      
+      if (!receiptType) {
+        throw new Error('Invalid receipt type');
+      }
+      
+      // Update the receipt
+      const query = `
+        UPDATE Receipt 
+        SET 
+          route_id = ?,
+          receipt_type_id = ?,
+          amount = ?,
+          currency = ?
+        WHERE receipt_id = ?
+      `;
+      
+      const result = await conn.query(query, [
+        data.route_id,
+        receiptType.receipt_type_id,
+        data.amount,
+        data.currency,
+        receiptId
+      ]);
+      
+      if (result.affectedRows === 0) {
+        throw new Error('Failed to update receipt');
+      }
+      
+      await conn.commit();
+      
+      // Return the updated receipt
+      return this.getReceipt(receiptId);
+      
+    } catch (error) {
+      if (conn) await conn.rollback();
+      console.error('Error updating receipt:', error);
+      throw error;
+    } finally {
+      if (conn) conn.release();
+    }
+  },
   
   // Delete a recepit by ID
   async deleteReceipt(receiptId) {
@@ -883,6 +1042,66 @@ const Applicant = {
       console.error('Error deleting receipt:', error);
       throw error;
       
+    } finally {
+      if (conn) conn.release();
+    }
+  },
+
+  /**
+   * Create an expense with PDF and XML files
+   * Validates that files dont already exist
+   */
+  async createExpenseWithFiles(data) {
+    const {
+      receipt_type_id,
+      request_id,
+      route_id,
+      amount,
+      currency,
+      pdfFile,
+      xmlFile
+    } = data;
+
+    let conn;
+
+    try {
+      // Start transaction
+      conn = await pool.getConnection();
+      await conn.beginTransaction();
+
+      // 1. Create receipt record
+      const receiptResult = await conn.query(`
+        INSERT INTO Receipt (receipt_type_id, request_id, route_id, amount, currency)
+        VALUES (?, ?, ?, ?, ?)
+      `, [receipt_type_id, request_id, route_id, amount, currency]);
+      
+      // Convert BigInt to number if needed
+      let receiptId = receiptResult.insertId;
+      if (typeof receiptId === 'bigint') {
+        receiptId = Number(receiptId);
+      }
+
+      // 2. Upload files
+      const fileResult = await uploadReceiptFiles(receiptId, pdfFile, xmlFile, conn);
+      
+      await conn.commit();
+
+      return {
+        receipt_id: receiptId,
+        pdf: fileResult.pdf,
+        xml: fileResult.xml,
+        cfdiData: fileResult.cfdiData
+      };
+
+    } catch (err) {
+      if (conn) {
+        try {
+          await conn.rollback();
+        } catch (rollbackErr) {
+          // Ignore rollback errors
+        }
+      }
+      throw err;
     } finally {
       if (conn) conn.release();
     }
