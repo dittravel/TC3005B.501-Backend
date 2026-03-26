@@ -40,10 +40,10 @@ export const validateId = [
 
 // Validate department, status ID and pagination parameters
 export const validateDeptStatus = [
-  param('dept_id')
+  param('user_id')
     .isInt()
     .toInt()
-    .withMessage('Department cannot be empty.'),
+    .withMessage('User ID cannot be empty.'),
   param('status_id')
     .isInt()
     .toInt()

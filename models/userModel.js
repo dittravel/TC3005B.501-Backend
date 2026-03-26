@@ -94,31 +94,34 @@ const User = {
   },
 
   // Get travel requests by department and status, with optional limit
-  async getTravelRequestsByDeptStatus(deptId, statusId, n) {
+  async getTravelRequestsByUserStatus(userId, statusId, n) {
     const conn = await pool.getConnection();
     try {
       const baseQuery = `
         SELECT
           r.request_id,
           u.user_id,
+          u.user_name AS requester_name,
           c.country_name AS destination_country,
           ro.beginning_date,
           ro.ending_date,
-          rs.status AS request_status
+          rs.status AS request_status,
+          assigned_user.user_name AS assigned_to_name
         FROM Request r
         JOIN User u ON r.user_id = u.user_id
         JOIN Request_status rs ON r.request_status_id = rs.request_status_id
         JOIN Route_Request rr ON r.request_id = rr.request_id
         JOIN Route ro ON rr.route_id = ro.route_id
         JOIN Country c ON ro.id_destination_country = c.country_id
-        WHERE u.department_id = ?
+        LEFT JOIN User assigned_user ON r.assigned_to = assigned_user.user_id
+        WHERE r.assigned_to = ?
           AND r.request_status_id = ?
         GROUP BY r.request_id
         ORDER BY r.creation_date DESC
         ${n ? 'LIMIT ?' : ''}
       `;
 
-      const params = n ? [deptId, statusId, Number(n)] : [deptId, statusId];
+      const params = n ? [userId, statusId, Number(n)] : [userId, statusId];
       const rows = await conn.query(baseQuery, params);
       return rows;
 

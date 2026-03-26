@@ -48,6 +48,7 @@ export const getApplicantRequests = async (req, res) => {
       beginning_date: formatDate(request.beginning_date),
       ending_date: formatDate(request.ending_date),
       status: request.status,
+      assigned_to_name: request.assigned_to_name,
     }));
 
     res.json(formattedRequests);
@@ -317,6 +318,138 @@ export const deleteReceipt = async (req, res) => {
   }
 };
 
+// Get a specific receipt by ID
+export const getReceipt = async (req, res) => {
+  const { receipt_id } = req.params;
+  
+  try {
+    const receipt = await Applicant.getReceipt(Number(receipt_id));
+    
+    if (!receipt) {
+      return res.status(404).json({ error: "Receipt not found" });
+    }
+    
+    return res.status(200).json(receipt);
+  } catch (err) {
+    console.error("Error in getReceipt controller:", err);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+// Update receipt details
+export const updateReceipt = async (req, res) => {
+  const { receipt_id } = req.params;
+  const { route_id, receipt_type_name, amount, currency } = req.body;
+  
+  try {
+    // Validate required fields
+    if (!route_id || !receipt_type_name || amount === undefined || !currency) {
+      return res.status(400).json({ error: "Missing required fields" });
+    }
+    
+    const updatedReceipt = await Applicant.updateReceipt(Number(receipt_id), {
+      route_id,
+      receipt_type_name,
+      amount,
+      currency
+    });
+    
+    if (!updatedReceipt) {
+      return res.status(404).json({ error: "Receipt not found" });
+    }
+    
+    return res.status(200).json({
+      message: "Receipt updated successfully",
+      receipt: updatedReceipt
+    });
+  } catch (err) {
+    console.error("Error in updateReceipt controller:", err);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+// Update a travel request status
+export const updateRequestStatus = async (req, res) => {
+  const { request_id, status_id } = req.params;
+  
+  try {
+    // Validate required fields
+    if (!request_id || !status_id) {
+      return res.status(400).json({ error: "Missing request_id or status_id" });
+    }
+    
+    const parsedRequestId = Number(request_id);
+    const parsedStatusId = Number(status_id);
+    
+    // Validate that status_id is a valid number
+    if (isNaN(parsedStatusId) || parsedStatusId < 1 || parsedStatusId > 9) {
+      return res.status(400).json({ error: "Invalid status_id. Must be between 1 and 9" });
+    }
+    
+    await Applicant.updateRequestStatus(parsedRequestId, parsedStatusId);
+    
+    return res.status(200).json({
+      message: "Request status updated successfully",
+      request_id: parsedRequestId,
+      new_status_id: parsedStatusId
+    });
+  } catch (err) {
+    console.error("Error in updateRequestStatus controller:", err);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+// Handler to create an expense with file uploads (PDF/XML)
+// This is used to create a receipt along with uploading the associated files to MongoDB
+export async function createExpenseWithFilesHandler(req, res) {
+  try {
+    // Check if files are present
+    if (!req.files || !req.files.pdf) {
+      return res.status(400).json({ error: "At least a PDF file is required" });
+    }
+
+    // Extract receipt details from request body
+    const { receipt_type_id, request_id, route_id, amount, currency } = req.body;
+
+    // Validate required fields
+    if (!receipt_type_id || !request_id || !route_id || amount === undefined || !currency) {
+      return res.status(400).json({ error: "Missing required fields" });
+    }
+
+    // Create the expense and upload files
+    const result = await Applicant.createExpenseWithFiles({
+      receipt_type_id: Number(receipt_type_id),
+      request_id: Number(request_id),
+      route_id: Number(route_id),
+      amount: parseFloat(amount),
+      currency: currency,
+      pdfFile: req.files.pdf[0],
+      xmlFile: req.files.xml ? req.files.xml[0] : null // Optional XML file
+    });
+
+    // Return message
+    return res.status(201).json({
+      message: "Expense created with files",
+      receipt_id: result.receipt_id,
+      pdf: result.pdf,
+      xml: result.xml,
+      cfdiData: result.cfdiData
+    });
+
+  } catch (err) {
+    if (err.code === "DUPLICATE_UUID") {
+      return res.status(409).json({ error: err.message });
+    }
+    if (err.code === "BAD_REQUEST") {
+      return res.status(400).json({ error: err.message });
+    }
+    if (err.code === "CONFLICT") {
+      return res.status(409).json({ error: err.message });
+    }
+    return res.status(500).json({ error: "Internal server error" });
+  }
+}
+
 export default {
   getApplicantById,
   getApplicantRequests,
@@ -331,4 +464,8 @@ export default {
   confirmDraftTravelRequest,
   sendExpenseValidation,
   deleteReceipt,
+  getReceipt,
+  updateReceipt,
+  updateRequestStatus,
+  createExpenseWithFilesHandler
 };

@@ -10,9 +10,9 @@ import RateLimit from 'express-rate-limit';
 
 // General rate limiter for all requests
 export var generalRateLimiter = RateLimit({
-    windowMs: 15 * 60 * 1000, // 15 minutes
+    windowMs: 15 * 1000, // 15 seconds
     max: 100, // Limit each IP to 100 requests per windowMs
-    message: 'Too many requests from this IP, please try again after 15 minutes',
+    message: 'Too many requests from this IP, please try again after 15 seconds',
 });
 
 // Rate limiter specifically for login attempts

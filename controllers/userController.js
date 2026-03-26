@@ -90,14 +90,14 @@ export const login = async (req, res) => {
 }
 
 // Get travel requests filtered by department and status with optional limit
-export const getTravelRequestsByDeptStatus = async (req, res) => {
+export const getTravelRequestsByUserStatus = async (req, res) => {
   // Parse URL parameters for filtering
-  const deptId = Number(req.params.dept_id);
+  const userId = Number(req.params.user_id);
   const statusId = Number(req.params.status_id);
   const n = req.params.n ? Number(req.params.n) : null; // Optional limit
 
   try {
-    const travelRequests = await User.getTravelRequestsByDeptStatus(deptId, statusId, n);
+    const travelRequests = await User.getTravelRequestsByUserStatus(userId, statusId, n);
 
     if (!travelRequests || travelRequests.length === 0) {
       return res.status(404).json({ error: "No travel requests found" });
@@ -107,6 +107,8 @@ export const getTravelRequestsByDeptStatus = async (req, res) => {
     const formatted = travelRequests.map((req) => ({
       request_id: req.request_id,
       user_id: req.user_id,
+      requester_name: req.requester_name,
+      assigned_to_name: req.assigned_to_name,
       destination_country: req.destination_country,
       beginning_date: formatDate(req.beginning_date),
       ending_date: formatDate(req.ending_date),
@@ -115,7 +117,7 @@ export const getTravelRequestsByDeptStatus = async (req, res) => {
 
     return res.status(200).json(formatted);
   } catch (err) {
-    console.error("Error in getTravelRequestsByDeptStatus controller:", err);
+    console.error("Error in getTravelRequestsByUserStatus controller:", err);
     return res.status(500).json({ error: "Internal server error" });
   }
 };

@@ -165,6 +165,20 @@ const getForeignKeyValues = async (rowData, rowNumber) => {
     const encryptedPhone = encrypt(userData.phone_number);
     userData.phone_number = encryptedPhone;
 
+    // Handle boss_id
+    // Convert empty string to NULL
+    if (userData.boss_id === '' || userData.boss_id === 'NULL') {
+      userData.boss_id = null;
+    } else if (userData.boss_id) {
+      userData.boss_id = parseInt(userData.boss_id, 10);
+
+      // Check if boss_id is a valid number after parsing
+      if (isNaN(userData.boss_id)) {
+        rowErrors.push(`Invalid boss_id: '${rowData.boss_id}' is not a valid number`);
+        userData.boss_id = null;
+      }
+    }
+
   } catch (error) {
     rowErrors.push(`Error processing row ${rowNumber}`);
   }
@@ -407,5 +421,5 @@ export default {
   createUser,
   getUserList,
   parseCSV,
-  updateUserData
+  updateUserData,
 };

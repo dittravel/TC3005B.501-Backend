@@ -1,14 +1,15 @@
 /**
  * Authorizer Routes
  * 
- * This module defines the routes and role-based access control
- * for the "Autorizador" functionalities
+ * This module defines the routes for hierarchical authorization workflows.
+ * Authorization is role-less: any user can authorize requests assigned to them.
+ * Access control is enforced at the service layer via assigned_to validation.
  */
 
 import express from "express";
 import authorizerController from "../controllers/authorizerController.js";
-import { validateId, validateInputs, validateDeptStatus } from "../middleware/validation.js";
-import { authenticateToken, authorizeRole } from "../middleware/auth.js";
+import { validateId, validateInputs } from "../middleware/validation.js";
+import { authenticateToken } from "../middleware/auth.js";
 import { generalRateLimiter } from "../middleware/rateLimiters.js";
 
 const router = express.Router();
@@ -17,16 +18,20 @@ router.use((req, res, next) => {
   next();
 });
 
-// Get alerts for pending travel requests by department ID, status ID, and number of alerts
-router.route("/get-alerts/:dept_id/:status_id/:n")
-  .get(generalRateLimiter, authenticateToken, authorizeRole(['N1', 'N2']), validateDeptStatus, validateInputs, authorizerController.getAlerts);
+// Get pending requests assigned to current user
+router.route("/get-pending-requests/:user_id/:n")
+  .get(generalRateLimiter, authenticateToken, validateId, validateInputs, authorizerController.getPendingRequests);
 
-// Get pending travel requests for a department by request ID and user ID
+// Get alerts for current user (legacy method for notifications)
+router.route("/get-alerts/:user_id/:status/:n")
+  .get(generalRateLimiter, authenticateToken, validateId, validateInputs, authorizerController.getAlerts);
+
+// Authorize (approve) a travel request assigned to current user
 router.route("/authorize-travel-request/:request_id/:user_id")
-  .put(generalRateLimiter, authenticateToken, authorizeRole(['N1', 'N2']), validateId, validateInputs, authorizerController.authorizeTravelRequest);
+  .put(generalRateLimiter, authenticateToken, validateId, validateInputs, authorizerController.authorizeTravelRequest);
 
-// Decline a travel request by request ID and user ID
+// Decline a travel request assigned to current user
 router.route("/decline-travel-request/:request_id/:user_id")
-  .put(generalRateLimiter, authenticateToken, authorizeRole(['N1', 'N2']), validateId, validateInputs, authorizerController.declineTravelRequest);
+  .put(generalRateLimiter, authenticateToken, validateId, validateInputs, authorizerController.declineTravelRequest);
 
 export default router;

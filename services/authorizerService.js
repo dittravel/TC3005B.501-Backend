@@ -2,42 +2,114 @@
  * Authorizer Service
  * 
  * This service contains the business logic for handling
- * authorizer-related operations, such as authorizing and declining
- * travel requests based on user roles.
+ * authorizer-related operations with hierarchical authorization routing.
+ * 
+ * Workflow:
+ * 1. Solicitante creates request -> assigned_to = boss_id, authorization_level = 0
+ * 2. Boss approves:
+ *    - If boss has boss_id: escalate to boss, increment authorization_level
+ *    - If boss has no boss_id: increment authorization_level, assigned_to stays same
+ * 3. When authorization_level >= AUTHORIZATION_LEVELS:
+ *    - If trip requires flights or hotels: route to Travel Agent (status 5)
+ *    - Otherwise: route to Accounts Payable for quotation (status 4)
  */
 
 import Authorizer from "../models/authorizerModel.js";
+import { AUTHORIZATION_LEVELS } from "../config/constants.js";
 
 /**
- * Authorizes a travel request based on the user's role.
- * N1 (role_id 4) moves the request to "Segunda Revisión" (status_id 3).
- * N2 (role_id 5) moves the request to "Cotizacion de Viaje" (status_id 4).
+ * Authorizes a travel request with hierarchical routing.
+ * - If user has boss_id: escalate to boss, increment authorization_level
+ * - If user has no boss_id: increment authorization_level
+ * - If authorization_level >= AUTHORIZATION_LEVELS: route to Travel Agent and advance status
  * 
- * @param {number} request_id - The ID of the travel request to authorize.
- * @param {number} user_id - The ID of the user authorizing the request.
- * @returns {object} An object containing the new status of the request.
- * @throws Will throw an error if the user is not found or not authorized.
+ * @param {number} request_id - The ID of the travel request to authorize
+ * @param {number} user_id - The ID of the user authorizing the request
+ * @returns {object} An object with authorization result
+ * @throws Will throw an error if validation fails
  */
 const authorizeRequest = async (request_id, user_id) => {
   try {
-    const role_id = await Authorizer.getUserRole(user_id);
-    if (!role_id) {
-      throw { status: 404, message: "User not found" };
+    // Get request details
+    const request = await Authorizer.getRequestWithDetails(request_id);
+    if (!request) {
+      throw { status: 404, message: "Request not found" };
     }
 
-    let new_status_id;
-    if (role_id === 4) { // N1
-      new_status_id = 3; // Primera Revisión
-    } else if (role_id === 5) { // N2
-      new_status_id = 4; // Segunda Revisión
+    // Current user must be the one assigned to this request
+    if (request.assigned_to !== user_id) {
+      throw { 
+        status: 403, 
+        message: "This request is assigned to another user." 
+      };
+    }
+
+    // Get authorizer user with boss info
+    const authorizerUser = await Authorizer.getUserWithBoss(user_id);
+    if (!authorizerUser) {
+      throw { status: 404, message: "Authorizer user not found" };
+    }
+
+    let new_assigned_to;
+    let new_authorization_level;
+    let new_status_id = request.request_status_id + 1; // Advance status
+
+    // Hierarchical authorization logic
+    if (authorizerUser.boss_id) {
+      // If user has a boss, escalate to boss, increment authorization_level
+      new_assigned_to = authorizerUser.boss_id;
+      new_authorization_level = request.authorization_level + 1;
     } else {
-      throw { status: 400, message: "User role not authorized to approve request" };
+      // If user has no boss, increment authorization_level, assigned_to stays same
+      new_assigned_to = user_id;
+      new_authorization_level = request.authorization_level + 1;
     }
 
-    await Authorizer.authorizeTravelRequest(request_id, new_status_id);
+    // Check if we've completed all authorization levels
+    if (new_authorization_level >= AUTHORIZATION_LEVELS) {
+      // All hierarchical approvals done, check if trip requires travel agency services
+      const needsTravelAgent = await Authorizer.requiresTravelAgencyServices(request_id);
+      
+      if (needsTravelAgent) {
+        // Trip requires flights or hotels: assign to Travel Agent - status 5 (Atención Agencia de Viajes)
+        const travelAgent = await Authorizer.getRandomTravelAgent(authorizerUser.department_id);
+        if (!travelAgent) {
+          throw { 
+            status: 500, 
+            message: "No Travel Agent available in this department" 
+          };
+        }
+        new_assigned_to = travelAgent.user_id;
+        new_status_id = 5; // Atención Agencia de Viajes
+      } else {
+        // Trip doesn't require flights or hotels: assign to Accounts Payable - status 4 (Cotización del Viaje)
+        const accountsPayable = await Authorizer.getRandomAccountsPayable(authorizerUser.department_id);
+        if (!accountsPayable) {
+          throw { 
+            status: 500, 
+            message: "No Accounts Payable user available in this department" 
+          };
+        }
+        new_assigned_to = accountsPayable.user_id;
+        new_status_id = 4; // Cotización del Viaje
+      }
+    }
+
+    // Update request routing
+    await Authorizer.updateRequestRouting(
+      request_id, 
+      new_assigned_to, 
+      new_authorization_level, 
+      new_status_id
+    );
 
     return {
-      new_status: role_id === 4 ? "Segunda Revisión" : "Cotizacion de Viaje"
+      message: "Request authorized successfully",
+      new_assigned_to: new_assigned_to,
+      new_authorization_level: new_authorization_level,
+      escalated_to_boss: authorizerUser.boss_id ? true : false,
+      completed_all_authorizations: new_authorization_level >= AUTHORIZATION_LEVELS,
+      status_advanced: true
     };
 
   } catch (err) {
@@ -47,26 +119,31 @@ const authorizeRequest = async (request_id, user_id) => {
 };
 
 /**
- * Declines a travel request based on the user's role.
- * Both N1 (role_id 4) and N2 (role_id 5) can decline requests,
- * which moves the request to "Rechazado" (status_id 5).
+ * Declines a travel request.
+ * Sets status to "Rechazado" (status_id 10)
  * 
- * @param {number} request_id - The ID of the travel request to decline.
- * @param {number} user_id - The ID of the user declining the request.
- * @returns {object} An object containing a message and the new status of the request.
- * @throws Will throw an error if the user is not found or not authorized.
+ * @param {number} request_id - The ID of the travel request to decline
+ * @param {number} user_id - The ID of the user declining the request
+ * @returns {object} An object with decline confirmation
+ * @throws Will throw an error if validation fails
  */
 const declineRequest = async (request_id, user_id) => {
   try {
-    const role_id = await Authorizer.getUserRole(user_id);
-    if (!role_id) {
-      throw { status: 404, message: "User not found" };
+    // Get request details
+    const request = await Authorizer.getRequestWithDetails(request_id);
+    if (!request) {
+      throw { status: 404, message: "Request not found" };
     }
 
-    if (![4, 5].includes(role_id)) {
-      throw { status: 400, message: "User role not authorized to decline request" };
+    // Validate: current user must be the one assigned to this request
+    if (request.assigned_to !== user_id) {
+      throw { 
+        status: 403, 
+        message: "User is not authorized to decline this request" 
+      };
     }
 
+    // Decline the request (set to status 10: Rechazado)
     await Authorizer.declineTravelRequest(request_id);
 
     return {
@@ -82,5 +159,4 @@ const declineRequest = async (request_id, user_id) => {
 export default {
   authorizeRequest,
   declineRequest,
-
 };

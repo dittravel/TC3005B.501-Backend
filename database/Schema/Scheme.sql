@@ -14,7 +14,7 @@ USE CocoScheme;
 -- ============================================================================
 
 -- Role: Defines user roles (Applicant, Travel Agent, Accounts Payable, etc.)
-CREATE TABLE IF NOT EXISTS `Role` (
+CREATE TABLE IF NOT EXISTS Role (
     role_id INT PRIMARY KEY AUTO_INCREMENT,
     role_name VARCHAR(20) UNIQUE NOT NULL
 );
@@ -34,10 +34,11 @@ CREATE TABLE IF NOT EXISTS AlertMessage (
 );
 
 -- User: System users with role-based access and wallet for travel reimbursements
-CREATE TABLE IF NOT EXISTS `User`(
+CREATE TABLE IF NOT EXISTS User (
     user_id INT PRIMARY KEY AUTO_INCREMENT,
     role_id INT,                             -- User's role (Applicant, Agent, etc.)
     department_id INT,                       -- User's department
+    boss_id INT NULL,                        -- Direct boss for authorization
 
     user_name VARCHAR(60) UNIQUE NOT NULL,   -- Unique username for login
     password VARCHAR(60) NOT NULL,           -- Hashed password
@@ -49,8 +50,9 @@ CREATE TABLE IF NOT EXISTS `User`(
     last_mod_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     active BOOL NOT NULL DEFAULT TRUE,       -- Soft delete flag
 
-    FOREIGN KEY (role_id) REFERENCES `Role`(role_id),
-    FOREIGN KEY (department_id) REFERENCES Department(department_id)
+    FOREIGN KEY (role_id) REFERENCES Role(role_id),
+    FOREIGN KEY (department_id) REFERENCES Department(department_id),
+    FOREIGN KEY (boss_id) REFERENCES User(user_id)
 );
 
 -- ============================================================================
@@ -68,6 +70,8 @@ CREATE TABLE IF NOT EXISTS Request (
     request_id INT PRIMARY KEY AUTO_INCREMENT,
     user_id INT,                             -- Requester (applicant)
     request_status_id INT DEFAULT 1,         -- Current workflow status
+    assigned_to INT NULL,                    -- User who must handle the request next
+    authorization_level INT DEFAULT 0,       -- Current level in authorization (0-level 2, 1-level 1, 2-agency)
 
     notes LONGTEXT,                          -- Justification and additional details
     requested_fee FLOAT,                     -- Amount requested by applicant
@@ -77,8 +81,9 @@ CREATE TABLE IF NOT EXISTS Request (
     last_mod_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     active BOOL NOT NULL DEFAULT TRUE,       -- Deactivated when finalized/cancelled
 
-    FOREIGN KEY (user_id) REFERENCES `User`(user_id),
-    FOREIGN KEY (request_status_id) REFERENCES Request_status(request_status_id)
+    FOREIGN KEY (user_id) REFERENCES User(user_id),
+    FOREIGN KEY (request_status_id) REFERENCES Request_status(request_status_id),
+    FOREIGN KEY (assigned_to) REFERENCES User(user_id)
 );
 
 -- Alert: Notifications for users based on request status changes
@@ -114,7 +119,7 @@ CREATE TABLE IF NOT EXISTS City (
 -- ============================================================================
 
 -- Route: Individual travel route segments with transportation needs
-CREATE TABLE IF NOT EXISTS `Route` (
+CREATE TABLE IF NOT EXISTS Route (
     route_id INT PRIMARY KEY AUTO_INCREMENT,
     id_origin_country INT,                   -- Starting country
     id_origin_city INT,                      -- Starting city
@@ -142,7 +147,7 @@ CREATE TABLE IF NOT EXISTS Route_Request (
     route_id INT,                            -- Route segment
 
     FOREIGN KEY (request_id) REFERENCES Request(request_id),
-    FOREIGN KEY (route_id) REFERENCES `Route`(route_id)
+    FOREIGN KEY (route_id) REFERENCES Route(route_id)
 );
 
 -- ============================================================================
