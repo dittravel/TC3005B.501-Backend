@@ -16,7 +16,6 @@ import * as exchangeRateController from '../controllers/exchangeRateController.j
 const router = express.Router();
 
 router.get('/catalog', exchangeRateController.getCatalog);
-router.get('/search', exchangeRateController.searchSeries);
 router.get('/', exchangeRateController.getCurrentExchangeRate);
 router.post('/clear-cache', exchangeRateController.clearCache);
 
