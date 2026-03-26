@@ -64,7 +64,11 @@ async function devdb() {
       sql: fs.readFileSync("./database/Schema/Views.sql", "utf8")
     });
     console.log("Views.sql executed.");
-    
+
+    console.log("Executing Currency_Catalog.sql...");
+    await conn.query(fs.readFileSync("./database/Schema/Currency_Catalog.sql", "utf8"));
+    console.log("Currency_Catalog.sql executed.");
+
     if (environment === 'dev') {
       console.log("Executing Dummy.sql...");
       const dummySqlContent = fs.readFileSync("./database/Schema/Dummy.sql", "utf8");
