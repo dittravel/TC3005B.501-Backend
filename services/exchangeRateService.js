@@ -28,15 +28,15 @@ function isCacheValid(seriesId) {
 
 /**
  * Returns the current exchange rate for a given Banxico series.
- * Validates the series against the local catalog before calling the API.
+ * Validates the series against the database catalog before calling the API.
  * @param {string} seriesId - Banxico series ID (e.g. 'SF43718' for USD/MXN).
  * @returns {Promise<Object>} { rate, timestamp, source, seriesId, seriesName, warning? }
  *   source can be 'banxico' | 'cache' | 'cache-fallback'
  */
 export async function getExchangeRate(seriesId = 'SF43718') {
   try {
-    // Validate against local catalog before hitting Banxico — avoids unnecessary API calls
-    const series = findSeriesById(seriesId);
+    // Validate against the DB catalog before hitting Banxico — avoids unnecessary API calls
+    const series = await findSeriesById(seriesId);
     if (!series) throw new Error(`Series ${seriesId} not found in catalog`);
 
     // Return cached rate if it is still within the TTL window
@@ -69,7 +69,7 @@ export async function getExchangeRate(seriesId = 'SF43718') {
     // If the API fails and we have a stale cache, return it rather than throwing
     if (exchangeRateCache[seriesId]) {
       const cached = exchangeRateCache[seriesId];
-      const series = findSeriesById(seriesId);
+      const series = await findSeriesById(seriesId);
       return {
         rate: cached.rate,
         timestamp: cached.timestamp,
