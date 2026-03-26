@@ -358,7 +358,7 @@ export const updateUserData = async (userId, newUserData) => {
 
     const updatedFields = [];
     const fieldsToUpdateInDb = {};
-    const keysToCompare = ['role_name', 'department_name', 'user_name', 'workstation', 'email', 'phone_number'];
+    const keysToCompare = ['role_name', 'department_name', 'user_name', 'workstation', 'email', 'phone_number', 'boss_id'];
 
     for (const key of keysToCompare) {
         if (newUserData[key] !== undefined) {
@@ -401,6 +401,9 @@ export const updateUserData = async (userId, newUserData) => {
                     } else {
                         throw { status: 400, message: `Username already in use by another user: ${newUserData[key]}` };
                     }
+                } else if (key === 'boss_id') {
+                  fieldsToUpdateInDb[key] = newUserData[key] === '' ? null : newUserData[key];
+                  updatedFields.push(key);
                 } else {
                     fieldsToUpdateInDb[key] = newUserData[key];
                     updatedFields.push(key);
@@ -417,9 +420,67 @@ export const updateUserData = async (userId, newUserData) => {
     return { message: 'No changes detected, user data is up to date' };
 };
 
+// Get auth rules
+export const getAuthRules = async () => {
+  try {
+    const authRules = await Admin.getAuthRules();
+    return authRules;
+  } catch (error) {
+    throw new Error(`Error fetching authorization rules: ${error.message}`);
+  }
+};
+
+// Create auth rule
+export const createAuthRule = async (ruleData) => {
+  try {
+    await Admin.createAuthRule(ruleData);
+    return { success: true, message: 'Authorization rule created successfully' };
+  } catch (error) {
+    throw new Error(`Error creating authorization rule: ${error.message}`);
+  }
+};
+
+// Update auth rule
+export const updateAuthRule = async (ruleId, updatedData) => {
+  try {
+    await Admin.updateAuthRule(ruleId, updatedData);
+    return { success: true, message: 'Authorization rule updated successfully' };
+  } catch (error) {
+    throw new Error(`Error updating authorization rule: ${error.message}`);
+  }
+};
+
+// Delete auth rule
+export const deleteAuthRule = async (ruleId) => {
+  try {
+    await Admin.deleteAuthRule(ruleId);
+    return { success: true, message: 'Authorization rule deleted successfully' };
+  } catch (error) {
+    throw new Error(`Error deleting authorization rule: ${error.message}`);
+  }
+};
+
+// Get boss list for a department
+export const getBossList = async (departmentId) => {
+  try {
+    const bosses = await Admin.getBossList(departmentId);
+    return bosses;
+  } catch (error) {
+    throw new Error(`Error fetching boss list: ${error.message}`);
+  }
+};
+
 export default {
+  // Users
   createUser,
   getUserList,
   parseCSV,
   updateUserData,
+  // Auth rules
+  getAuthRules,
+  createAuthRule,
+  updateAuthRule,
+  deleteAuthRule,
+  // Departments
+  getBossList,
 };

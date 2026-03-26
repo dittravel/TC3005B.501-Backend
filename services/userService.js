@@ -32,7 +32,8 @@ export async function getUserById(userId) {
       department_name: userData.department_name,
       costs_center: userData.costs_center,
       creation_date: userData.creation_date,
-      role_name: userData.role_name
+      role_name: userData.role_name,
+      boss_id: userData.boss_id
     };
     return user;
   } catch (error) {

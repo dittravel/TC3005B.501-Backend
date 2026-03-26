@@ -341,3 +341,17 @@ INSERT INTO Receipt (receipt_type_id, request_id, validation, amount, validation
   (4, 47, 'Rechazado', 1801.23, '2020-03-18 16:15:24'),
   (3, 48, 'Pendiente', 2475.00, NULL),
   (5, 48, 'Aprobado', 3500.60, '2024-09-15 11:42:31');
+
+-- ============================================================================
+-- Auth Rules
+-- ============================================================================
+
+-- Default auth rule
+INSERT INTO AuthorizationRule (name, is_default, num_levels, automatic, travel_type, min_duration, max_duration, min_amount, max_amount) VALUES
+  ('Regla predeterminada', TRUE, 2, FALSE, 'Todos', NULL, NULL, NULL, NULL),
+  ('Viajes internacionales cortos', FALSE, 3, TRUE, 'Internacional', 0, 5, 0, 5000.00);
+
+-- Auth levels for default rule
+INSERT INTO AuthorizationRuleLevel (rule_id, level, type, user_id) VALUES
+  (1, 1, 'Jefe', NULL),
+  (1, 2, 'Usuario', 1);

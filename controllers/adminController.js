@@ -113,10 +113,77 @@ export const deactivateUser = async (req, res) => {
   }
 }
 
+// Get list of all auth rules
+export const getAuthRules = async (req, res) => {
+  try {
+    const rules = await adminService.getAuthRules();
+    res.status(200).json(rules);
+  } catch (error) {
+    console.error('Error getting auth rules:', error.message);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+// Create a new auth rule
+export const createAuthRule = async (req, res) => {
+  try {
+    const ruleData = req.body;
+    await adminService.createAuthRule(ruleData);
+    return res.status(201).json({ message: 'Authorization rule created successfully' });
+  } catch (error) {
+    console.error('Error creating auth rule:', error.message);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+// Update an existing auth rule
+export const updateAuthRule = async (req, res) => {
+  try {
+    const ruleId = req.params.rule_id;
+    const result = await adminService.updateAuthRule(ruleId, req.body);
+    return res.status(200).json(result);
+  } catch (error) {
+    console.error('Error updating auth rule:', error.message);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+// Delete an auth rule
+export const deleteAuthRule = async (req, res) => {
+  try {
+    const ruleId = req.params.rule_id;
+    await adminService.deleteAuthRule(ruleId);
+    return res.status(200).json({ message: 'Authorization rule deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting auth rule:', error.message);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+// Get list of bosses for a specific department
+export const getBossList = async (req, res) => {
+  try {
+    const departmentId = req.params.department_id;
+    const bosses = await adminService.getBossList(departmentId);
+    res.status(200).json(bosses);
+  } catch (error) {
+    console.error('Error getting boss list:', error.message);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
 export default {
+  // Users
   getUserList,
   deactivateUser,
   createMultipleUsers,
   createUser,
-  updateUser
+  updateUser,
+  // Auth rules
+  getAuthRules,
+  createAuthRule,
+  updateAuthRule,
+  deleteAuthRule,
+  // Departments
+  getBossList,
 };

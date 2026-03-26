@@ -195,3 +195,39 @@ CREATE TABLE IF NOT EXISTS Receipt (
     FOREIGN KEY (request_id) REFERENCES Request(request_id),
     FOREIGN KEY (route_id) REFERENCES Route(route_id)
 );
+
+-- ============================================================================
+-- System configuration
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS AuthorizationRule (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    name VARCHAR(50) NOT NULL,
+
+    -- Default rule indicator
+    is_default BOOL NOT NULL DEFAULT FALSE,
+
+    -- Authorization levels
+    num_levels INT NOT NULL,
+    automatic BOOL NOT NULL DEFAULT TRUE,
+    travel_type ENUM('Nacional', 'Internacional', 'Todos'),
+
+    -- Duration
+    min_duration INT,
+    max_duration INT,
+
+    -- Amount of requested fee
+    min_amount FLOAT,
+    max_amount FLOAT
+);
+
+CREATE TABLE IF NOT EXISTS AuthorizationRuleLevel (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    rule_id INT NOT NULL,
+    level INT NOT NULL,
+    type ENUM('Jefe', 'Departamento', 'Usuario') NOT NULL,
+    user_id INT,
+
+    FOREIGN KEY (rule_id) REFERENCES AuthorizationRule(id),
+    FOREIGN KEY (user_id) REFERENCES User(user_id)
+);

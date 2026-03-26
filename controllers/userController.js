@@ -63,7 +63,7 @@ export const login = async (req, res) => {
         sameSite: "Strict",
         httpOnly: true,
         secure: true,
-        maxAge: 1000 * 60 * 60 * 24,
+        maxAge: 1000 * 60 * 60,
       })
       .cookie("username", result.username, {
         sameSite: "Strict",

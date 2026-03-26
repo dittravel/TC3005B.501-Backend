@@ -49,4 +49,24 @@ router.route('/update-user/:user_id')
 router.route("/delete-user/:user_id")
   .put(generalRateLimiter, authenticateToken, authorizeRole(['Administrador']), adminController.deactivateUser);
 
+// Get auth rules
+router.route("/get-auth-rules")
+  .get(generalRateLimiter, authenticateToken, authorizeRole(['Administrador']), adminController.getAuthRules);
+
+// Create auth rule
+router.route("/create-auth-rule")
+  .post(generalRateLimiter, authenticateToken, authorizeRole(['Administrador']), adminController.createAuthRule);
+
+// Update auth rule
+router.route("/update-auth-rule/:rule_id")
+  .put(generalRateLimiter, authenticateToken, authorizeRole(['Administrador']), adminController.updateAuthRule);
+
+// Delete auth rule
+router.route("/delete-auth-rule/:rule_id")
+  .delete(generalRateLimiter, authenticateToken, authorizeRole(['Administrador']), adminController.deleteAuthRule);
+
+// Get boss list for a department
+router.route("/get-boss-list/:department_id")
+  .get(generalRateLimiter, authenticateToken, authorizeRole(['Administrador']), adminController.getBossList);
+
 export default router;

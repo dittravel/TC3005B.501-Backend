@@ -20,6 +20,7 @@ const User = {
           u.email, 
           u.phone_number,
           u.workstation,
+          u.boss_id,
           d.department_name,
           d.costs_center,
           u.creation_date, 
