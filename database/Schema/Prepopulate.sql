@@ -66,18 +66,6 @@ INSERT INTO Receipt_Type (receipt_type_name) VALUES
     ('Otro');           -- Miscellaneous expenses
 
 -- ============================================================================
--- Roles
--- ============================================================================
-
-INSERT INTO `Role` (role_name, description, active) VALUES
-    ('Admin',             'Acceso total al sistema',   TRUE),
-    ('N1',                'Aprobación de solicitudes', TRUE),
-    ('N2',                'Aprobación de solicitudes', TRUE),
-    ('Solicitante',       'Crear solicitudes',         TRUE),
-    ('Cuentas por pagar', 'Gestión de finanzas',       TRUE),
-    ('Agencia de viajes', 'Gestión de viajes',         TRUE);
-
--- ============================================================================
 -- Permissions Catalogue
 -- ============================================================================
 
@@ -122,40 +110,29 @@ INSERT INTO Permission (permission_key, permission_name, module, action, descrip
 -- Admin: all permissions
 INSERT INTO Role_Permission (role_id, permission_id)
     SELECT r.role_id, p.permission_id
-    FROM `Role` r CROSS JOIN Permission p
-    WHERE r.role_name = 'Admin';
+    FROM Role r CROSS JOIN Permission p
+    WHERE r.role_name = 'Administrador';
 
 -- Solicitante: submit and track own trips
 INSERT INTO Role_Permission (role_id, permission_id)
     SELECT r.role_id, p.permission_id
-    FROM `Role` r JOIN Permission p ON p.permission_key IN (
+    FROM Role r JOIN Permission p ON p.permission_key IN (
         'travel:view', 'travel:create', 'travel:edit',
         'travel:view_flights', 'travel:view_hotels',
         'receipts:view', 'receipts:create', 'receipts:edit',
         'refunds:request'
     ) WHERE r.role_name = 'Solicitante';
 
--- N1: first-level approvals
+-- Autorizador: approvals and oversight
 INSERT INTO Role_Permission (role_id, permission_id)
     SELECT r.role_id, p.permission_id
-    FROM `Role` r JOIN Permission p ON p.permission_key IN (
+    FROM Role r JOIN Permission p ON p.permission_key IN (
         'travel:view', 'travel:approve', 'travel:def_amount',
         'travel:finalize', 'travel:cancel', 'travel:reject',
         'receipts:view', 'receipts:approve',
         'refunds:approve', 'refunds:override',
         'users:view'
-    ) WHERE r.role_name = 'N1';
-
--- N2: second-level approvals and oversight
-INSERT INTO Role_Permission (role_id, permission_id)
-    SELECT r.role_id, p.permission_id
-    FROM `Role` r JOIN Permission p ON p.permission_key IN (
-        'travel:view', 'travel:approve', 'travel:def_amount',
-        'travel:finalize', 'travel:cancel', 'travel:reject',
-        'receipts:view', 'receipts:approve',
-        'refunds:approve', 'refunds:override',
-        'users:view'
-    ) WHERE r.role_name = 'N2';
+    ) WHERE r.role_name = 'Autorizador';
 
 -- Cuentas por pagar: financial management
 INSERT INTO Role_Permission (role_id, permission_id)
