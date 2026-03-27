@@ -64,3 +64,113 @@ INSERT INTO Receipt_Type (receipt_type_name) VALUES
     ('Autobús'),        -- Bus tickets
     ('Vuelo'),          -- Flight tickets
     ('Otro');           -- Miscellaneous expenses
+
+-- ============================================================================
+-- Roles
+-- ============================================================================
+
+INSERT INTO `Role` (role_name, description, active) VALUES
+    ('Admin',             'Acceso total al sistema',   TRUE),
+    ('N1',                'Aprobación de solicitudes', TRUE),
+    ('N2',                'Aprobación de solicitudes', TRUE),
+    ('Solicitante',       'Crear solicitudes',         TRUE),
+    ('Cuentas por pagar', 'Gestión de finanzas',       TRUE),
+    ('Agencia de viajes', 'Gestión de viajes',         TRUE);
+
+-- ============================================================================
+-- Permissions Catalogue
+-- ============================================================================
+
+INSERT INTO Permission (permission_key, permission_name, module, action, description) VALUES
+
+-- Users
+('users:view',          'Ver usuario',                 'users', 'view',           'View user profiles and list'),
+('users:create',        'Crear usuario',               'users', 'create',         'Create new user accounts'),
+('users:edit',          'Editar usuario',              'users', 'edit',           'Modify existing user data'),
+('users:delete',        'Eliminar usuario',            'users', 'delete',         'Deactivate or remove users'),
+
+-- Travel requests
+('travel:view',         'Ver solicitud',               'travel_requests', 'view',           'View travel requests'),
+('travel:create',       'Crear solicitud',             'travel_requests', 'create',         'Submit new travel requests'),
+('travel:edit',         'Editar solicitud',            'travel_requests', 'edit',           'Modify pending travel requests'),
+('travel:delete',       'Eliminar solicitud',          'travel_requests', 'delete',         'Remove travel requests'),
+('travel:approve',      'Aprobar/Rechazar solicitud',  'travel_requests', 'approve_reject', 'Approve or reject travel requests'),
+('travel:def_amount',   'Definir monto a autorizar',   'travel_requests', 'define_amount',  'Set the authorized monetary amount'),
+('travel:view_flights', 'Ver opciones de vuelos',      'travel_requests', 'view_flights',   'View available flight options'),
+('travel:view_hotels',  'Ver opciones de hoteles',     'travel_requests', 'view_hotels',    'View available hotel options'),
+('travel:finalize',     'Finalizar viaje',             'travel_requests', 'finalize',       'Mark a trip as completed'),
+('travel:cancel',       'Cancelar viaje',              'travel_requests', 'cancel',         'Cancel an approved trip'),
+('travel:reject',       'Rechazar viaje',              'travel_requests', 'reject',         'Reject a travel request'),
+
+-- Receipts
+('receipts:view',       'Ver comprobantes',             'receipts', 'view',           'View expense receipts'),
+('receipts:create',     'Crear comprobantes',           'receipts', 'create',         'Upload new receipts'),
+('receipts:edit',       'Editar comprobantes',          'receipts', 'edit',           'Modify submitted receipts'),
+('receipts:delete',     'Eliminar comprobantes',        'receipts', 'delete',         'Remove receipts'),
+('receipts:approve',    'Aprobar/Rechazar comprobantes','receipts', 'approve_reject', 'Approve or reject expense receipts'),
+
+-- Refunds
+('refunds:request',     'Solicitar reembolso',          'refunds', 'request',        'Submit a refund request'),
+('refunds:budget',      'Asignar presupuesto impuesto', 'refunds', 'assign_budget',  'Assign tax budget to a refund'),
+('refunds:approve',     'Aprobar/Rechazar reembolso',   'refunds', 'approve_reject', 'Approve or reject refund requests'),
+('refunds:override',    'Hacer override a reglas',      'refunds', 'override_rules', 'Bypass business rules for refunds');
+
+-- ============================================================================
+-- Default Role Permissions
+-- ============================================================================
+
+-- Admin: all permissions
+INSERT INTO Role_Permission (role_id, permission_id)
+    SELECT r.role_id, p.permission_id
+    FROM `Role` r CROSS JOIN Permission p
+    WHERE r.role_name = 'Admin';
+
+-- Solicitante: submit and track own trips
+INSERT INTO Role_Permission (role_id, permission_id)
+    SELECT r.role_id, p.permission_id
+    FROM `Role` r JOIN Permission p ON p.permission_key IN (
+        'travel:view', 'travel:create', 'travel:edit',
+        'travel:view_flights', 'travel:view_hotels',
+        'receipts:view', 'receipts:create', 'receipts:edit',
+        'refunds:request'
+    ) WHERE r.role_name = 'Solicitante';
+
+-- N1: first-level approvals
+INSERT INTO Role_Permission (role_id, permission_id)
+    SELECT r.role_id, p.permission_id
+    FROM `Role` r JOIN Permission p ON p.permission_key IN (
+        'travel:view', 'travel:approve', 'travel:def_amount',
+        'travel:finalize', 'travel:cancel', 'travel:reject',
+        'receipts:view', 'receipts:approve',
+        'refunds:approve', 'refunds:override',
+        'users:view'
+    ) WHERE r.role_name = 'N1';
+
+-- N2: second-level approvals and oversight
+INSERT INTO Role_Permission (role_id, permission_id)
+    SELECT r.role_id, p.permission_id
+    FROM `Role` r JOIN Permission p ON p.permission_key IN (
+        'travel:view', 'travel:approve', 'travel:def_amount',
+        'travel:finalize', 'travel:cancel', 'travel:reject',
+        'receipts:view', 'receipts:approve',
+        'refunds:approve', 'refunds:override',
+        'users:view'
+    ) WHERE r.role_name = 'N2';
+
+-- Cuentas por pagar: financial management
+INSERT INTO Role_Permission (role_id, permission_id)
+    SELECT r.role_id, p.permission_id
+    FROM `Role` r JOIN Permission p ON p.permission_key IN (
+        'receipts:view', 'receipts:create', 'receipts:edit',
+        'receipts:delete', 'receipts:approve',
+        'refunds:request', 'refunds:budget', 'refunds:approve'
+    ) WHERE r.role_name = 'Cuentas por pagar';
+
+-- Agencia de viajes: travel logistics
+INSERT INTO Role_Permission (role_id, permission_id)
+    SELECT r.role_id, p.permission_id
+    FROM `Role` r JOIN Permission p ON p.permission_key IN (
+        'travel:view', 'travel:edit',
+        'travel:view_flights', 'travel:view_hotels',
+        'travel:finalize', 'travel:cancel'
+    ) WHERE r.role_name = 'Agencia de viajes';

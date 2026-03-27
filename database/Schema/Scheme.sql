@@ -13,11 +13,17 @@ USE CocoScheme;
 -- User Management Tables
 -- ============================================================================
 
--- Role: Defines user roles (Applicant, Travel Agent, Accounts Payable, etc.)
-CREATE TABLE IF NOT EXISTS Role (
-    role_id INT PRIMARY KEY AUTO_INCREMENT,
-    role_name VARCHAR(20) UNIQUE NOT NULL
+-- Role: Defines user roles (Applicant, Travel Agent, Accounts Payable, etc.) with configurable permissions
+CREATE TABLE IF NOT EXISTS `Role` (
+    role_id     INT          PRIMARY KEY AUTO_INCREMENT,
+    role_name   VARCHAR(60)  UNIQUE NOT NULL,
+    description VARCHAR(60)  DEFAULT NULL,       -- Short description shown in config UI
+    active      BOOL         NOT NULL DEFAULT TRUE,  -- Soft delete flag
+    updated_at  TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP
+                             ON UPDATE CURRENT_TIMESTAMP
 );
+
+CREATE INDEX idx_role_active ON `Role` (active);
 
 -- Department: Company departments with cost centers for travel expense tracking
 CREATE TABLE IF NOT EXISTS Department (
@@ -206,6 +212,37 @@ CREATE TABLE IF NOT EXISTS Receipt (
     FOREIGN KEY (receipt_type_id) REFERENCES Receipt_Type(receipt_type_id),
     FOREIGN KEY (request_id) REFERENCES Request(request_id),
     FOREIGN KEY (route_id) REFERENCES Route(route_id)
+);
+
+-- ============================================================================
+-- Role-Based Access Control Tables
+-- ============================================================================
+
+-- Permission: Catalogue of all actions available in the system
+CREATE TABLE IF NOT EXISTS Permission (
+    permission_id   INT          PRIMARY KEY AUTO_INCREMENT,
+    permission_key  VARCHAR(50)  UNIQUE NOT NULL,  -- Unique key, format module:action (e.g. travel:approve)
+    permission_name VARCHAR(100) NOT NULL,          -- Human-readable label shown in config UI
+    module          VARCHAR(50)  NOT NULL,          -- Groups permissions by section (users, travel_requests, etc.)
+    action          VARCHAR(50)  NOT NULL,          -- Verb category (view, create, approve_reject, etc.)
+    description     VARCHAR(100) DEFAULT NULL       -- Optional detail about the permission
+);
+
+-- Role_Permission: Many-to-many pivot between Role and Permission
+-- Each row means "role X has permission Y"
+-- Inserting a row grants a permission; deleting it revokes it
+CREATE TABLE IF NOT EXISTS Role_Permission (
+    role_permission_id  INT        PRIMARY KEY AUTO_INCREMENT,
+    role_id             INT        NOT NULL,   -- Role receiving the permission
+    permission_id       INT        NOT NULL,   -- Permission being granted
+    granted_at          TIMESTAMP  NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    UNIQUE KEY uq_role_permission (role_id, permission_id),  -- Prevents duplicate grants
+
+    FOREIGN KEY (role_id)       REFERENCES `Role`(role_id)
+        ON DELETE CASCADE ON UPDATE CASCADE,
+    FOREIGN KEY (permission_id) REFERENCES Permission(permission_id)
+        ON DELETE CASCADE ON UPDATE CASCADE
 );
 
 -- ============================================================================
