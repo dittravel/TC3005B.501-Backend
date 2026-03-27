@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Organizacion name="Ditta Consulting">
+  <Departamento name="Finanzas">
+    <CentroCosto codigo="CC-FN-01" nombre="Viajes"/>
+    <CentroCosto codigo="CC-FN-02" nombre="Proyectos"/>
+    <Empleado usuario="diego.hernandez" correo="diego.hernandez@empresa.com" rol="N2" workstation="WS105" password="diego654"/>
+    <Empleado usuario="laura.flores" correo="laura.flores@empresa.com" rol="N1" workstation="WS104" password="laura321" jefe_usuario="diego.hernandez"/>
+    <Empleado usuario="andres.gomez" correo="andres.gomez@empresa.com" rol="Solicitante" workstation="WS101" password="andres123" jefe_usuario="laura.flores"/>
+    <Empleado usuario="paula.martinez" correo="paula.martinez@empresa.com" rol="Agencia de viajes" workstation="WS102" password="paula456"/>
+    <Empleado usuario="carlos.ramos" correo="carlos.ramos@empresa.com" rol="Cuentas por pagar" workstation="WS103" password="carlos789"/>
+  </Departamento>
+
+  <Departamento name="Recursos Humanos">
+    <CentroCosto codigo="CC-RH-01" nombre="Capacitación"/>
+    <Empleado usuario="miguel.de.cervantes" correo="miguel@delamancha.com" rol="N2" workstation="DON-QUI" password="donquixote2023"/>
+    <Empleado usuario="sofia_r" correo="sofia_random@mail.com" rol="N1" workstation="SOFIA-PC" password="m1cor4zon" jefe_usuario="miguel.de.cervantes"/>
+    <Empleado usuario="adminX_special" correo="adminx@empresaxd.com" rol="Solicitante" workstation="HACK001" password="sup3rS3cret!" jefe_usuario="sofia_r"/>
+    <Empleado usuario="xx_m4nu_xx" correo="manuel@empresa.com" rol="Agencia de viajes" workstation="WS???" password="qwerty123"/>
+    <Empleado usuario="el_ch4p0" correo="chapo@correo.com" rol="Cuentas por pagar" workstation="SOPHIA-PC" password="p4sSw0rd"/>
+  </Departamento>
+</Organizacion>

@@ -13,6 +13,12 @@ import * as adminService from "../services/adminService.js";
 import Admin from "../models/adminModel.js";
 import userModel from "../models/userModel.js";
 
+// XML data parsing
+import { parseXmlData } from '../services/xmlParserService.js';
+import { extractExternalData } from '../services/orgParserService.js';
+import fs from 'fs/promises'; // For file handling in importData function
+
+
 /**
 * Get list of all users
 * @param {Object} req - Express request object
@@ -172,6 +178,24 @@ export const getBossList = async (req, res) => {
   }
 };
 
+// Import data from XML file
+export const importData = async (req, res) => {
+  if (!req.file) {
+    return res.status(400).json({ error: 'No XML file uploaded' });
+  }
+  
+  try {
+    const xmlContent = await fs.readFile(req.file.path, 'utf-8');
+    const xmlData = await parseXmlData(xmlContent);
+    const result = await extractExternalData(xmlData);
+    res.status(200).json(result);
+  }
+  catch (error) {
+    console.error('Error importing data from XML:', error.message);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
 export default {
   // Users
   getUserList,
@@ -186,4 +210,6 @@ export default {
   deleteAuthRule,
   // Departments
   getBossList,
+  // Data import
+  importData,
 };
