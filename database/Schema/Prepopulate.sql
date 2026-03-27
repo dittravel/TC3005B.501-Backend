@@ -10,19 +10,19 @@ USE CocoScheme;
 -- ============================================================================
 -- User Roles (defines access levels and permissions)
 -- ============================================================================
--- 1. Solicitante: Creates and submits travel requests
--- 2. Agencia de viajes: Handles travel bookings and quotes
--- 3. Cuentas por pagar: Validates receipts and processes reimbursements
--- 4. N1: First-level authorizer (initial review)
--- 5. N2: Second-level authorizer (final approval)
--- 6. Administrador: System administrator with full access
-INSERT INTO Role (role_name) VALUES
-    ('Solicitante'),
-    ('Agencia de viajes'),
-    ('Cuentas por pagar'),
-    ('N1'),
-    ('N2'),
-    ('Administrador');
+-- 1. Administrador: System administrator with full access
+-- 2. N1: First-level authorizer (initial review)
+-- 3. N2: Second-level authorizer (final approval)
+-- 4. Solicitante: Creates and submits travel requests
+-- 5. Cuentas por pagar: Validates receipts and processes reimbursements
+-- 6. Agencia de viajes: Handles travel bookings and quotes
+INSERT INTO `Role` (role_name, description, active) VALUES
+    ('Administrador',     'Acceso total al sistema',   TRUE),
+    ('N1',                'Aprobación de solicitudes', TRUE),
+    ('N2',                'Aprobación de solicitudes', TRUE),
+    ('Solicitante',       'Crear solicitudes',         TRUE),
+    ('Cuentas por pagar', 'Gestión de finanzas',       TRUE),
+    ('Agencia de viajes', 'Gestión de viajes',         TRUE);
 
 -- ============================================================================
 -- Alert Messages (notification templates for workflow events)
@@ -66,18 +66,6 @@ INSERT INTO Receipt_Type (receipt_type_name) VALUES
     ('Autobús'),        -- Bus tickets
     ('Vuelo'),          -- Flight tickets
     ('Otro');           -- Miscellaneous expenses
-
--- ============================================================================
--- Roles
--- ============================================================================
-
-INSERT INTO `Role` (role_name, description, active) VALUES
-    ('Admin',             'Acceso total al sistema',   TRUE),
-    ('N1',                'Aprobación de solicitudes', TRUE),
-    ('N2',                'Aprobación de solicitudes', TRUE),
-    ('Solicitante',       'Crear solicitudes',         TRUE),
-    ('Cuentas por pagar', 'Gestión de finanzas',       TRUE),
-    ('Agencia de viajes', 'Gestión de viajes',         TRUE);
 
 -- ============================================================================
 -- Permissions Catalogue
@@ -125,7 +113,7 @@ INSERT INTO Permission (permission_key, permission_name, module, action, descrip
 INSERT INTO Role_Permission (role_id, permission_id)
     SELECT r.role_id, p.permission_id
     FROM `Role` r CROSS JOIN Permission p
-    WHERE r.role_name = 'Admin';
+    WHERE r.role_name = 'Administrador';
 
 -- Solicitante: submit and track own trips
 INSERT INTO Role_Permission (role_id, permission_id)
