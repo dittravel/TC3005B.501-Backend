@@ -1,0 +1,25 @@
+paths:
+  /create-policy:
+    post:
+      summary: Create reimbursement policy
+      description: Creates a reimbursement policy with assignments and rules.
+      tags:
+        - Reimbursement Policy
+      operationId: createReimbursementPolicy
+      security:
+        - TokenAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        "201":
+          description: Policy created successfully
+        "400":
+          description: Invalid payload
+        "409":
+          description: Assignment overlap or duplicate policy code
+        "500":
+          description: Internal server error
