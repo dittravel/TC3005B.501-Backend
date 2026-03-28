@@ -10,6 +10,8 @@
  */
 import Authorizer from "../models/authorizerModel.js";
 import authorizerServices from "../services/authorizerService.js";
+import AuditLogService from "../services/auditLogService.js";
+import pool from "../database/config/db.js";
 import { sendMail } from "../services/email/mail.cjs";
 import mailData from "../services/email/mailData.js"
 
@@ -45,46 +47,85 @@ const getAlerts = async (req, res) => {
 
 // Approve travel request and send notification email
 const authorizeTravelRequest = async (req, res) => {
-  const { request_id, user_id } = req.params;
+  const requestId = Number(req.params.request_id);
+  const actorUserId = Number(req.user.user_id);
+  let connection;
 
   try {
     // Authorize request through service layer
-    const { new_status } = await authorizerServices.authorizeRequest(Number(request_id), Number(user_id));
-    
-    // Send email notification to applicant
-    const { user_email, user_name, requestId, status } = await mailData(request_id);
-    await sendMail(user_email, user_name, request_id, status);
+    connection = await pool.getConnection();
+    await connection.beginTransaction();
+    const result = await authorizerServices.authorizeRequest(requestId, actorUserId, { connection });
+    await AuditLogService.recordAuditLogFromRequest(req, {
+      actionType: 'REQUEST_AUTHORIZED',
+      entityType: 'Request',
+      entityId: requestId,
+      metadata: {
+        new_assigned_to: result.new_assigned_to,
+        new_authorization_level: result.new_authorization_level,
+        new_status: result.new_status,
+        completed_all_authorizations: result.completed_all_authorizations,
+      },
+    }, { connection });
+    await connection.commit();
+    try {
+      const { user_email, user_name, requestId: mailRequestId, status } = await mailData(requestId);
+      await sendMail(user_email, user_name, mailRequestId, status);
+    } catch (mailError) {
+      console.error("Failed to send request authorization email:", mailError);
+    }
     return res.status(200).json({
       message: "Request status updated successfully",
-      new_status
+      new_status: result.new_status
     });
   } catch (err) {
+    if (connection) await connection.rollback();
     if (err.status) {
       return res.status(err.status).json({ error: err.message });
     }
     console.error("Unexpected error in authorizeTravelRequest controller:", err);
     return res.status(500).json({ error: "Internal server error" });
+  } finally {
+    if (connection) connection.release();
   }
 };
 
 // Decline travel request and send notification email
 const declineTravelRequest = async (req, res) => {
-  const { request_id, user_id } = req.params;
+  const requestId = Number(req.params.request_id);
+  const actorUserId = Number(req.user.user_id);
+  let connection;
 
   try {
     // Decline request through service layer
-    const result = await authorizerServices.declineRequest(Number(request_id), Number(user_id));
-    
-    // Send email notification to applicant
-    const { user_email, user_name, requestId, status } = await mailData(request_id);
-    await sendMail(user_email, user_name, request_id, status);
+    connection = await pool.getConnection();
+    await connection.beginTransaction();
+    const result = await authorizerServices.declineRequest(requestId, actorUserId, { connection });
+    await AuditLogService.recordAuditLogFromRequest(req, {
+      actionType: 'REQUEST_DECLINED',
+      entityType: 'Request',
+      entityId: requestId,
+      metadata: {
+        new_status: result.new_status,
+      },
+    }, { connection });
+    await connection.commit();
+    try {
+      const { user_email, user_name, requestId: mailRequestId, status } = await mailData(requestId);
+      await sendMail(user_email, user_name, mailRequestId, status);
+    } catch (mailError) {
+      console.error("Failed to send request decline email:", mailError);
+    }
     return res.status(200).json(result); 
   } catch (err) {
+    if (connection) await connection.rollback();
     if (err.status) {
       return res.status(err.status).json({ error: err.message });
     }
     console.error("Unexpected error in declineTravelRequest controller:", err);
     return res.status(500).json({ error: "Internal server error" });
+  } finally {
+    if (connection) connection.release();
   }
 };
 

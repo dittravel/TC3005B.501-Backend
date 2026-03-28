@@ -6,7 +6,7 @@
  * request bodies, and ensures data integrity using express-validator.
  */
 
-import { body, param, validationResult } from 'express-validator';
+import { body, param, query, validationResult } from 'express-validator';
 
 // Validate and sanitize ID parameters in endpoints
 export const validateId = [
@@ -506,6 +506,51 @@ export const validateCreateUser = [
     .withMessage('Phone number cannot be empty.')
 ];
 
+// Validate audit log query parameters
+export const validateAuditLogQuery = [
+  query('actor_user_id')
+    .optional()
+    .isInt({ min: 1 })
+    .toInt()
+    .withMessage('actor_user_id must be a valid positive integer'),
+  query('action_type')
+    .optional()
+    .isString()
+    .trim()
+    .notEmpty()
+    .isLength({ max: 80 })
+    .withMessage('action_type must be a non-empty string up to 80 characters'),
+  query('entity_type')
+    .optional()
+    .isString()
+    .trim()
+    .notEmpty()
+    .isLength({ max: 80 })
+    .withMessage('entity_type must be a non-empty string up to 80 characters'),
+  query('entity_id')
+    .optional()
+    .isString()
+    .trim()
+    .notEmpty()
+    .isLength({ max: 64 })
+    .withMessage('entity_id must be a non-empty string up to 64 characters'),
+  query('include_metadata')
+    .optional()
+    .isBoolean()
+    .toBoolean()
+    .withMessage('include_metadata must be a boolean value'),
+  query('limit')
+    .optional()
+    .isInt({ min: 1, max: 200 })
+    .toInt()
+    .withMessage('limit must be an integer between 1 and 200'),
+  query('offset')
+    .optional()
+    .isInt({ min: 0 })
+    .toInt()
+    .withMessage('offset must be a non-negative integer'),
+];
+
 // Generic validation error handler
 export const validateInputs = (req, res, next) => {
   const errors = validationResult(req);
@@ -521,5 +566,6 @@ export default {
   validateExpenseReceipts,
   validateInputs,
   validateDraftTravelRequest,
-  validateCreateUser
+  validateCreateUser,
+  validateAuditLogQuery
 };

@@ -12,6 +12,8 @@
 
 import AccountsPayable from "../models/accountsPayableModel.js";
 import AccountsPayableService from '../services/accountsPayableService.js';
+import AuditLogService from "../services/auditLogService.js";
+import pool from "../database/config/db.js";
 import mailData from "../services/email/mailData.js";
 import { sendMail } from "../services/email/mail.cjs";
 
@@ -20,6 +22,7 @@ import { sendMail } from "../services/email/mail.cjs";
 const attendTravelRequest = async (req, res) => {
   const requestId = req.params.request_id;
   const imposedFee = req.body.imposed_fee;
+  let connection;
   
   try {
     // Check if request exists
@@ -36,11 +39,32 @@ const attendTravelRequest = async (req, res) => {
     if (current_status == 4){
       const new_status = 6;  // Always go to status 6 (receipts/comprobantes)
       
-      const updated = await AccountsPayable.attendTravelRequest(requestId, imposedFee, new_status);
+      connection = await pool.getConnection();
+      await connection.beginTransaction();
+      const updated = await AccountsPayable.attendTravelRequest(
+        requestId,
+        imposedFee,
+        new_status,
+        connection
+      );
       
       if (updated) {
-        const { user_email, user_name, request_id, status } = await mailData(requestId);
-        await sendMail(user_email, user_name, requestId, status);
+        await AuditLogService.recordAuditLogFromRequest(req, {
+          actionType: 'REQUEST_QUOTED',
+          entityType: 'Request',
+          entityId: requestId,
+          metadata: {
+            imposed_fee: imposedFee,
+            new_status,
+          },
+        }, { connection });
+        await connection.commit();
+        try {
+          const { user_email, user_name, request_id, status } = await mailData(requestId);
+          await sendMail(user_email, user_name, requestId, status);
+        } catch (mailError) {
+          console.error("Failed to send accounts payable quotation email:", mailError);
+        }
         return res.status(200).json({
           message: "Travel request status updated successfully",
           requestId: requestId,
@@ -48,6 +72,9 @@ const attendTravelRequest = async (req, res) => {
           newStatus: new_status, 
         });
       } else {
+        await connection.rollback();
+        connection.release();
+        connection = null;
         return res
         .status(400)
         .json({ error: "Failed to update travel request status" });
@@ -57,23 +84,50 @@ const attendTravelRequest = async (req, res) => {
       res.status(404).json({ error: "This request cannot be attended by accounts payable" });
     }
   } catch (err) {
+    if (connection) await connection.rollback();
     console.error("Error in attendTravelRequest controller:", err);
     res.status(500).json({ error: "Internal Server Error" });
+  } finally {
+    if (connection) connection.release();
   }
 };
 
 // Validate all receipts for a travel request and update status
 const validateReceiptsHandler = async (req, res) => {
   const requestId = req.params.request_id;
+  let connection;
   
   try {
-    const result = await AccountsPayableService.validateReceiptsAndUpdateStatus(requestId);
-    const { user_email, user_name, request_id, status } = await mailData(requestId);
-    await sendMail(user_email, user_name, requestId, status);
+    connection = await pool.getConnection();
+    await connection.beginTransaction();
+    const result = await AccountsPayableService.validateReceiptsAndUpdateStatus(requestId, {
+      connection,
+    });
+    if (result.updatedStatus !== null) {
+      await AuditLogService.recordAuditLogFromRequest(req, {
+        actionType: 'REQUEST_RECEIPTS_VALIDATED',
+        entityType: 'Request',
+        entityId: requestId,
+        metadata: {
+          updated_status: result.updatedStatus,
+          message: result.message,
+        },
+      }, { connection });
+    }
+    await connection.commit();
+    try {
+      const { user_email, user_name, request_id, status } = await mailData(requestId);
+      await sendMail(user_email, user_name, requestId, status);
+    } catch (mailError) {
+      console.error("Failed to send receipts validation email:", mailError);
+    }
     res.status(200).json(result);
   } catch (err) {
+    if (connection) await connection.rollback();
     console.error('Error in validateReceiptsHandler:', err);
     res.status(500).json({ error: 'Internal server error' });
+  } finally {
+    if (connection) connection.release();
   }
 };
 
@@ -81,6 +135,7 @@ const validateReceiptsHandler = async (req, res) => {
 const validateReceipt = async (req, res) => {
   const receiptId = req.params.receipt_id;
   const approval = req.body.approval;
+  let connection;
   
   if (approval !== 0 && approval !== 1) {
     return res.status(400).json({
@@ -106,15 +161,29 @@ const validateReceipt = async (req, res) => {
      * the desired value for the validation (3 for rejected or 2 for
      * approved 
      */
-    const updated = await AccountsPayable.validateReceipt(receiptId, 3 - approval);
+    connection = await pool.getConnection();
+    await connection.beginTransaction();
+    const updated = await AccountsPayable.validateReceipt(receiptId, 3 - approval, connection);
     
     if(!updated){
+      await connection.rollback();
+      connection.release();
+      connection = null;
       return res
       .status(400)
       .json({ error: "Failed to update travel request status" });
     }
     
     if (approval == 0){
+      await AuditLogService.recordAuditLogFromRequest(req, {
+        actionType: 'RECEIPT_REJECTED',
+        entityType: 'Receipt',
+        entityId: receiptId,
+        metadata: {
+          new_status: 'Rechazado',
+        },
+      }, { connection });
+      await connection.commit();
       return res.status(200).json({
         summary: "Receipt rejected",
         value: {
@@ -125,6 +194,15 @@ const validateReceipt = async (req, res) => {
       });
     }
     else if (approval == 1){
+      await AuditLogService.recordAuditLogFromRequest(req, {
+        actionType: 'RECEIPT_APPROVED',
+        entityType: 'Receipt',
+        entityId: receiptId,
+        metadata: {
+          new_status: 'Aprobado',
+        },
+      }, { connection });
+      await connection.commit();
       return res.status(200).json({
         summary: "Receipt approved",
         value: {
@@ -136,8 +214,11 @@ const validateReceipt = async (req, res) => {
     }
     
   } catch (err) {
+    if (connection) await connection.rollback();
     console.error("Error in attendTravelRequest controller:", err);
     res.status(500).json({ error: "Internal Server Error" });
+  } finally {
+    if (connection) connection.release();
   }
 };
 

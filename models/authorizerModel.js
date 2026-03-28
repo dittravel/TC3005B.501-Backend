@@ -147,7 +147,7 @@ const Authorizer = {
   },
   
   // Decline a travel request
-  async declineTravelRequest(request_id) {
+  async declineTravelRequest(request_id, connection = null) {
     let conn;
     const query = `
       UPDATE Request
@@ -156,7 +156,7 @@ const Authorizer = {
     `;
 
     try {
-      conn = await pool.getConnection();
+      conn = connection || (await pool.getConnection());
       const rows = await conn.query(query, [request_id]);
       return true;
 
@@ -166,7 +166,7 @@ const Authorizer = {
       
     } finally {
       if (conn) {
-        conn.release();
+        if (!connection) conn.release();
       }
     }
   },
@@ -297,7 +297,7 @@ const Authorizer = {
   },
 
   // Update request routing
-  async updateRequestRouting(request_id, assigned_to, authorization_level, status_id = null) {
+  async updateRequestRouting(request_id, assigned_to, authorization_level, status_id = null, connection = null) {
     let conn;
     let query;
     let params;
@@ -319,7 +319,7 @@ const Authorizer = {
     }
 
     try {
-      conn = await pool.getConnection();
+      conn = connection || (await pool.getConnection());
       const result = await conn.query(query, params);
       return result;
 
@@ -328,7 +328,7 @@ const Authorizer = {
       throw error;
 
     } finally {
-      if (conn) conn.release();
+      if (!connection && conn) conn.release();
     }
   },
 

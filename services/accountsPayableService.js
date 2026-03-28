@@ -16,12 +16,12 @@ const AccountsPayableService = {
    * @property {number|null} updatedStatus - The new status ID (6, 8, or null if no change)
    * @property {string} message - Description of the status change
    */
-  async validateReceiptsAndUpdateStatus(requestId) {
+  async validateReceiptsAndUpdateStatus(requestId, options = {}) {
     const statuses = await AccountsPayable.getReceiptStatusesForRequest(requestId);
 
     // If any receipt is rejected, move request back to travel status verification (step 6)
     if (statuses.includes('Rechazado')) {
-      await AccountsPayable.updateRequestStatus(requestId, 6);
+      await AccountsPayable.updateRequestStatus(requestId, 6, options.connection);
       return {
         updatedStatus: 6,
         message: 'Some receipts were rejected. Request moved back to step 6.'
@@ -31,7 +31,7 @@ const AccountsPayableService = {
     // If all receipts are approved, finalize the request (step 8)
     const allApproved = statuses.every(status => status === 'Aprobado');
     if (allApproved) {
-      await AccountsPayable.updateRequestStatus(requestId, 8);
+      await AccountsPayable.updateRequestStatus(requestId, 8, options.connection);
       return {
         updatedStatus: 8,
         message: 'All receipts approved. Request finalized.'

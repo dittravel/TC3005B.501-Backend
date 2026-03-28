@@ -28,7 +28,7 @@ import { AUTHORIZATION_LEVELS } from "../config/constants.js";
  * @returns {object} An object with authorization result
  * @throws Will throw an error if validation fails
  */
-const authorizeRequest = async (request_id, user_id) => {
+const authorizeRequest = async (request_id, user_id, options = {}) => {
   try {
     // Get request details
     const request = await Authorizer.getRequestWithDetails(request_id);
@@ -100,13 +100,15 @@ const authorizeRequest = async (request_id, user_id) => {
       request_id, 
       new_assigned_to, 
       new_authorization_level, 
-      new_status_id
+      new_status_id,
+      options.connection
     );
 
     return {
       message: "Request authorized successfully",
       new_assigned_to: new_assigned_to,
       new_authorization_level: new_authorization_level,
+      new_status: new_status_id,
       escalated_to_boss: authorizerUser.boss_id ? true : false,
       completed_all_authorizations: new_authorization_level >= AUTHORIZATION_LEVELS,
       status_advanced: true
@@ -127,7 +129,7 @@ const authorizeRequest = async (request_id, user_id) => {
  * @returns {object} An object with decline confirmation
  * @throws Will throw an error if validation fails
  */
-const declineRequest = async (request_id, user_id) => {
+const declineRequest = async (request_id, user_id, options = {}) => {
   try {
     // Get request details
     const request = await Authorizer.getRequestWithDetails(request_id);
@@ -144,7 +146,7 @@ const declineRequest = async (request_id, user_id) => {
     }
 
     // Decline the request (set to status 10: Rechazado)
-    await Authorizer.declineTravelRequest(request_id);
+    await Authorizer.declineTravelRequest(request_id, options.connection);
 
     return {
       message: "Request declined successfully",
