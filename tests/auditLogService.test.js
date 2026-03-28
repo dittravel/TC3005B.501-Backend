@@ -96,3 +96,32 @@ test('recordAuditLogFromRequest uses authenticated user and sanitized metadata',
     user_name: 'jdoe',
   });
 });
+
+test('recordAuditLogFromRequest propagates audit write failures', async () => {
+  const service = buildAuditLogService({
+    auditLogModel: {
+      async createAuditLog() {
+        throw new Error('write failed');
+      },
+      async getAuditLogs() {
+        return { rows: [], total_count: 0 };
+      },
+    },
+  });
+
+  await assert.rejects(
+    service.recordAuditLogFromRequest(
+      {
+        user: { user_id: 5 },
+        headers: {},
+        ip: '127.0.0.1',
+      },
+      {
+        actionType: 'USER_UPDATED',
+        entityType: 'User',
+        entityId: 9,
+      }
+    ),
+    /write failed/
+  );
+});

@@ -32,9 +32,8 @@ const Admin = {
     },
     
     // Create multiple users in a single batch operation
-    async createMultipleUsers(users) {
+    async createMultipleUsers(users, connection = null) {
       let conn;
-      
       const values = users.map(user => [
         user.role_id,
         user.department_id,
@@ -61,7 +60,7 @@ const Admin = {
       `;
       
       try {
-        conn = await pool.getConnection();
+        conn = connection || (await pool.getConnection());
         const result = await conn.batch(query, values);
         return result.affectedRows;
         
@@ -70,7 +69,7 @@ const Admin = {
         throw error;
         
       } finally {
-        if (conn){
+        if (!connection && conn){
           conn.release();
         } 
       }
@@ -151,10 +150,11 @@ const Admin = {
     },
     
     // Create a single user
-    async createUser(userData) {
-      const connection = await db.getConnection();
+    async createUser(userData, connection = null) {
+      let conn;
+      conn = connection || (await db.getConnection());
       try{
-        const existingUser = await connection.query(`
+        const existingUser = await conn.query(`
           SELECT user_id FROM User
           WHERE email = ? OR user_name = ?`,
           [userData.email, userData.user_name]
@@ -164,7 +164,7 @@ const Admin = {
           throw new Error('User with this email or username already exists');
         }
         
-        const result = await connection.query(`
+        const result = await conn.query(`
           INSERT INTO User (
             role_id,
             department_id,
@@ -191,7 +191,7 @@ const Admin = {
           user_id: result.insertId,
         };
       } finally {
-        connection.release();
+        if (!connection) conn.release();
       }
     },
     
@@ -218,9 +218,8 @@ const Admin = {
     },
     
     // Update user information
-    async updateUser(user_id, fieldsToUpdate) {
+    async updateUser(user_id, fieldsToUpdate, connection = null) {
       let conn;
-      
       const setClauses = [];
       const values =[];
       
@@ -237,7 +236,7 @@ const Admin = {
         WHERE user_id = ?
       `;
       try {
-        conn = await pool.getConnection();
+        conn = connection || (await pool.getConnection());
         const result = await conn.query(query, values);
         return result;
 
@@ -245,15 +244,15 @@ const Admin = {
         throw error;
 
       } finally {
-        if (conn) conn.release();
+        if (!connection && conn) conn.release();
       }
     },
     
     // Deactivate a user by ID
-    async deactivateUserById(userId) {
+    async deactivateUserById(userId, connection = null) {
       let conn;
       try {
-        conn = await pool.getConnection();
+        conn = connection || (await pool.getConnection());
         const result = await conn.query(
           `UPDATE User SET active = FALSE WHERE user_id = ?`,
           [userId]
@@ -265,7 +264,7 @@ const Admin = {
         throw error;
         
       } finally {
-        if (conn) {
+        if (!connection && conn) {
           conn.release();
         }
       }

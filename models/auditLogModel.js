@@ -38,11 +38,10 @@ function buildAuditFilters(filters) {
 
 function buildAuditLogModel({ dbPool = pool } = {}) {
   return {
-    async createAuditLog(entry) {
-      let conn;
+    async createAuditLog(entry, connection = null) {
+      const conn = connection || (await dbPool.getConnection());
 
       try {
-        conn = await dbPool.getConnection();
         const result = await conn.query(
           `INSERT INTO Audit_Log (
              actor_user_id,
@@ -66,7 +65,7 @@ function buildAuditLogModel({ dbPool = pool } = {}) {
           audit_log_id: result.insertId,
         };
       } finally {
-        if (conn) conn.release();
+        if (!connection) conn.release();
       }
     },
 

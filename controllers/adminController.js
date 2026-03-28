@@ -13,6 +13,7 @@ import * as adminService from "../services/adminService.js";
 import Admin from "../models/adminModel.js";
 import userModel from "../models/userModel.js";
 import AuditLogService from "../services/auditLogService.js";
+import pool from "../database/config/db.js";
 
 /**
 * Get list of all users
@@ -51,17 +52,6 @@ export const createMultipleUsers = async (req, res) => {
   
   try {
     const result = await adminService.parseCSV(filePath, false);
-    if (result.created > 0) {
-      await AuditLogService.recordAuditLogFromRequest(req, {
-        actionType: 'USER_BULK_CREATED',
-        entityType: 'User',
-        metadata: {
-          total_records: result.total_records,
-          created: result.created,
-          failed: result.failed,
-        },
-      });
-    }
     res.status(200).json(result);
   } catch (error) {
     console.error(error);
@@ -76,9 +66,12 @@ export const createMultipleUsers = async (req, res) => {
 * @returns {Object} JSON response with created user data
 */
 export const createUser = async (req, res) => {
+  let connection;
   try {
     const userData = req.body;
-    const createdUser = await adminService.createUser(userData);
+    connection = await pool.getConnection();
+    await connection.beginTransaction();
+    const createdUser = await adminService.createUser(userData, { connection });
     await AuditLogService.recordAuditLogFromRequest(req, {
       actionType: 'USER_CREATED',
       entityType: 'User',
@@ -88,20 +81,26 @@ export const createUser = async (req, res) => {
         role_id: createdUser.role_id,
         department_id: createdUser.department_id,
       },
-    });
+    }, { connection });
+    await connection.commit();
     return res.status(201).json({ message: 'User created succesfully'});
   } catch (error) {
+    if (connection) await connection.rollback();
     console.error('Error creating user:', error.message);
     return res.status(500).json({ error: 'Internal server error' });
+  } finally {
+    if (connection) connection.release();
   }
 }
 
 // Update existing user information
 export const updateUser = async (req, res) => {
+  let connection;
   try {
     const userId = req.params.user_id;
-    
-    const result = await adminService.updateUserData(userId, req.body);
+    connection = await pool.getConnection();
+    await connection.beginTransaction();
+    const result = await adminService.updateUserData(userId, req.body, { connection });
     if (result.updated_fields) {
       await AuditLogService.recordAuditLogFromRequest(req, {
         actionType: 'USER_UPDATED',
@@ -110,18 +109,23 @@ export const updateUser = async (req, res) => {
         metadata: {
           updated_fields: result.updated_fields,
         },
-      });
+      }, { connection });
     }
+    await connection.commit();
     return res.status(200).json(result);
     
   } catch (error) {
+    if (connection) await connection.rollback();
     console.error('An error occurred updating the user:', error);
     return res.status(error.status || 500).json({ error: error.message || 'Internal server error' });
+  } finally {
+    if (connection) connection.release();
   }
 };
 
 // Deactivate user account (soft delete)
 export const deactivateUser = async (req, res) => {
+  let connection;
   try {
     const user_id = parseInt(req.params.user_id);
     
@@ -130,7 +134,9 @@ export const deactivateUser = async (req, res) => {
       return res.status(404).json({error: "User not found"});
     }
     
-    const result = await Admin.deactivateUserById(user_id);
+    connection = await pool.getConnection();
+    await connection.beginTransaction();
+    const result = await Admin.deactivateUserById(user_id, connection);
     if (result) {
       await AuditLogService.recordAuditLogFromRequest(req, {
         actionType: 'USER_DEACTIVATED',
@@ -139,8 +145,9 @@ export const deactivateUser = async (req, res) => {
         metadata: {
           active: false,
         },
-      });
+      }, { connection });
     }
+    await connection.commit();
     
     return res.status(200).json({
       message: "User successfully deactivated",
@@ -148,10 +155,13 @@ export const deactivateUser = async (req, res) => {
       active: false
     });
   } catch (err) {
+    if (connection) await connection.rollback();
     console.error("Error in deactivateUser:", err);
     return res.status(500).json({
       error: "Unexpected error while deactivating user"
     });
+  } finally {
+    if (connection) connection.release();
   }
 }
 

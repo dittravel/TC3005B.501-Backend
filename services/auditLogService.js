@@ -91,7 +91,7 @@ function buildAuditLogService({ auditLogModel = AuditLogModel } = {}) {
       entityId = null,
       sourceIp = null,
       metadata = null,
-    }) {
+    }, options = {}) {
       const sanitizedMetadata = metadata ? sanitizeAuditMetadata(metadata) : null;
 
       return auditLogModel.createAuditLog({
@@ -101,20 +101,15 @@ function buildAuditLogService({ auditLogModel = AuditLogModel } = {}) {
         entity_id: entityId === null || entityId === undefined ? null : String(entityId),
         source_ip: sourceIp ? String(sourceIp).slice(0, 45) : null,
         metadata: sanitizedMetadata ? JSON.stringify(sanitizedMetadata) : null,
-      });
+      }, options.connection);
     },
 
-    async recordAuditLogFromRequest(req, event) {
-      try {
-        return await this.recordAuditLog({
-          actorUserId: req.user?.user_id ?? null,
-          sourceIp: getClientIp(req),
-          ...event,
-        });
-      } catch (error) {
-        console.error('Audit log write failed:', error);
-        return null;
-      }
+    async recordAuditLogFromRequest(req, event, options = {}) {
+      return this.recordAuditLog({
+        actorUserId: req.user?.user_id ?? null,
+        sourceIp: getClientIp(req),
+        ...event,
+      }, options);
     },
 
     async getAuditLogs(rawFilters = {}) {
