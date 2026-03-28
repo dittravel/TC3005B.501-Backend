@@ -22,6 +22,7 @@ import fileRoutes from './routes/fileRoutes.js';
 import systemRoutes from "./routes/systemRoutes.js";
 import exchangeRateRoutes from "./routes/exchangeRateRoutes.js";
 import reimbursementPolicyRoutes from "./routes/reimbursementPolicyRoutes.js";
+import integrationRoutes from "./routes/integrationRoutes.js";
 
 // Import MongoDB connection for file storage
 import { connectMongo } from './services/fileStorage.js';
@@ -60,6 +61,8 @@ app.use("/api/files", fileRoutes);
 app.use("/api/system", systemRoutes);
 app.use("/api/exchange-rate", exchangeRateRoutes);
 app.use("/api/reimbursement-policy", reimbursementPolicyRoutes);
+app.use("/api/integrations", integrationRoutes);
+
 // Connect to MongoDB for file storage
 connectMongo().catch(err => console.error('Failed to connect to MongoDB:', err));
 

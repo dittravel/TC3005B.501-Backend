@@ -6,7 +6,7 @@
  * request bodies, and ensures data integrity using express-validator.
  */
 
-import { body, param, validationResult } from 'express-validator';
+import { body, param, query, validationResult } from 'express-validator';
 
 // Validate and sanitize ID parameters in endpoints
 export const validateId = [
@@ -681,6 +681,34 @@ export const validateReimbursementPolicyPayload = [
     .withMessage('Rule active must be a boolean value'),
 ];
 
+// Validate ERP employee integration query parameters
+export const validateERPEmployeeQuery = [
+  query('updated_since')
+    .optional()
+    .isISO8601()
+    .withMessage('updated_since must be a valid ISO 8601 date'),
+  query('department_id')
+    .optional()
+    .isInt({ min: 1 })
+    .toInt()
+    .withMessage('department_id must be a valid positive integer'),
+  query('active_only')
+    .optional()
+    .isBoolean()
+    .toBoolean()
+    .withMessage('active_only must be a boolean value'),
+  query('limit')
+    .optional()
+    .isInt({ min: 1, max: 200 })
+    .toInt()
+    .withMessage('limit must be an integer between 1 and 200'),
+  query('offset')
+    .optional()
+    .isInt({ min: 0 })
+    .toInt()
+    .withMessage('offset must be a non-negative integer'),
+];
+
 // Generic validation error handler
 export const validateInputs = (req, res, next) => {
   const errors = validationResult(req);
@@ -699,4 +727,5 @@ export default {
   validateCreateUser,
   validateOutOfOffice,
   validateReimbursementPolicyPayload,
+  validateERPEmployeeQuery
 };
