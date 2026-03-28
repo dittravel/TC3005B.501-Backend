@@ -55,6 +55,24 @@ CREATE TABLE IF NOT EXISTS User (
     FOREIGN KEY (boss_id) REFERENCES User(user_id)
 );
 
+-- Audit_Log: Critical action trail for administrative and workflow events
+CREATE TABLE IF NOT EXISTS Audit_Log (
+    audit_log_id INT PRIMARY KEY AUTO_INCREMENT,
+    actor_user_id INT NULL,                  -- Authenticated user who executed the action
+    action_type VARCHAR(80) NOT NULL,        -- Action performed (e.g., USER_CREATED)
+    entity_type VARCHAR(80) NOT NULL,        -- Entity affected (e.g., User, Request, Receipt)
+    entity_id VARCHAR(64) NULL,              -- Generic identifier for the affected entity
+    source_ip VARCHAR(45) NULL,              -- Request IP address (IPv4/IPv6)
+    metadata LONGTEXT NULL,                  -- Sanitized contextual payload serialized as JSON
+    event_timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+    FOREIGN KEY (actor_user_id) REFERENCES User(user_id),
+    INDEX idx_audit_actor (actor_user_id),
+    INDEX idx_audit_entity (entity_type, entity_id),
+    INDEX idx_audit_action (action_type),
+    INDEX idx_audit_timestamp (event_timestamp)
+);
+
 -- ============================================================================
 -- Request Management Tables
 -- ============================================================================

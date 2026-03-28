@@ -164,7 +164,7 @@ const Admin = {
           throw new Error('User with this email or username already exists');
         }
         
-        await connection.query(`
+        const result = await connection.query(`
           INSERT INTO User (
             role_id,
             department_id,
@@ -186,6 +186,10 @@ const Admin = {
             userData.phone_number
           ]
         );
+
+        return {
+          user_id: result.insertId,
+        };
       } finally {
         connection.release();
       }

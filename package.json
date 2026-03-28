@@ -9,7 +9,8 @@
         "dev": "nodemon index.js",
         "dummy_db": "node ./database/config/dev_db.js dev",
         "empty_db": "node ./database/config/dev_db.js prod",
-        "test": "echo \"No test specified\""
+        "test": "node --test",
+        "test:audit": "node --test tests/auditLog*.test.js"
     },
     "repository": {
         "type": "git",

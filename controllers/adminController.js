@@ -12,6 +12,7 @@
 import * as adminService from "../services/adminService.js";
 import Admin from "../models/adminModel.js";
 import userModel from "../models/userModel.js";
+import AuditLogService from "../services/auditLogService.js";
 
 /**
 * Get list of all users
@@ -50,6 +51,17 @@ export const createMultipleUsers = async (req, res) => {
   
   try {
     const result = await adminService.parseCSV(filePath, false);
+    if (result.created > 0) {
+      await AuditLogService.recordAuditLogFromRequest(req, {
+        actionType: 'USER_BULK_CREATED',
+        entityType: 'User',
+        metadata: {
+          total_records: result.total_records,
+          created: result.created,
+          failed: result.failed,
+        },
+      });
+    }
     res.status(200).json(result);
   } catch (error) {
     console.error(error);
@@ -66,7 +78,17 @@ export const createMultipleUsers = async (req, res) => {
 export const createUser = async (req, res) => {
   try {
     const userData = req.body;
-    await adminService.createUser(userData);
+    const createdUser = await adminService.createUser(userData);
+    await AuditLogService.recordAuditLogFromRequest(req, {
+      actionType: 'USER_CREATED',
+      entityType: 'User',
+      entityId: createdUser.user_id,
+      metadata: {
+        user_name: createdUser.user_name,
+        role_id: createdUser.role_id,
+        department_id: createdUser.department_id,
+      },
+    });
     return res.status(201).json({ message: 'User created succesfully'});
   } catch (error) {
     console.error('Error creating user:', error.message);
@@ -80,6 +102,16 @@ export const updateUser = async (req, res) => {
     const userId = req.params.user_id;
     
     const result = await adminService.updateUserData(userId, req.body);
+    if (result.updated_fields) {
+      await AuditLogService.recordAuditLogFromRequest(req, {
+        actionType: 'USER_UPDATED',
+        entityType: 'User',
+        entityId: userId,
+        metadata: {
+          updated_fields: result.updated_fields,
+        },
+      });
+    }
     return res.status(200).json(result);
     
   } catch (error) {
@@ -99,6 +131,16 @@ export const deactivateUser = async (req, res) => {
     }
     
     const result = await Admin.deactivateUserById(user_id);
+    if (result) {
+      await AuditLogService.recordAuditLogFromRequest(req, {
+        actionType: 'USER_DEACTIVATED',
+        entityType: 'User',
+        entityId: user_id,
+        metadata: {
+          active: false,
+        },
+      });
+    }
     
     return res.status(200).json({
       message: "User successfully deactivated",

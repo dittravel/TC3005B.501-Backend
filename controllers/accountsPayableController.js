@@ -12,6 +12,7 @@
 
 import AccountsPayable from "../models/accountsPayableModel.js";
 import AccountsPayableService from '../services/accountsPayableService.js';
+import AuditLogService from "../services/auditLogService.js";
 import mailData from "../services/email/mailData.js";
 import { sendMail } from "../services/email/mail.cjs";
 
@@ -41,6 +42,15 @@ const attendTravelRequest = async (req, res) => {
       if (updated) {
         const { user_email, user_name, request_id, status } = await mailData(requestId);
         await sendMail(user_email, user_name, requestId, status);
+        await AuditLogService.recordAuditLogFromRequest(req, {
+          actionType: 'REQUEST_QUOTED',
+          entityType: 'Request',
+          entityId: requestId,
+          metadata: {
+            imposed_fee: imposedFee,
+            new_status,
+          },
+        });
         return res.status(200).json({
           message: "Travel request status updated successfully",
           requestId: requestId,
@@ -70,6 +80,17 @@ const validateReceiptsHandler = async (req, res) => {
     const result = await AccountsPayableService.validateReceiptsAndUpdateStatus(requestId);
     const { user_email, user_name, request_id, status } = await mailData(requestId);
     await sendMail(user_email, user_name, requestId, status);
+    if (result.updatedStatus !== null) {
+      await AuditLogService.recordAuditLogFromRequest(req, {
+        actionType: 'REQUEST_RECEIPTS_VALIDATED',
+        entityType: 'Request',
+        entityId: requestId,
+        metadata: {
+          updated_status: result.updatedStatus,
+          message: result.message,
+        },
+      });
+    }
     res.status(200).json(result);
   } catch (err) {
     console.error('Error in validateReceiptsHandler:', err);
@@ -115,6 +136,14 @@ const validateReceipt = async (req, res) => {
     }
     
     if (approval == 0){
+      await AuditLogService.recordAuditLogFromRequest(req, {
+        actionType: 'RECEIPT_REJECTED',
+        entityType: 'Receipt',
+        entityId: receiptId,
+        metadata: {
+          new_status: 'Rechazado',
+        },
+      });
       return res.status(200).json({
         summary: "Receipt rejected",
         value: {
@@ -125,6 +154,14 @@ const validateReceipt = async (req, res) => {
       });
     }
     else if (approval == 1){
+      await AuditLogService.recordAuditLogFromRequest(req, {
+        actionType: 'RECEIPT_APPROVED',
+        entityType: 'Receipt',
+        entityId: receiptId,
+        metadata: {
+          new_status: 'Aprobado',
+        },
+      });
       return res.status(200).json({
         summary: "Receipt approved",
         value: {

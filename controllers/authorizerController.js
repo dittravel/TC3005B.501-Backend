@@ -10,6 +10,7 @@
  */
 import Authorizer from "../models/authorizerModel.js";
 import authorizerServices from "../services/authorizerService.js";
+import AuditLogService from "../services/auditLogService.js";
 import { sendMail } from "../services/email/mail.cjs";
 import mailData from "../services/email/mailData.js"
 
@@ -45,18 +46,30 @@ const getAlerts = async (req, res) => {
 
 // Approve travel request and send notification email
 const authorizeTravelRequest = async (req, res) => {
-  const { request_id, user_id } = req.params;
+  const requestId = Number(req.params.request_id);
+  const actorUserId = Number(req.user.user_id);
 
   try {
     // Authorize request through service layer
-    const { new_status } = await authorizerServices.authorizeRequest(Number(request_id), Number(user_id));
+    const result = await authorizerServices.authorizeRequest(requestId, actorUserId);
     
     // Send email notification to applicant
-    const { user_email, user_name, requestId, status } = await mailData(request_id);
-    await sendMail(user_email, user_name, request_id, status);
+    const { user_email, user_name, requestId: mailRequestId, status } = await mailData(requestId);
+    await sendMail(user_email, user_name, mailRequestId, status);
+    await AuditLogService.recordAuditLogFromRequest(req, {
+      actionType: 'REQUEST_AUTHORIZED',
+      entityType: 'Request',
+      entityId: requestId,
+      metadata: {
+        new_assigned_to: result.new_assigned_to,
+        new_authorization_level: result.new_authorization_level,
+        new_status: result.new_status,
+        completed_all_authorizations: result.completed_all_authorizations,
+      },
+    });
     return res.status(200).json({
       message: "Request status updated successfully",
-      new_status
+      new_status: result.new_status
     });
   } catch (err) {
     if (err.status) {
@@ -69,15 +82,24 @@ const authorizeTravelRequest = async (req, res) => {
 
 // Decline travel request and send notification email
 const declineTravelRequest = async (req, res) => {
-  const { request_id, user_id } = req.params;
+  const requestId = Number(req.params.request_id);
+  const actorUserId = Number(req.user.user_id);
 
   try {
     // Decline request through service layer
-    const result = await authorizerServices.declineRequest(Number(request_id), Number(user_id));
+    const result = await authorizerServices.declineRequest(requestId, actorUserId);
     
     // Send email notification to applicant
-    const { user_email, user_name, requestId, status } = await mailData(request_id);
-    await sendMail(user_email, user_name, request_id, status);
+    const { user_email, user_name, requestId: mailRequestId, status } = await mailData(requestId);
+    await sendMail(user_email, user_name, mailRequestId, status);
+    await AuditLogService.recordAuditLogFromRequest(req, {
+      actionType: 'REQUEST_DECLINED',
+      entityType: 'Request',
+      entityId: requestId,
+      metadata: {
+        new_status: result.new_status,
+      },
+    });
     return res.status(200).json(result); 
   } catch (err) {
     if (err.status) {

@@ -107,6 +107,7 @@ const authorizeRequest = async (request_id, user_id) => {
       message: "Request authorized successfully",
       new_assigned_to: new_assigned_to,
       new_authorization_level: new_authorization_level,
+      new_status: new_status_id,
       escalated_to_boss: authorizerUser.boss_id ? true : false,
       completed_all_authorizations: new_authorization_level >= AUTHORIZATION_LEVELS,
       status_advanced: true

@@ -74,7 +74,14 @@ export async function createUser(userData) {
     };
     console.log(newUser);
 
-    return await Admin.createUser(newUser);
+    const createdUser = await Admin.createUser(newUser);
+
+    return {
+      user_id: createdUser.user_id,
+      role_id: newUser.role_id,
+      department_id: newUser.department_id,
+      user_name: newUser.user_name,
+    };
   } catch (error) {
     throw new Error(`Error creating user: ${error.message}`);
   }
