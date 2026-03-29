@@ -227,7 +227,6 @@ export const importData = async (req, res) => {
     res.status(200).json(result);
   }
   catch (error) {
-    console.error('Error importing data from XML:', error.message);
     return res.status(500).json({ error: error.message || 'Internal server error' });
   }
 };

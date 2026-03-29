@@ -41,7 +41,7 @@ const hash = async (data) => {
  * @param {Object} userData - User data
  * @returns {Promise<Object>} Created user data
  */
-export async function createUser(userData, includeId = false) {
+export async function createUser(userData) {
   try {
     const hashedPassword = await hash(userData.password);
 
@@ -63,36 +63,18 @@ export async function createUser(userData, includeId = false) {
     const encryptedEmail = encrypt(userData.email);
     const encryptedPhone = encrypt(userData.phone_number);
 
-    let newUser;
-    let createdUser;
+    const newUser = {
+      role_id: userData.role_id,
+      department_id: userData.department_id,
+      user_name: userData.user_name,
+      password: hashedPassword,
+      workstation: userData.workstation,
+      email: encryptedEmail,
+      phone_number: encryptedPhone,
+      boss_id: userData.boss_id || null
+    };
 
-    if (includeId) {
-      newUser = {
-        user_id: userData.user_id,
-        role_id: userData.role_id,
-        department_id: userData.department_id,
-        user_name: userData.user_name,
-        password: hashedPassword,
-        workstation: userData.workstation,
-        email: encryptedEmail,
-        phone_number: encryptedPhone,
-        boss_id: userData.boss_id || null
-      };
-      createdUser = await Admin.createUser(newUser, true);
-    } else {
-      newUser = {
-        role_id: userData.role_id,
-        department_id: userData.department_id,
-        user_name: userData.user_name,
-        password: hashedPassword,
-        workstation: userData.workstation,
-        email: encryptedEmail,
-        phone_number: encryptedPhone,
-        boss_id: userData.boss_id || null
-      };
-      createdUser = await Admin.createUser(newUser);
-    }
-    return createdUser;
+    return await Admin.createUser(newUser);
   } catch (error) {
     throw new Error(`Error creating user: ${error.message}`);
   }
@@ -507,31 +489,101 @@ export const createDataFromXml = async (xmlObj) => {
       return { success: false, message: 'Data extracted with some errors', errors };
     }
 
+    // Track created and updated records
+    const summary = {
+      departments: { created: [], skipped: [] },
+      costCenters: { created: [], skipped: [] },
+      users: { created: [], updated: [] }
+    };
+
     // 1. Create departments
     for (const dept of departments) {
-      await Admin.createDepartment(dept);
+      // Check if department already exists
+      const existingDept = await Admin.findDepartmentID(dept.department_name);
+      if (!existingDept) {
+        // If department doesn't exist, create it
+        await Admin.createDepartment(dept);
+        summary.departments.created.push(dept.department_name);
+      } else {
+        summary.departments.skipped.push(dept.department_name);
+      }
     }
 
     // 2. Create cost centers
     for (const cc of costCenters) {
-      await Admin.createCostCenter(cc);
+      const ccData = {
+        cost_center_name: cc.cost_center_name,
+        department_id: await Admin.findDepartmentID(cc.department_name)
+      };
+
+      // Check if cost center already exists
+      const existingCC = await Admin.findCostCenterID(ccData.cost_center_name);
+
+      // If cost center doesn't exist, create it
+      if (!existingCC) {
+        await Admin.createCostCenter(ccData);
+        summary.costCenters.created.push({
+          name: cc.cost_center_name,
+          department: cc.department_name
+        });
+      } else {
+        summary.costCenters.skipped.push(cc.cost_center_name);
+      }
     }
 
     // 3. Create users
     for (const user of users) {
+      // Get boss_id by looking up the boss username
+      let boss_id = null;
+      if (user.jefe_usuario) {
+        const boss = await User.getUserUsername(user.jefe_usuario);
+        if (boss) {
+          boss_id = boss.user_id;
+        }
+      }
+
+      const hashedPassword = await hash(user.password);
+      const encryptedEmail = encrypt(user.email);
+      const encryptedPhone = user.phone_number ? encrypt(user.phone_number) : null;
+
       const userData = {
         role_id: await Admin.findRoleID(user.role),
-        department_id: user.department_id,
+        department_id: await Admin.findDepartmentID(user.department_name),
         user_name: user.user_name,
-        password: user.password,
+        password: hashedPassword,
         workstation: user.workstation,
-        email: user.email,
-        boss_id: user.boss_id || null
+        email: encryptedEmail,
+        phone_number: encryptedPhone,
+        boss_id: boss_id
       };
-      await createUser(userData);
+
+      // Check if user already exists by username
+      const existingUser = await User.getUserUsername(userData.user_name);
+
+      // If user doesn't exist, create it
+      if (!existingUser) {
+        await Admin.createUser(userData);
+        summary.users.created.push({
+          username: userData.user_name,
+          role: user.role,
+          department: user.department_name
+        });
+      } else {
+        // If user exists, update info
+        await Admin.updateUser(existingUser.user_id, userData);
+        summary.users.updated.push({
+          username: userData.user_name,
+          role: user.role,
+          department: user.department_name
+        });
+      }
     }
 
-    return { success: true, message: 'Data imported successfully' };
+    return {
+      success: true,
+      message: 'Data imported successfully',
+      summary: summary
+    };
   } catch (error) {
     throw new Error(`Error creating data from XML: ${error.message}`);
   }

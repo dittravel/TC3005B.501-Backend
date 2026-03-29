@@ -149,7 +149,7 @@ const Admin = {
   },
   
   // Create a single user
-  async createUser(userData, includeId = false) {
+  async createUser(userData) {
     const connection = await db.getConnection();
     try{
       const existingUser = await connection.query(`
@@ -491,6 +491,30 @@ const Admin = {
     }
   },
 
+  // Find department ID by department name
+  async findDepartmentID(department_name) {
+    let conn;
+    try {
+      conn = await pool.getConnection();
+      const name = await conn.query(
+        'SELECT department_id FROM Department WHERE department_name = ?',
+        [department_name]
+      );
+      
+      if (name && name.length > 0) {
+        return name[0].department_id;
+      }
+      return null;
+
+    } catch (error) {
+      console.error('Error finding department ID for %s:', department_name, error);
+      throw error;
+
+    } finally {
+      if (conn) conn.release();
+    }
+  },
+
   // Create department
   async createDepartment(departmentData) {
     let conn;
@@ -498,18 +522,40 @@ const Admin = {
       conn = await pool.getConnection();
       await conn.query(`
         INSERT INTO Department (
-          department_id,
           department_name
         )
-        VALUES (?, ?)
+        VALUES (?)
       `, [
-        departmentData.department_id,
         departmentData.department_name
       ]
       );
     } catch (error) {
       console.error('Error creating department:', error);
       throw error;
+    } finally {
+      if (conn) conn.release();
+    }
+  },
+
+  // Find cost center ID by cost center name
+  async findCostCenterID(cost_center_name) {
+    let conn;
+    try {
+      conn = await pool.getConnection();
+      const name = await conn.query(
+        'SELECT cost_center_id FROM CostCenter WHERE cost_center_name = ?',
+        [cost_center_name]
+      );
+      
+      if (name && name.length > 0) {
+        return name[0].cost_center_id;
+      }
+      return null;
+
+    } catch (error) {
+      console.error('Error finding cost center ID for %s:', cost_center_name, error);
+      throw error;
+
     } finally {
       if (conn) conn.release();
     }
@@ -522,13 +568,11 @@ const Admin = {
       conn = await pool.getConnection();
       await conn.query(`
         INSERT INTO CostCenter (
-          cost_center_id,
           cost_center_name,
           department_id
         )
-        VALUES (?, ?, ?)
+        VALUES (?, ?)
       `, [
-        costCenterData.cost_center_id,
         costCenterData.cost_center_name,
         costCenterData.department_id
       ]
