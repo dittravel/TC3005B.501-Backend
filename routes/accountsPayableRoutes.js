@@ -31,6 +31,6 @@ router.route("/validate-receipt/:receipt_id")
 
 // Get expense validations for a travel request by request ID
 router.route("/get-expense-validations/:request_id")
-  .get(generalRateLimiter, authenticateToken, authorizeRole(['Cuentas por pagar', 'Solicitante', 'N1', 'N2']), validateId, validateInputs, AccountsPayableController.getExpenseValidations);
+  .get(generalRateLimiter, authenticateToken, authorizeRole(['Cuentas por pagar', 'Solicitante', 'Autorizador']), validateId, validateInputs, AccountsPayableController.getExpenseValidations);
 
 export default router;

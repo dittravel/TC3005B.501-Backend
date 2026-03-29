@@ -41,7 +41,7 @@ const hash = async (data) => {
  * @param {Object} userData - User data
  * @returns {Promise<Object>} Created user data
  */
-export async function createUser(userData) {
+export async function createUser(userData, includeId = false) {
   try {
     const hashedPassword = await hash(userData.password);
 
@@ -63,18 +63,36 @@ export async function createUser(userData) {
     const encryptedEmail = encrypt(userData.email);
     const encryptedPhone = encrypt(userData.phone_number);
 
-    const newUser = {
-      role_id: userData.role_id,
-      department_id: userData.department_id,
-      user_name: userData.user_name,
-      password: hashedPassword,
-      workstation: userData.workstation,
-      email: encryptedEmail,
-      phone_number: encryptedPhone
-    };
-    console.log(newUser);
+    let newUser;
+    let createdUser;
 
-    return await Admin.createUser(newUser);
+    if (includeId) {
+      newUser = {
+        user_id: userData.user_id,
+        role_id: userData.role_id,
+        department_id: userData.department_id,
+        user_name: userData.user_name,
+        password: hashedPassword,
+        workstation: userData.workstation,
+        email: encryptedEmail,
+        phone_number: encryptedPhone,
+        boss_id: userData.boss_id || null
+      };
+      createdUser = await Admin.createUser(newUser, true);
+    } else {
+      newUser = {
+        role_id: userData.role_id,
+        department_id: userData.department_id,
+        user_name: userData.user_name,
+        password: hashedPassword,
+        workstation: userData.workstation,
+        email: encryptedEmail,
+        phone_number: encryptedPhone,
+        boss_id: userData.boss_id || null
+      };
+      createdUser = await Admin.createUser(newUser);
+    }
+    return createdUser;
   } catch (error) {
     throw new Error(`Error creating user: ${error.message}`);
   }
@@ -358,7 +376,7 @@ export const updateUserData = async (userId, newUserData) => {
 
     const updatedFields = [];
     const fieldsToUpdateInDb = {};
-    const keysToCompare = ['role_name', 'department_name', 'user_name', 'workstation', 'email', 'phone_number', 'boss_id'];
+    const keysToCompare = ['role_id', 'department_id', 'user_name', 'workstation', 'email', 'phone_number', 'boss_id'];
 
     for (const key of keysToCompare) {
         if (newUserData[key] !== undefined) {
@@ -373,22 +391,12 @@ export const updateUserData = async (userId, newUserData) => {
             }
 
             if (newUserData[key] !== actualCurrentValue) {
-                if (key === 'role_name') {
-                    const roleID = await Admin.findRoleID(newUserData[key]);
-                    if (roleID !== null) {
-                        fieldsToUpdateInDb.role_id = roleID;
-                        updatedFields.push(key);
-                    } else {
-                        throw { status: 400, message: `Invalid role name provided: ${newUserData[key]}` };
-                    }
-                } else if (key === 'department_name') {
-                    const deptId = await Admin.findDepartmentID(newUserData[key]);
-                    if (deptId !== null) {
-                        fieldsToUpdateInDb.department_id = deptId;
-                        updatedFields.push(key);
-                    } else {
-                        throw { status: 400, message: `Invalid department name provided: ${newUserData[key]}` };
-                    }
+                if (key === 'role_id') {
+                    fieldsToUpdateInDb.role_id = newUserData[key];
+                    updatedFields.push(key);
+                } else if (key === 'department_id') {
+                    fieldsToUpdateInDb.department_id = newUserData[key];
+                    updatedFields.push(key);
                 } else if (key === 'email' || key === 'phone_number') {
                     const encryptedNewValue = encrypt(newUserData[key]);
                     fieldsToUpdateInDb[key] = encryptedNewValue;
@@ -419,6 +427,26 @@ export const updateUserData = async (userId, newUserData) => {
 
     return { message: 'No changes detected, user data is up to date' };
 };
+
+// Get list of departments
+export const getDepartments = async () => {
+  try {
+    const departments = await Admin.getDepartments();
+    return departments;
+  } catch (error) {
+    throw new Error(`Error fetching departments: ${error.message}`);
+  }
+}
+
+// Get list of roles
+export const getRoles = async () => {
+  try {
+    const roles = await Admin.getRoles();
+    return roles;
+  } catch (error) {
+    throw new Error(`Error fetching roles: ${error.message}`);
+  }
+}
 
 // Get auth rules
 export const getAuthRules = async () => {
@@ -470,12 +498,55 @@ export const getBossList = async (departmentId) => {
   }
 };
 
+// Create data from XML import
+export const createDataFromXml = async (xmlObj) => {
+  try {
+    const { users, departments, costCenters, errors } = xmlObj;
+
+    if (errors.length > 0) {
+      return { success: false, message: 'Data extracted with some errors', errors };
+    }
+
+    // 1. Create departments
+    for (const dept of departments) {
+      await Admin.createDepartment(dept);
+    }
+
+    // 2. Create cost centers
+    for (const cc of costCenters) {
+      await Admin.createCostCenter(cc);
+    }
+
+    // 3. Create users
+    for (const user of users) {
+      const userData = {
+        role_id: await Admin.findRoleID(user.role),
+        department_id: user.department_id,
+        user_name: user.user_name,
+        password: user.password,
+        workstation: user.workstation,
+        email: user.email,
+        boss_id: user.boss_id || null
+      };
+      await createUser(userData);
+    }
+
+    return { success: true, message: 'Data imported successfully' };
+  } catch (error) {
+    throw new Error(`Error creating data from XML: ${error.message}`);
+  }
+};
+
 export default {
   // Users
   createUser,
   getUserList,
   parseCSV,
   updateUserData,
+  // Departments
+  getDepartments,
+  // Roles
+  getRoles,
   // Auth rules
   getAuthRules,
   createAuthRule,

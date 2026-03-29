@@ -55,14 +55,18 @@ const authorizeRequest = async (request_id, user_id) => {
     let new_status_id = request.request_status_id + 1; // Advance status
 
     // Hierarchical authorization logic
+
+    // If user has a boss, check if he is an authorizer and escalate if so
     if (authorizerUser.boss_id) {
-      // If user has a boss, escalate to boss, increment authorization_level
-      new_assigned_to = authorizerUser.boss_id;
-      new_authorization_level = request.authorization_level + 1;
-    } else {
-      // If user has no boss, increment authorization_level, assigned_to stays same
-      new_assigned_to = user_id;
-      new_authorization_level = request.authorization_level + 1;
+      // Check if boss is an authorizer
+      const bossRole = await Authorizer.getUserRole(authorizerUser.boss_id);
+      if (bossRole === "Authorizer") {
+        new_assigned_to = authorizerUser.boss_id;
+        new_authorization_level = request.authorization_level;
+      } else {
+        // Consider all approvals done
+        new_authorization_level = AUTHORIZATION_LEVELS;
+      }
     }
 
     // Check if we've completed all authorization levels
@@ -71,7 +75,7 @@ const authorizeRequest = async (request_id, user_id) => {
       const needsTravelAgent = await Authorizer.requiresTravelAgencyServices(request_id);
       
       if (needsTravelAgent) {
-        // Trip requires flights or hotels: assign to Travel Agent - status 5 (Atención Agencia de Viajes)
+        // Trip requires flights or hotels: assign to Travel Agent
         const travelAgent = await Authorizer.getRandomTravelAgent(authorizerUser.department_id);
         if (!travelAgent) {
           throw { 
@@ -80,9 +84,9 @@ const authorizeRequest = async (request_id, user_id) => {
           };
         }
         new_assigned_to = travelAgent.user_id;
-        new_status_id = 5; // Atención Agencia de Viajes
+        new_status_id = 4; // Agency travel
       } else {
-        // Trip doesn't require flights or hotels: assign to Accounts Payable - status 4 (Cotización del Viaje)
+        // Trip doesn't require flights or hotels: assign to Accounts Payable
         const accountsPayable = await Authorizer.getRandomAccountsPayable(authorizerUser.department_id);
         if (!accountsPayable) {
           throw { 
@@ -91,7 +95,7 @@ const authorizeRequest = async (request_id, user_id) => {
           };
         }
         new_assigned_to = accountsPayable.user_id;
-        new_status_id = 4; // Cotización del Viaje
+        new_status_id = 3; // Travel quote
       }
     }
 
@@ -120,7 +124,7 @@ const authorizeRequest = async (request_id, user_id) => {
 
 /**
  * Declines a travel request.
- * Sets status to "Rechazado" (status_id 10)
+ * Sets status to "Rechazado"
  * 
  * @param {number} request_id - The ID of the travel request to decline
  * @param {number} user_id - The ID of the user declining the request

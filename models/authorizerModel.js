@@ -151,7 +151,7 @@ const Authorizer = {
     let conn;
     const query = `
       UPDATE Request
-      SET request_status_id = 10
+      SET request_status_id = 9
       WHERE request_id = ?
     `;
 

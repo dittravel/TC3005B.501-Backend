@@ -23,8 +23,16 @@ CREATE TABLE IF NOT EXISTS Role (
 CREATE TABLE IF NOT EXISTS Department (
     department_id INT PRIMARY KEY AUTO_INCREMENT,
     department_name VARCHAR(20) UNIQUE NOT NULL,
-    costs_center VARCHAR(20),                -- Cost center code for accounting
-    active BOOL NOT NULL DEFAULT TRUE        -- Soft delete flag
+    active BOOL NOT NULL DEFAULT TRUE
+);
+
+-- CostCenter
+CREATE TABLE IF NOT EXISTS CostCenter (
+    cost_center_id INT PRIMARY KEY AUTO_INCREMENT,
+    cost_center_name VARCHAR(20) UNIQUE NOT NULL,
+    department_id INT NOT NULL,
+
+    FOREIGN KEY (department_id) REFERENCES Department(department_id)
 );
 
 -- AlertMessage: Predefined alert messages for request status notifications
@@ -38,7 +46,11 @@ CREATE TABLE IF NOT EXISTS User (
     user_id INT PRIMARY KEY AUTO_INCREMENT,
     role_id INT,                             -- User's role (Applicant, Agent, etc.)
     department_id INT,                       -- User's department
+
     boss_id INT NULL,                        -- Direct boss for authorization
+    substitute_id INT NULL,                  -- Substitute user for delegation
+    out_of_office_start_date DATE NULL,
+    out_of_office_end_date DATE NULL,
 
     user_name VARCHAR(60) UNIQUE NOT NULL,   -- Unique username for login
     password VARCHAR(60) NOT NULL,           -- Hashed password
@@ -71,7 +83,7 @@ CREATE TABLE IF NOT EXISTS Request (
     user_id INT,                             -- Requester (applicant)
     request_status_id INT DEFAULT 1,         -- Current workflow status
     assigned_to INT NULL,                    -- User who must handle the request next
-    authorization_level INT DEFAULT 0,       -- Current level in authorization (0-level 2, 1-level 1, 2-agency)
+    authorization_level INT DEFAULT 0,       -- Current level in authorization (0 = not yet assigned, 1 = first level, etc.)
 
     notes LONGTEXT,                          -- Justification and additional details
     requested_fee FLOAT,                     -- Amount requested by applicant

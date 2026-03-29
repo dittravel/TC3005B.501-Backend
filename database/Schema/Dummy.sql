@@ -10,15 +10,13 @@ USE CocoScheme;
 -- ============================================================================
 -- Department Test Data
 -- ============================================================================
--- Sample company departments with cost centers
--- Note: 'Operaciones' department is marked inactive for testing soft-delete functionality
-INSERT INTO Department (department_name, costs_center, active) VALUES
-  ('Finanzas', 'CC001', TRUE),
-  ('Recursos Humanos', 'CC002', TRUE),
-  ('IT', 'CC003', TRUE),
-  ('Marketing', 'CC004', TRUE),
-  ('Operaciones', 'CC005', FALSE),  -- Inactive for testing
-  ('Admin', 'ADMIN', TRUE);
+INSERT INTO Department (department_name, active) VALUES
+  ('Finanzas', TRUE),
+  ('Recursos Humanos', TRUE),
+  ('IT', TRUE),
+  ('Marketing', TRUE),
+  ('Operaciones', FALSE),  -- Inactive for testing
+  ('Admin', TRUE);
 
 -- ============================================================================
 -- Travel Request Test Data
@@ -27,79 +25,17 @@ INSERT INTO Department (department_name, costs_center, active) VALUES
 -- Covers all status IDs (1-10) for testing each workflow stage
 -- Note: user_id references must exist in User table (populated by init_db.js)
 
--- User 1 requests (one per status for comprehensive testing)
-INSERT INTO Request (user_id, request_status_id, notes, requested_fee, imposed_fee, request_days, active) VALUES
-  (1, 1, 'Solicito viáticos para viaje a conferencia en Barcelona.', 1500.00, NULL, 3.0, TRUE),
-  (1, 2, 'Reembolso por gastos médicos durante viaje.', 800.00, NULL, 1.0, TRUE),
-  (1, 3, 'Solicitud de apoyo económico para capacitación online.', 500.00, NULL, 0.0, TRUE),
-  (1, 4, 'Viáticos para taller de liderazgo en Madrid.', 1200.00, NULL, 2.0, TRUE),
-  (1, 5, 'Reembolso de transporte.', 300.00, 250.00, 0.5, TRUE),
-  (1, 6, 'Apoyo para participación en congreso internacional.', 2000.00, 1800.00, 4.0, TRUE),
-  (1, 7, 'Gastos operativos extraordinarios.', 650.00, 600.00, 0.0, TRUE),
-  (1, 8, 'Viaje urgente por representación institucional.', 1750.00, 1500.00, 3.5, TRUE),
-  (1, 9, 'Solicito anticipo para misión técnica en el extranjero.', 2200.00, 2000.00, 5.0, TRUE),
-  (1, 10, 'Solicitud de viáticos por gira de supervisión.', 1300.00, 1200.00, 2.5, TRUE),
-  
-  -- User 4 requests (testing edge cases and unusual data)
-  (4, 1, 'Quiero ir a brr brr patapin por favor', 90.00, NULL, 9.0, TRUE),
-  (4, 2, 'Yo como cuando', 9999999.00, 10000.0, NULL, TRUE),
-  (4, 3, 'Solicito algo para que me den algo porque quiero algo y por eso solicito las cosas, porque el que quiere puede', 10.00, NULL, 3, TRUE),
-  (4, 4, 'Momento gastar cuando gastas mucho', 999999999999999999999999999999999999.9999999999999999999, NULL, 33, TRUE),
-  (4, 5, 'Cambio de registro para cambiar lo registrado porque se requere cambiar por el nuevo cambio', 80, 0.001, 0.5, TRUE),
-  (4, 6, 'anotando anotando anotando anotando anotando anotando anotando', 333333333, 11111111, 80, TRUE),
-  (4, 7, 'Llendo al evento de fantasias épicas mayo 2030', 878723, 9823982, 932, TRUE),
-  (4, 8, '¿Por qué te vas? Me olvidarás Me olvidarás', 99.99, 88, 3.5, TRUE),
-  (4, 9, 'que lento el trafico, ¿por qué no pasa el camion :(?', 100, 100, 100, TRUE),
-  (4, 10, 'con el te duele el corazon, conmigo te duelen los pies', 9823, 893, 10, TRUE),
-  
-  -- User 5 requests (varied test data)
-  (5, 1, 'a caminar en el solazo a 40 grados', 3, NULL, 0.8, TRUE),
-  (5, 2, '', 32, NULL, 10, TRUE),  -- Empty notes for testing
-  (5, 3, 'imagina hacerte 2 horas en viaje al trabajo, no podria ser yo', 34, NULL, 9, TRUE),
-  (5, 4, 'Motivo de solicitud número 43', 93, NULL, 3, TRUE),
-  (5, 5, 'Razones: No tengo ninguna razón para estarlo', 3, 93, 01, TRUE),
-  (5, 6, 'Evento Vínculo 2025', 2025, 5, 1, TRUE),
-  (5, 7, 'Primera línea de notas.\nSegunda línea de notas.', 3, 4, 9, TRUE),  -- Multi-line notes
-  (5, 8, 'Mensaje: Mensaje', 92, 38, 10, TRUE),
-  (5, 9, 'Solicitando para el evento', 9239, 9823, 2, TRUE),
-  (5, 10, 'Llenando espacio', 38, 93, 2, TRUE),
-  
-  -- User 6 requests (generic examples)
-  (6, 1, 'Solicitud de ejemplo 1', 100.00, NULL, 5, TRUE),
-  (6, 2, 'Solicitud de ejemplo 2', 150.00, NULL, 7, TRUE),
-  (6, 3, 'Solicitud de ejemplo 3', 200.00, NULL, 10, TRUE),
-  (6, 4, 'Solicitud de ejemplo 4', 50.00, NULL, 3, TRUE),
-  (6, 5, 'Solicitud de ejemplo 5', 300.00, 280.00, 15, TRUE),
-  (6, 6, 'Solicitud de ejemplo 6', 120.00, 110.00, 6, TRUE),
-  (6, 7, 'Solicitud de ejemplo 7', 180.00, 160.00, 8, TRUE),
-  (6, 8, 'Solicitud de ejemplo 8', 250.00, 230.00, 12, TRUE),
-  (6, 9, 'Solicitud de ejemplo 9', 75.00, 70.00, 4, TRUE),
-  (6, 10, 'Solicitud de ejemplo 10', 400.00, 380.00, 20, TRUE),
-  
-  -- User 9 requests (additional test data)
-  (9, 1, 'Hola muy buenas', 423.55, NULL, 12.0, TRUE),
-  (9, 2, 'Me voy de aca', 312.40, NULL, 25.0, TRUE),
-  (9, 3, 'Ayuda', 267.10, NULL, 9.0, TRUE),
-  (9, 4, 'soy', 115.00, NULL, 3.0, TRUE),
-  (9, 5, 'mauri', 496.80, 39.99, 15.0, TRUE),
-  (9, 6, 'me', 130.75, 25.00, 20.0, TRUE),
-  (9, 7, 'estoy', 221.00, 18.30, 7.0, TRUE),
-  (9, 8, 'volviendo', 300.00, 95.00, 30.0, TRUE),
-  (9, 9, 'locooooooo', 401.25, 10.10, 22.0, TRUE),
-  (9, 10, 'hola', 159.99, 0.00, 1.0, TRUE),
-  (9, 1, 'E', 450.50, NULL, 18.0, TRUE),
-  
-  -- User 10 requests (testing character data)
-  (10, 1, 'A', 110.20, NULL, 4.0, TRUE),
-  (10, 1, 'S', 340.00, NULL, 27.0, TRUE),
-  (10, 1, 'T', 205.90, NULL, 13.0, TRUE),
-  (10, 1, 'E', 500.00, NULL, 29.0, TRUE),
-  (10, 1, 'R', 87.60, NULL, 2.0, TRUE),
-  (10, 1, '_', 375.00, NULL, 26.0, TRUE),
-  (10, 1, 'E', 285.40, NULL, 8.0, TRUE),
-  (10, 1, 'G', 330.00, NULL, 16.0, TRUE),
-  (10, 1, 'G', 165.75, NULL, 6.0, TRUE),
-  (10, 1, '_', 91.00, NULL, 5.0, TRUE);
+-- User requests (one per status for comprehensive testing)
+INSERT INTO Request (user_id, request_status_id, assigned_to, authorization_level, notes, requested_fee, imposed_fee, request_days, active) VALUES
+  (3, 1, NULL, 0, 'Solicito viáticos para viaje a conferencia en Barcelona.', 1500.00, NULL, 3.0, TRUE),
+  (3, 2, 2, 1, 'Reembolso por gastos médicos durante viaje.', 800.00, NULL, 1.0, TRUE),
+  (3, 3, 5, 2, 'Solicitud de apoyo económico para capacitación online.', 500.00, NULL, 0.0, TRUE),
+  (3, 4, 4, 2, 'Viáticos para taller de liderazgo en Madrid.', 1200.00, NULL, 2.0, TRUE),
+  (3, 5, 5, 2, 'Reembolso de transporte.', 300.00, 250.00, 0.5, TRUE),
+  (3, 6, 5, 2, 'Apoyo para participación en congreso internacional.', 2000.00, 1800.00, 4.0, TRUE),
+  (3, 7, 5, 2, 'Gastos operativos extraordinarios.', 650.00, 600.00, 0.0, TRUE),
+  (3, 8, 5, 2, 'Viaje urgente por representación institucional.', 1750.00, 1500.00, 3.5, TRUE),
+  (3, 9, 5, 2, 'Solicito anticipo para misión técnica en el extranjero.', 2200.00, 2000.00, 5.0, TRUE);
 
 -- ============================================================================
 -- Geographic Reference Data
@@ -281,30 +217,7 @@ INSERT INTO Route_Request (request_id, route_id) VALUES
   (6, 6),
   (7, 7),
   (8, 8),
-  (9, 9),
-  (10, 10),
-  (11, 11),
-  (12, 12),
-  (13, 13),
-  (14, 14),
-  (15, 15),
-  (16, 16),
-  (17, 17),
-  (18, 18),
-  (19, 19),
-  (20, 20),
-  (21, 21),
-  (22, 22),
-  (23, 23),
-  (24, 24),
-  (25, 25),
-  (26, 26),
-  (27, 27),
-  (28, 28),
-  (29, 29),
-  (30, 30),
-  (3, 63),
-  (3, 64);
+  (9, 9);
 
 -- ============================================================================
 -- Receipt Test Data
@@ -315,32 +228,7 @@ INSERT INTO Route_Request (request_id, route_id) VALUES
 
 INSERT INTO Receipt (receipt_type_id, request_id, validation, amount, validation_date) VALUES
   -- Pending receipts (awaiting accounts payable review)
-  (4, 7, 'Pendiente', 300.00, '2025-04-19 09:00:00'),
-  (7, 8, 'Pendiente', 600.00, '2025-04-19 18:00:59'),
-  (6, 18, 'Pendiente', 2290.55, '2003-04-19 10:06:43'),
-  (1, 27, 'Pendiente', 4100.00, '2025-06-19 20:17:24'),
-  (6, 28, 'Pendiente', 2788.65, '2003-07-31 06:35:24'),
-  (1, 38, 'Pendiente', 1560.10, '2036-08-31 23:59:59'),  -- Future date for testing
-  (6, 47, 'Pendiente', 420.89, '2025-05-02 14:15:48'),
-  (3, 48, 'Pendiente', 2475.00, NULL),  -- NULL validation_date
-  
-  -- Approved receipts (will trigger wallet addition via trigger)
-  (2, 7, 'Aprobado', 300.00, '2025-04-19 09:03:00'),
-  (2, 17, 'Aprobado', 4550.25, '2025-03-21 10:00:00'),
-  (2, 18, 'Aprobado', 3035.10, '2025-02-23 16:00:00'),
-  (3, 28, 'Aprobado', 1722.80, NULL),
-  (7, 37, 'Aprobado', 2165.44, '2036-07-17 16:50:33'),
-  (5, 48, 'Aprobado', 3500.60, '2024-09-15 11:42:31'),
-  
-  -- Rejected receipts (various reasons for rejection)
-  (3, 8, 'Rechazado', 1000.00, '2025-04-19 18:00:00'),
-  (3, 17, 'Rechazado', 1905.30, '2025-04-22 12:00:00'),
-  (5, 27, 'Rechazado', 498.75, '2025-04-23 18:30:00'),
-  (5, 37, 'Rechazado', 3940.99, '2006-02-08 15:59:45'),
-  (2, 38, 'Rechazado', 3312.77, NULL),
-  (4, 47, 'Rechazado', 1801.23, '2020-03-18 16:15:24'),
-  (3, 48, 'Pendiente', 2475.00, NULL),
-  (5, 48, 'Aprobado', 3500.60, '2024-09-15 11:42:31');
+  (1, 1, 'Pendiente', 300.00, '2025-04-19 09:00:00');
 
 -- ============================================================================
 -- Auth Rules

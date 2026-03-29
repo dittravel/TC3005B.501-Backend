@@ -14,9 +14,12 @@ import { generalRateLimiter } from "../middleware/rateLimiters.js";
 
 const router = express.Router();
 
-// Multer used for handling file uploads
+// Multer used for handling file uploads (memory storage - no disk writes)
 const upload = multer({
-  dest: "uploads/"
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 10 * 1024 * 1024 // 10MB max
+  }
 });
 
 router.use((req, res, next) => {
@@ -48,6 +51,14 @@ router.route('/update-user/:user_id')
 // Delete a user by user ID
 router.route("/delete-user/:user_id")
   .put(generalRateLimiter, authenticateToken, authorizeRole(['Administrador']), adminController.deactivateUser);
+
+// Get departments
+router.route("/get-departments")
+  .get(generalRateLimiter, authenticateToken, authorizeRole(['Administrador']), adminController.getDepartments);
+
+// Get roles
+router.route("/get-roles")
+  .get(generalRateLimiter, authenticateToken, authorizeRole(['Administrador']), adminController.getRoles);
 
 // Get auth rules
 router.route("/get-auth-rules")

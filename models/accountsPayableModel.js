@@ -9,7 +9,7 @@
 import pool from "../database/config/db.js";
 
 const AccountsPayable = {
-  // Update request status to 5 (Atención Agencia de Viajes)
+  // Update request status to Atención Agencia de Viajes
   async attendTravelRequest(requestId, imposedFee, new_status) {
     let conn;
     try {

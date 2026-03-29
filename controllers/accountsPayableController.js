@@ -31,13 +31,11 @@ const attendTravelRequest = async (req, res) => {
     const current_status = request.request_status_id;
     
     // Validate if this request can be attended by accounts payable
-    // Status 4 (Cotización del Viaje) -> Status 6 (Comprobación)
+    // Status 3 (Cotización del Viaje) -> Status 5 (Comprobación)
     // At this point, if travel services were needed, they've already been handled by Travel Agent
-    if (current_status == 4){
-      const new_status = 6;  // Always go to status 6 (receipts/comprobantes)
-      
+    if (current_status === 3) {
+      const new_status = 5; // Transition to receipts validation
       const updated = await AccountsPayable.attendTravelRequest(requestId, imposedFee, new_status);
-      
       if (updated) {
         const { user_email, user_name, request_id, status } = await mailData(requestId);
         await sendMail(user_email, user_name, requestId, status);
@@ -45,13 +43,11 @@ const attendTravelRequest = async (req, res) => {
           message: "Travel request status updated successfully",
           requestId: requestId,
           imposedFee: imposedFee,
-          newStatus: new_status, 
+          newStatus: new_status,
         });
       } else {
-        return res
-        .status(400)
-        .json({ error: "Failed to update travel request status" });
-      } 
+        return res.status(500).json({ error: "Failed to update travel request status" });
+      }
     }
     else{
       res.status(404).json({ error: "This request cannot be attended by accounts payable" });

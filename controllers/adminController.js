@@ -119,6 +119,28 @@ export const deactivateUser = async (req, res) => {
   }
 }
 
+// Get list of all departments
+export const getDepartments = async (req, res) => {
+  try {
+    const departments = await adminService.getDepartments();
+    res.status(200).json(departments);
+  } catch (error) {
+    console.error('Error getting departments:', error.message);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+// Get list of all roles
+export const getRoles = async (req, res) => {
+  try {
+    const roles = await adminService.getRoles();
+    res.status(200).json(roles);
+  } catch (error) {
+    console.error('Error getting roles:', error.message);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
 // Get list of all auth rules
 export const getAuthRules = async (req, res) => {
   try {
@@ -183,16 +205,30 @@ export const importData = async (req, res) => {
   if (!req.file) {
     return res.status(400).json({ error: 'No XML file uploaded' });
   }
-  
+
+  if (!req.file.buffer) {
+    return res.status(400).json({ error: 'File buffer not available - upload failed' });
+  }
+
   try {
-    const xmlContent = await fs.readFile(req.file.path, 'utf-8');
+    // Convert buffer to UTF-8 string
+    const xmlContent = req.file.buffer.toString('utf-8');
+
+    if (!xmlContent || xmlContent.trim() === '') {
+      return res.status(400).json({ error: 'XML file is empty' });
+    }
+
     const xmlData = await parseXmlData(xmlContent);
-    const result = await extractExternalData(xmlData);
+    const xmlObj = await extractExternalData(xmlData);
+
+    // Process the extracted data and store it in the database
+    const result = await adminService.createDataFromXml(xmlObj);
+
     res.status(200).json(result);
   }
   catch (error) {
     console.error('Error importing data from XML:', error.message);
-    return res.status(500).json({ error: 'Internal server error' });
+    return res.status(500).json({ error: error.message || 'Internal server error' });
   }
 };
 
@@ -203,6 +239,10 @@ export default {
   createMultipleUsers,
   createUser,
   updateUser,
+  // Departments
+  getDepartments,
+  // Roles
+  getRoles,
   // Auth rules
   getAuthRules,
   createAuthRule,

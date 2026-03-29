@@ -8,6 +8,7 @@
 */
 
 import Applicant from "../models/applicantModel.js";
+import Authorizer from "../models/authorizerModel.js";
 
 /**
  * Formats the main route and additional routes into a consistent structure.
@@ -94,13 +95,13 @@ export const cancelTravelRequestValidation = async (request_id) => {
       throw { status: 404, message: "Travel request not found" };
     }
     
-    if (![1, 2, 3, 4, 5, 9].includes(status_id)) {
+    if (![1, 2, 3, 5, 9].includes(status_id)) {
       throw {
         status: 400,
         message:
         "Request cannot be cancelled after reaching 'Atención Agencia de Viajes'",
       };
-    } else if (status_id == 9) {
+    } else if (status_id == 8) {
       throw {
         status: 400,
         message: "Request has already been cancelled.",
@@ -112,7 +113,7 @@ export const cancelTravelRequestValidation = async (request_id) => {
     return {
       message: "Travel request cancelled successfully",
       request_id,
-      request_status_id: 9,
+      request_status_id: 8,
       active: false,
     };
   } catch (err) {
@@ -204,13 +205,14 @@ export const getCityId = async (conn, cityName) => {
 
 /**
  * Sends the receipts of a travel request for validation by updating the request status.
- * The request must be in status 6 (Comprobación gastos del viaje) to be sent for validation.
+ * The request must be in status 5 (Comprobación gastos del viaje) to be sent for validation.
  * @param {number} requestId - The ID of the travel request whose receipts are to be sent for validation.
  * @returns {Object} An object containing the request ID, updated status, and a message confirming the update.
  * @throws Will throw an error if the request does not exist or if it is not in the correct status for validation.
  */
 export async function sendReceiptsForValidation(requestId) {
   const currentStatus = await Applicant.getRequestStatus(requestId);
+  const departmentId = await Applicant.getRequestDepartment(requestId);
   
   if (currentStatus === null) {
     const err = new Error(`No request found with id ${requestId}`);
@@ -218,19 +220,25 @@ export async function sendReceiptsForValidation(requestId) {
     throw err;
   }
   
-  if (currentStatus !== 6) {
+  if (currentStatus !== 5) {
     const err = new Error(
-      "Request must be in status 6 (Comprobación gastos del viaje) to send for validation"
+      "Request must be in status 5 (Comprobación gastos del viaje) to send for validation"
     );
     err.status = 400;
     throw err;
   }
-  
-  await Applicant.updateRequestStatusToValidationStage(requestId);
+
+  // Update request status to receipt validation
+  // Get a random accounts payable user from the department
+  const accountsPayable = await Authorizer.getRandomAccountsPayable(departmentId);
+
+  if (accountsPayable) {
+    await Authorizer.updateRequestRouting(requestId, accountsPayable.user_id, 2, 6);
+  }
   
   return {
     request_id: Number(requestId),
-    updated_status: 7,
+    updated_status: 6,
     message: "Request status updated to 'Validación de comprobantes'",
   };
 }

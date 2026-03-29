@@ -9,13 +9,13 @@
 import pool from "../database/config/db.js";
 
 const TravelAgent = {
-  // Update request status to 6 
+  // Update request status to receipt validation
   async attendTravelRequest(requestId) {
     let conn;
     try {
       conn = await pool.getConnection();
       const result = await conn.query(
-        "UPDATE `Request` SET request_status_id = 6 WHERE request_id = ?",
+        "UPDATE `Request` SET request_status_id = 5 WHERE request_id = ?",
         [requestId],
       );
       return result.affectedRows > 0;

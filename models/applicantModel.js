@@ -123,18 +123,9 @@ const Applicant = {
       console.log("Role ID:", role.role_id);
       let request_status;
         
-      if (role.role_id == 1) { // Solicitant
+      if (role.role_id == 1 || role.role_id == 4) { // Solicitant or Authorizer
         console.log("Role ID:", role.role_id);
-        request_status = 2; // 2 = First Revision
-
-      } else if (role.role_id == 4) { // N1
-        console.log("Role ID:", role.role_id);
-        request_status = 3; // 3 = Second Revision
-
-      } else if (role.role_id == 5) { // N2
-        console.log("Role ID:", role.role_id);
-        request_status = 4; // 4 = Trip Quote
-
+        request_status = 2; // Revision
       } else {
         throw new Error("User role is not allowed to create a travel request");
       }
@@ -444,13 +435,37 @@ const Applicant = {
       if (conn) conn.release();
     }
   },
+
+  // Get request department
+  async getRequestDepartment(request_id) {
+    let conn;
+    const query = `
+      SELECT d.department_id FROM Request r
+      JOIN User u ON r.user_id = u.user_id
+      JOIN Department d ON u.department_id = d.department_id
+      WHERE r.request_id = ?
+    `;
+
+    try {
+      conn = await pool.getConnection();
+      const rows = await conn.query(query, [request_id]);
+      return rows.length > 0 ? rows[0].department_id : null;
+
+    } catch (error) {
+      console.error('Error getting request department:', error);
+      throw error;
+
+    } finally {
+      if (conn) conn.release();
+    }
+  },
   
   // Cancel travel request
   async cancelTravelRequest(request_id) {
     let conn;
     const query = `
       UPDATE Request
-      SET request_status_id = 9
+      SET request_status_id = 8
       WHERE request_id = ?
     `;
 
@@ -804,18 +819,9 @@ const Applicant = {
       );
 
       let request_status;
-      if (role[0].role_id == 1) {
+      if (role[0].role_id == 1 || role[0].role_id == 4) { // Solicitant or Authorizer
         console.log("Role ID:", role[0].role_id);
-        request_status = 2; // 2 = First Revision
-
-      } else if (role[0].role_id == 4) {
-        console.log("Role ID:", role[0].role_id);
-        request_status = 3; // 3 = Second Revision
-
-      } else if (role[0].role_id == 5) {
-        console.log("Role ID:", role[0].role_id);
-        request_status = 4; // 4 = Trip Quote
-
+        request_status = 2; // Revision
       } else {
         throw new Error("User role in not allowed to create a travel request");
       }
@@ -869,7 +875,7 @@ const Applicant = {
     try {
       conn = await pool.getConnection();
       await conn.query(
-        `UPDATE Request SET request_status_id = 7 WHERE request_id = ?`,
+        `UPDATE Request SET request_status_id = 6 WHERE request_id = ?`,
         [requestId]
       );
 

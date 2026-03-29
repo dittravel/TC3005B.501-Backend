@@ -149,7 +149,7 @@ const Admin = {
   },
   
   // Create a single user
-  async createUser(userData) {
+  async createUser(userData, includeId = false) {
     const connection = await db.getConnection();
     try{
       const existingUser = await connection.query(`
@@ -171,8 +171,8 @@ const Admin = {
           workstation,
           email,
           phone_number,
-          creation_date,
-          boss_id
+          boss_id,
+          creation_date
         ) 
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`,
         [
@@ -264,6 +264,36 @@ const Admin = {
       if (conn) {
         conn.release();
       }
+    }
+  },
+
+  // Get departments
+  async getDepartments() {
+    let conn;
+    try {
+      conn = await pool.getConnection();
+      const departments = await conn.query(`SELECT department_id, department_name FROM Department`);
+      return departments;
+    } catch (error) {
+      console.error('Error getting departments:', error);
+      throw error;
+    } finally {
+      if (conn) conn.release();
+    }
+  },
+
+  // Get roles
+  async getRoles() {
+    let conn;
+    try {
+      conn = await pool.getConnection();
+      const roles = await conn.query(`SELECT role_id, role_name FROM Role`);
+      return roles;
+    } catch (error) {
+      console.error('Error getting roles:', error);
+      throw error;
+    } finally {
+      if (conn) conn.release();
     }
   },
 
@@ -441,9 +471,16 @@ const Admin = {
     let conn;
     try {
       conn = await pool.getConnection();
+
+      // Fetch users who are authorizers (role_id = 4)
       const bosses = await conn.query(`
-        SELECT user_id, user_name FROM User
-        WHERE department_id = ? AND active = 1
+        SELECT
+          user_id,
+          user_name
+        FROM User
+        WHERE department_id = ?
+        AND active = 1
+        AND role_id = 4
       `, [departmentId]);
       return bosses;
     } catch (error) {
@@ -453,7 +490,56 @@ const Admin = {
       if (conn) conn.release();
     }
   },
+
+  // Create department
+  async createDepartment(departmentData) {
+    let conn;
+    try {
+      conn = await pool.getConnection();
+      await conn.query(`
+        INSERT INTO Department (
+          department_id,
+          department_name
+        )
+        VALUES (?, ?)
+      `, [
+        departmentData.department_id,
+        departmentData.department_name
+      ]
+      );
+    } catch (error) {
+      console.error('Error creating department:', error);
+      throw error;
+    } finally {
+      if (conn) conn.release();
+    }
+  },
+
+  // Create cost center
+  async createCostCenter(costCenterData) {
+    let conn;
+    try {
+      conn = await pool.getConnection();
+      await conn.query(`
+        INSERT INTO CostCenter (
+          cost_center_id,
+          cost_center_name,
+          department_id
+        )
+        VALUES (?, ?, ?)
+      `, [
+        costCenterData.cost_center_id,
+        costCenterData.cost_center_name,
+        costCenterData.department_id
+      ]
+      );
+    } catch (error) {
+      console.error('Error creating cost center:', error);
+      throw error;
+    } finally {
+      if (conn) conn.release();
+    }
+  },
 };
   
 export default Admin;
-  

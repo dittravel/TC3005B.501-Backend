@@ -245,7 +245,6 @@ export const createDraftTravelRequest = async (req, res) => {
     res.status(500).json({ error: "Internal server error" });
 
   }
-
 }
 
 // Helper function to format dates

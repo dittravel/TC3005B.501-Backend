@@ -506,11 +506,32 @@ export const validateCreateUser = [
     .withMessage('Phone number cannot be empty.')
 ];
 
+// Validate out-of-office dates and substitute selection
+export const validateOutOfOffice = [
+  param('user_id')
+    .isInt({ min: 1 })
+    .toInt()
+    .withMessage('User ID must be a valid number'),
+  body('out_of_office_start_date')
+    .optional({ nullable: true })
+    .isISO8601()
+    .withMessage('Start date must be a valid ISO 8601 date'),
+  body('out_of_office_end_date')
+    .optional({ nullable: true })
+    .isISO8601()
+    .withMessage('End date must be a valid ISO 8601 date'),
+  body('substitute_id')
+    .optional({ nullable: true })
+    .isInt({ min: 1 })
+    .toInt()
+    .withMessage('Substitute ID must be a valid number'),
+];
+
 // Generic validation error handler
 export const validateInputs = (req, res, next) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() }); 
+      return res.status(400).json({ errors: errors.array() });
   }
   next();
 };
@@ -521,5 +542,6 @@ export default {
   validateExpenseReceipts,
   validateInputs,
   validateDraftTravelRequest,
-  validateCreateUser
+  validateCreateUser,
+  validateOutOfOffice
 };

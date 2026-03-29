@@ -20,14 +20,18 @@ const User = {
           u.email, 
           u.phone_number,
           u.workstation,
-          u.boss_id,
           d.department_name,
-          d.costs_center,
-          u.creation_date, 
-          r.role_name
+          u.creation_date,
+          r.role_name,
+          u.boss_id,
+          u.out_of_office_start_date,
+          u.out_of_office_end_date,
+          u.substitute_id,
+          (SELECT user_name FROM User WHERE user_id = u.boss_id) AS boss_name,
+          (SELECT user_name FROM User WHERE user_id = u.substitute_id) AS substitute_name
         FROM User u
-        JOIN Role r ON u.role_id = r.role_id
         JOIN Department d ON u.department_id = d.department_id
+        JOIN Role r ON u.role_id = r.role_id
         WHERE u.user_id = ?`,
         [userId]
       );
@@ -162,7 +166,7 @@ const User = {
     try {
       conn = await pool.getConnection();
       const rows = await conn.query(`
-        SELECT 
+        SELECT
           user_id,
           user_name,
           wallet
@@ -171,7 +175,64 @@ const User = {
         [user_id]
       );
       return rows[0];
-      
+
+    } finally {
+      if (conn) conn.release();
+    }
+  },
+
+  // Get all active users in the same department and with the same role for substitution purposes
+  async getUserDepartmentMembers(userId) {
+    let conn;
+    try {
+      conn = await pool.getConnection();
+      const rows = await conn.query(`
+        SELECT
+          user_id,
+          user_name
+        FROM User
+        WHERE department_id = (SELECT department_id FROM User WHERE user_id = ?)
+          AND role_id = (SELECT role_id FROM User WHERE user_id = ?)
+          AND active = 1
+          AND user_id != ?`,
+        [userId, userId, userId]
+      );
+      return rows;
+
+    } finally {
+      if (conn) conn.release();
+    }
+  },
+
+  // Update out-of-office dates and substitute for a user
+  async updateOutOfOffice(userId, fields) {
+    let conn;
+    try {
+      conn = await pool.getConnection();
+      const setClauses = [];
+      const values = [];
+
+      for (const field in fields) {
+        if (fields.hasOwnProperty(field)) {
+          setClauses.push(`${field} = ?`);
+          values.push(fields[field]);
+        }
+      }
+
+      if (setClauses.length === 0) {
+        return { success: false, message: 'No fields to update' };
+      }
+
+      values.push(userId);
+      const query = `
+        UPDATE User
+        SET ${setClauses.join(', ')}
+        WHERE user_id = ?
+      `;
+
+      await conn.query(query, values);
+      return { success: true, message: 'Out-of-office updated successfully' };
+
     } finally {
       if (conn) conn.release();
     }

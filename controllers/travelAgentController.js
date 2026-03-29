@@ -37,7 +37,7 @@ const attendTravelRequest = async (req, res) => {
       return res.status(200).json({
         message: "Travel request status updated successfully",
         requestId: requestId,
-        newStatus: 6, // Status 6: Travel Status Verification phase
+        newStatus: 5, // Status 5: Aplicant submits receipts
       });
     } else {
       return res
@@ -52,7 +52,7 @@ const attendTravelRequest = async (req, res) => {
 
 /**
  * Complete service assignment and route to Accounts Payable for quoting
- * Handles transition from status 5 (Atención Agencia) to status 4 (Cotización)
+ * Handles transition from status 4 (Atención Agencia) to status 5 (Cotización)
  */
 const completeServiceAssignment = async (req, res) => {
   const { request_id } = req.params;
