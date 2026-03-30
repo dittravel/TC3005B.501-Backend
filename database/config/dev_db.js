@@ -72,10 +72,14 @@ async function devdb() {
     if (environment === 'dev') {
       console.log("Executing Dummy.sql...");
       const dummySqlContent = fs.readFileSync("./database/Schema/Dummy.sql", "utf8");
+      const costCenterSql = dummySqlContent.match(/(INSERT INTO CostCenter[^;]*;)/i);
       const departmentSql = dummySqlContent.match(/(INSERT INTO Department[^;]*;)/i);
-      
-      const remainingDummySql = dummySqlContent.replace(departmentSql[0], '').trim();
-      
+
+      // Remove the CostCenter and Department insert statements from the content
+      let remainingDummySql = dummySqlContent.replace(costCenterSql[0], '').trim();
+      remainingDummySql = remainingDummySql.replace(departmentSql[0], '').trim();
+
+      await conn.query(costCenterSql[0]);
       await conn.query(departmentSql[0]);
       const res = await parseCSV("./database/config/dummy_users.csv", true);
       console.log(res);

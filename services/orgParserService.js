@@ -36,31 +36,18 @@ export async function extractExternalData(xmlObj) {
     // Iterate through each department and extract employee data
     departmentsXml.forEach((dept) => {
       const deptName = dept.$.name;
+      const deptCostCenter = dept.$.cost_center;
 
       if (!deptName) {
-        errors.push('Departamento con formato incorrecto: falta nombre o id');
+        errors.push('Departamento con formato incorrecto: falta nombre o centro de costo');
         return;
       }
 
       // Store department
-      departments.push({ department_name: deptName });
+      departments.push({ department_name: deptName, cost_center_name: deptCostCenter });
 
-      // Get cost centers
-      const deptCostCenters = dept.CentroCosto
-        ? Array.isArray(dept.CentroCosto) ? dept.CentroCosto : [dept.CentroCosto]
-        : [];
-      
-      // Iterate through each cost center
-      deptCostCenters.forEach((cc) => {
-        if (!cc || !cc.$) {
-          errors.push(`Centro de costo con formato incorrecto en departamento ${deptName}`);
-          return;
-        }
-        costCenters.push({
-          cost_center_name: cc.$.name,
-          department_name: deptName,
-        });
-      });
+      // Store cost centers
+      costCenters.push({ cost_center_name: deptCostCenter });
 
       // Get employees
       const employees = dept.Empleado

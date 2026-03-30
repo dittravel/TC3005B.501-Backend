@@ -8,15 +8,26 @@
 USE CocoScheme;
 
 -- ============================================================================
+-- Cost Center Test Data
+-- ============================================================================
+INSERT INTO CostCenter (cost_center_name) VALUES
+  ('CC-001'),
+  ('CC-002'),
+  ('CC-003'),
+  ('CC-004'),
+  ('CC-005'),
+  ('CC-006');
+
+-- ============================================================================
 -- Department Test Data
 -- ============================================================================
-INSERT INTO Department (department_name, active) VALUES
-  ('Finanzas', TRUE),
-  ('Recursos Humanos', TRUE),
-  ('IT', TRUE),
-  ('Marketing', TRUE),
-  ('Operaciones', FALSE),  -- Inactive for testing
-  ('Admin', TRUE);
+INSERT INTO Department (department_name, cost_center_id, active) VALUES
+  ('Finanzas', 1, TRUE),
+  ('Recursos Humanos', 2, TRUE),
+  ('Tecnología', 3, TRUE),
+  ('Marketing', 4, TRUE),
+  ('Operaciones', 5, FALSE),  -- Inactive for testing
+  ('Admin', 6, TRUE);
 
 -- ============================================================================
 -- Travel Request Test Data

@@ -522,9 +522,10 @@ const Admin = {
       conn = await pool.getConnection();
       await conn.query(`
         INSERT INTO Department (
-          department_name
+          department_name,
+          cost_center_id
         )
-        VALUES (?)
+        VALUES (?, ?)
       `, [
         departmentData.department_name
       ]
@@ -568,13 +569,11 @@ const Admin = {
       conn = await pool.getConnection();
       await conn.query(`
         INSERT INTO CostCenter (
-          cost_center_name,
-          department_id
+          cost_center_name
         )
-        VALUES (?, ?)
+        VALUES (?)
       `, [
         costCenterData.cost_center_name,
-        costCenterData.department_id
       ]
       );
     } catch (error) {

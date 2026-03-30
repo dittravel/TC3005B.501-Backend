@@ -498,12 +498,20 @@ export const createDataFromXml = async (xmlObj) => {
 
     // 1. Create departments
     for (const dept of departments) {
+      const deptData = {
+        department_name: dept.department_name,
+        cost_center_id: await Admin.findCostCenterID(dept.cost_center_name)
+      };
+
       // Check if department already exists
       const existingDept = await Admin.findDepartmentID(dept.department_name);
       if (!existingDept) {
         // If department doesn't exist, create it
-        await Admin.createDepartment(dept);
-        summary.departments.created.push(dept.department_name);
+        await Admin.createDepartment(deptData);
+        summary.departments.created.push({ 
+          name: dept.department_name,
+          cost_center: dept.cost_center_name 
+        });
       } else {
         summary.departments.skipped.push(dept.department_name);
       }
@@ -511,21 +519,13 @@ export const createDataFromXml = async (xmlObj) => {
 
     // 2. Create cost centers
     for (const cc of costCenters) {
-      const ccData = {
-        cost_center_name: cc.cost_center_name,
-        department_id: await Admin.findDepartmentID(cc.department_name)
-      };
-
       // Check if cost center already exists
-      const existingCC = await Admin.findCostCenterID(ccData.cost_center_name);
+      const existingCC = await Admin.findCostCenterID(cc.cost_center_name);
 
       // If cost center doesn't exist, create it
       if (!existingCC) {
-        await Admin.createCostCenter(ccData);
-        summary.costCenters.created.push({
-          name: cc.cost_center_name,
-          department: cc.department_name
-        });
+        await Admin.createCostCenter(cc);
+        summary.costCenters.created.push(cc.cost_center_name);
       } else {
         summary.costCenters.skipped.push(cc.cost_center_name);
       }

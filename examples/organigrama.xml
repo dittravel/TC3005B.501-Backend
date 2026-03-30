@@ -1,8 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Organizacion name="Ditta Consulting">
-  <Departamento name="Finanzas">
-    <CentroCosto name="CC-FN-01" nombre="Viajes"/>
-    <CentroCosto name="CC-FN-02" nombre="Proyectos"/>
+  <Departamento name="Finanzas" cost_center="CC-001">
     <Empleado usuario="laura.flores" correo="laura.flores@empresa.com" telefono="5551234567" rol="Autorizador" workstation="WS104" password="laura321"/>
     <Empleado usuario="diego.hernandez" correo="diego.hernandez@empresa.com" telefono="5552345678" rol="Autorizador" workstation="WS105" password="diego654" jefe_usuario="laura.flores"/>
     <Empleado usuario="andres.gomez" correo="andres.gomez@empresa.com" telefono="5553456789" rol="Solicitante" workstation="WS101" password="andres123" jefe_usuario="diego.hernandez"/>
@@ -11,8 +9,7 @@
     <Empleado usuario="solicitante1" correo="solicitante1@empresa.com" telefono="5556789012" rol="Solicitante" workstation="WS106" password="123" jefe_usuario="diego.hernandez"/>
   </Departamento>
 
-  <Departamento name="Recursos Humanos">
-    <CentroCosto name="CC-RH-01" nombre="Capacitación"/>
+  <Departamento name="Recursos Humanos" cost_center="CC-002">
     <Empleado usuario="miguel.de.cervantes" correo="miguel@delamancha.com" telefono="5557890123" rol="Autorizador" workstation="DON-QUI" password="donquixote2023"/>
     <Empleado usuario="sofia_r" correo="sofia_random@mail.com" telefono="5558901234" rol="Autorizador" workstation="SOFIA-PC" password="m1cor4zon" jefe_usuario="miguel.de.cervantes"/>
     <Empleado usuario="adminX_special" correo="adminx@empresaxd.com" telefono="5559012345" rol="Solicitante" workstation="HACK001" password="sup3rS3cret!" jefe_usuario="sofia_r"/>

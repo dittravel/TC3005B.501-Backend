@@ -25,20 +25,20 @@ CREATE TABLE IF NOT EXISTS Role (
 
 CREATE INDEX idx_role_active ON Role (active);
 
+-- CostCenter
+CREATE TABLE IF NOT EXISTS CostCenter (
+    cost_center_id INT PRIMARY KEY AUTO_INCREMENT,
+    cost_center_name VARCHAR(20) UNIQUE NOT NULL
+);
+
 -- Department: Company departments with cost centers for travel expense tracking
 CREATE TABLE IF NOT EXISTS Department (
     department_id INT PRIMARY KEY AUTO_INCREMENT,
     department_name VARCHAR(20) UNIQUE NOT NULL,
-    active BOOL NOT NULL DEFAULT TRUE
-);
+    cost_center_id INT,
+    active BOOL NOT NULL DEFAULT TRUE,
 
--- CostCenter
-CREATE TABLE IF NOT EXISTS CostCenter (
-    cost_center_id INT PRIMARY KEY AUTO_INCREMENT,
-    cost_center_name VARCHAR(20) UNIQUE NOT NULL,
-    department_id INT NOT NULL,
-
-    FOREIGN KEY (department_id) REFERENCES Department(department_id)
+    FOREIGN KEY (cost_center_id) REFERENCES CostCenter(cost_center_id)
 );
 
 -- AlertMessage: Predefined alert messages for request status notifications

@@ -38,13 +38,17 @@ const Applicant = {
   // Find cost center by user ID
   async findCostCenterByUserId(user_id) {
     let conn;
-    
+
     try {
       conn = await pool.getConnection();
       const rows = await conn.query(`
-        SELECT d.department_name, d.costs_center FROM User u
-        JOIN Department d
-        ON u.department_id = d.department_id
+        SELECT
+          d.department_name,
+          d.cost_center_id,
+          cc.cost_center_name AS costs_center
+        FROM User u
+        JOIN Department d ON u.department_id = d.department_id
+        JOIN CostCenter cc ON d.cost_center_id = cc.cost_center_id
         WHERE u.user_id = ?;`,
         [user_id],
       );
