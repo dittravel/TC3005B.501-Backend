@@ -11,6 +11,20 @@ import { formatRoutes, getRequestDays, getCountryId, getCityId } from "../servic
 import { uploadReceiptFiles } from "../services/receiptFileService.js";
 
 const Applicant = {
+  // Helper function to get a random user with a specific role from the same department
+  async getRandomUserByRole(conn, roleId, departmentId) {
+    try {
+      const rows = await conn.query(
+        `SELECT user_id FROM User WHERE role_id = ? AND department_id = ? ORDER BY RAND() LIMIT 1`,
+        [roleId, departmentId]
+      );
+      return rows.length > 0 ? rows[0].user_id : null;
+    } catch (error) {
+      console.error(`Error getting random user with role ${roleId} in department ${departmentId}:`, error);
+      throw error;
+    }
+  },
+
   // Find applicant by ID
   async findById(id) {
     let conn;
@@ -113,25 +127,42 @@ const Applicant = {
       // Step 1: Insert into Request table
       const request_days = getRequestDays(allRoutes);
       
-      // Get user role and boss_id
+      // Get user role, boss_id, and department_id
       const userResult = await conn.query(
-        `SELECT role_id, boss_id FROM User WHERE user_id = ?`,
+        `SELECT role_id, boss_id, department_id FROM User WHERE user_id = ?`,
         [user_id],
       );
-      
+
       const role = userResult[0];
       if (!role) {
         throw new Error("User not found");
       }
 
-      console.log("Role ID:", role.role_id);
       let request_status;
-        
-      if (role.role_id == 1 || role.role_id == 4) { // Solicitant or Authorizer
-        console.log("Role ID:", role.role_id);
-        request_status = 2; // Revision
+      let assignedTo = null;
+
+      const bossId = role.boss_id;
+      const departmentId = role.department_id;
+
+      // If user has no boss, check travel requirements to determine initial status and assignment
+      if (!bossId) {
+        // If trip requires flights or hotels, set status to agent travel and assign to random travel agent
+        // Otherwise, set to travel quote and assign to random accounts payable
+        if (plane_needed || hotel_needed) {
+          request_status = 4; // Agent Travel
+          assignedTo = await this.getRandomUserByRole(conn, 2, departmentId); // Travel Agent role_id = 2
+        } else {
+          request_status = 3; // Travel Quote
+          assignedTo = await this.getRandomUserByRole(conn, 3, departmentId); // Accounts Payable role_id = 3
+        }
       } else {
-        throw new Error("User role is not allowed to create a travel request");
+        if (role.role_id == 1 || role.role_id == 4) { // Solicitant or Authorizer
+          console.log("Role ID:", role.role_id);
+          request_status = 2; // Revision
+          assignedTo = bossId; // Assign to boss
+        } else {
+          throw new Error("User role is not allowed to create a travel request");
+        }
       }
       
       const insertIntoRequestTable = `
@@ -150,7 +181,7 @@ const Applicant = {
       const requestTableResult = await conn.execute(insertIntoRequestTable, [
         user_id,
         request_status,
-        role.boss_id || null,  // assigned_to = boss_id (or null if no boss)
+        assignedTo,            // assigned_to = boss_id, travel agent, or accounts payable
         0,                     // authorization_level = 0 (starting level)
         notes,
         requested_fee,
