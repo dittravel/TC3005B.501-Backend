@@ -10,11 +10,10 @@ import pool from "../database/config/db.js";
 
 const AccountsPayable = {
   // Update request status to Atención Agencia de Viajes
-  async attendTravelRequest(requestId, imposedFee, new_status) {
+  async attendTravelRequest(requestId, imposedFee, new_status, connection = null) {
     let conn;
     try {
-      // Get a connection from the pool
-      conn = await pool.getConnection();
+      conn = connection || (await pool.getConnection());
       const result = await conn.query(
         `UPDATE Request SET request_status_id = ?, imposed_fee = ? 
         WHERE request_id = ?`,
@@ -28,7 +27,7 @@ const AccountsPayable = {
       throw error;
 
     } finally {
-      if (conn) {
+      if (!connection && conn) {
         conn.release();
       }
     }
@@ -79,7 +78,7 @@ const AccountsPayable = {
     }
   },
   
-  async updateRequestStatus(requestId, statusId) {
+  async updateRequestStatus(requestId, statusId, connection = null) {
     let conn;
     const query = `
       UPDATE Request
@@ -88,7 +87,7 @@ const AccountsPayable = {
     `;
     
     try {
-      conn = await pool.getConnection();
+      conn = connection || (await pool.getConnection());
       await conn.query(query, [statusId, requestId]);
 
     } catch (error) {
@@ -96,7 +95,7 @@ const AccountsPayable = {
       throw error;
 
     } finally {
-      if (conn) conn.release();
+      if (!connection && conn) conn.release();
     }
   },
   
@@ -123,10 +122,10 @@ const AccountsPayable = {
   },
   
   // Accept or Reject a Travel Request
-  async validateReceipt(requestId, approval) {
+  async validateReceipt(requestId, approval, connection = null) {
     let conn;
     try {
-      conn = await pool.getConnection();
+      conn = connection || (await pool.getConnection());
       const result = await conn.query(
         `UPDATE Receipt
         SET validation = ? WHERE receipt_id = ?`,
@@ -139,7 +138,7 @@ const AccountsPayable = {
       throw error;
 
     } finally {
-      if (conn) {
+      if (!connection && conn) {
         conn.release();
       }
     }

@@ -41,7 +41,7 @@ const hash = async (data) => {
  * @param {Object} userData - User data
  * @returns {Promise<Object>} Created user data
  */
-export async function createUser(userData) {
+export async function createUser(userData, options = {}) {
   try {
     const hashedPassword = await hash(userData.password);
 
@@ -74,7 +74,14 @@ export async function createUser(userData) {
       boss_id: userData.boss_id || null
     };
 
-    return await Admin.createUser(newUser);
+    const createdUser = await Admin.createUser(newUser, options.connection);
+
+    return {
+      user_id: createdUser.user_id,
+      role_id: newUser.role_id,
+      department_id: newUser.department_id,
+      user_name: newUser.user_name,
+    };
   } catch (error) {
     throw new Error(`Error creating user: ${error.message}`);
   }
@@ -318,7 +325,7 @@ export async function getUserList() {
  * @param {Object} newUserData - New data for the user
  * @returns {Promise<Object>} Result of the update operation
  */
-export const updateUserData = async (userId, newUserData) => {
+export const updateUserData = async (userId, newUserData, options = {}) => {
     const userData = await User.getUserData(userId);
     if (!userData) {
         throw { status: 404, message: 'No information found for the user' };
@@ -403,7 +410,7 @@ export const updateUserData = async (userId, newUserData) => {
     }
 
     if (Object.keys(fieldsToUpdateInDb).length > 0) {
-        await Admin.updateUser(userId, fieldsToUpdateInDb);
+        await Admin.updateUser(userId, fieldsToUpdateInDb, options.connection);
         return { message: 'User updated successfully', updated_fields: updatedFields };
     }
 

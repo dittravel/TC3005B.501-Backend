@@ -11,7 +11,8 @@
         "empty_db": "node ./database/config/dev_db.js prod",
         "test": "node --test",
         "test:policy": "node --test tests/reimbursementPolicyService.test.js",
-        "test:erp": "node --test tests/integration*.test.js"
+        "test:erp": "node --test tests/integration*.test.js",
+        "test:audit": "node --test tests/auditLog*.test.js"
     },
     "repository": {
         "type": "git",
