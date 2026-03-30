@@ -6,7 +6,7 @@
  * request bodies, and ensures data integrity using express-validator.
  */
 
-import { body, param, query, query, validationResult } from 'express-validator';
+import { body, param, query, validationResult } from 'express-validator';
 
 // Validate and sanitize ID parameters in endpoints
 export const validateId = [

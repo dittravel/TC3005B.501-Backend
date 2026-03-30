@@ -538,7 +538,7 @@ const Applicant = {
       JOIN Request_status rs ON r.request_status_id = rs.request_status_id
       LEFT JOIN User u ON r.assigned_to = u.user_id
       WHERE r.user_id = ?
-        AND r.request_status_id NOT IN (8, 9, 10)
+        AND r.request_status_id NOT IN (7, 8, 9)
       GROUP BY r.request_id
     `;
 

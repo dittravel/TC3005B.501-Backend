@@ -52,7 +52,7 @@ const authorizeRequest = async (request_id, user_id, options = {}) => {
 
     let new_assigned_to;
     let new_authorization_level;
-    let new_status_id = request.request_status_id + 1; // Advance status
+    let new_status_id = request.request_status_id;
 
     // Hierarchical authorization logic
 
@@ -60,13 +60,19 @@ const authorizeRequest = async (request_id, user_id, options = {}) => {
     if (authorizerUser.boss_id) {
       // Check if boss is an authorizer
       const bossRole = await Authorizer.getUserRole(authorizerUser.boss_id);
-      if (bossRole === "Authorizer") {
+      if (bossRole === 4) {
         new_assigned_to = authorizerUser.boss_id;
-        new_authorization_level = request.authorization_level;
+        new_authorization_level = request.authorization_level + 1;
+        console.log(`Escalating to boss (user_id: ${authorizerUser.boss_id}), new authorization level: ${new_authorization_level}`);
       } else {
         // Consider all approvals done
         new_authorization_level = AUTHORIZATION_LEVELS;
+        console.log(`Boss (user_id: ${authorizerUser.boss_id} - role: ${bossRole}) is not an authorizer, skipping escalation. Setting authorization level to max.`);
       }
+    } else {
+      // User has no boss: increment authorization level and mark all approvals as complete
+      new_authorization_level = AUTHORIZATION_LEVELS;
+      console.log(`User (user_id: ${user_id}) has no boss. Setting authorization level to max.`);
     }
 
     // Check if we've completed all authorization levels

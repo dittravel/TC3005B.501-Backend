@@ -1,6 +1,6 @@
 role_name,department_name,user_name,password,workstation,email,phone_number,boss_id
-Autorizador,Finanzas,diego.hernandez,diego654,WS105,diego.hernandez@empresa.com,555-1005,
-Autorizador,Finanzas,laura.flores,laura321,WS104,laura.flores@empresa.com,555-1004,1
+Autorizador,Finanzas,laura.flores,laura321,WS104,laura.flores@empresa.com,555-1004,
+Autorizador,Finanzas,diego.hernandez,diego654,WS105,diego.hernandez@empresa.com,555-1005,1
 Solicitante,Finanzas,andres.gomez,andres123,WS101,andres.gomez@empresa.com,555-1001,2
 Agencia de viajes,Finanzas,paula.martinez,paula456,WS102,paula.martinez@empresa.com,555-1002,
 Cuentas por pagar,Finanzas,carlos.ramos,carlos789,WS103,carlos.ramos@empresa.com,555-1003,
