@@ -12,10 +12,10 @@
 
 import AccountsPayable from "../models/accountsPayableModel.js";
 import AccountsPayableService from '../services/accountsPayableService.js';
+import RequestService from '../services/requestService.js';
 import AuditLogService from "../services/auditLogService.js";
 import pool from "../database/config/db.js";
-import mailData from "../services/email/mailData.js";
-import { sendMail } from "../services/email/mail.cjs";
+import { sendEmails } from "../services/email/emailService.js";
 
 // Process authorized travel requests and handle fee assignment
 // Routes to travel agency if hotel/flight needed
@@ -35,50 +35,45 @@ const attendTravelRequest = async (req, res) => {
     
     // Validate if this request can be attended by accounts payable
     // Status 3 (Cotización del Viaje) -> Status 5 (Comprobación)
-    // At this point, if travel services were needed, they've already been handled by Travel Agent
     if (current_status == 3){
       const new_status = 5;  // Transition to receipts validation
       
       connection = await pool.getConnection();
       await connection.beginTransaction();
-      const updated = await AccountsPayable.attendTravelRequest(
+      
+      // Use RequestService to update status, fee, and assign back to applicant
+      await RequestService.updateRequest(
         requestId,
-        imposedFee,
-        new_status,
-        connection
+        {
+          status_id: new_status,
+          imposed_fee: imposedFee,
+          assigned_to: request.user_id
+        },
+        { connection }
       );
       
-      if (updated) {
-        await AuditLogService.recordAuditLogFromRequest(req, {
-          actionType: 'REQUEST_QUOTED',
-          entityType: 'Request',
-          entityId: requestId,
-          metadata: {
-            imposed_fee: imposedFee,
-            new_status,
-          },
-        }, { connection });
-        await connection.commit();
-        try {
-          const { user_email, user_name, request_id, status } = await mailData(requestId);
-          await sendMail(user_email, user_name, requestId, status);
-        } catch (mailError) {
-          console.error("Failed to send accounts payable quotation email:", mailError);
-        }
-        return res.status(200).json({
-          message: "Travel request status updated successfully",
-          requestId: requestId,
-          imposedFee: imposedFee,
-          newStatus: new_status,
-        });
-      } else {
-        await connection.rollback();
-        connection.release();
-        connection = null;
-        return res
-        .status(400)
-        .json({ error: "Failed to update travel request status" });
-      } 
+      await AuditLogService.recordAuditLogFromRequest(req, {
+        actionType: 'REQUEST_QUOTED',
+        entityType: 'Request',
+        entityId: requestId,
+        metadata: {
+          imposed_fee: imposedFee,
+          new_status,
+        },
+      }, { connection });
+      await connection.commit();
+      try {
+        // Send email notifications
+        await sendEmails(requestId);
+      } catch (mailError) {
+        console.error("Failed to send accounts payable quotation email:", mailError);
+      }
+      return res.status(200).json({
+        message: "Travel request status updated successfully",
+        requestId: requestId,
+        imposedFee: imposedFee,
+        newStatus: new_status,
+      });
     }
     else{
       res.status(404).json({ error: "This request cannot be attended by accounts payable" });
@@ -116,8 +111,8 @@ const validateReceiptsHandler = async (req, res) => {
     }
     await connection.commit();
     try {
-      const { user_email, user_name, request_id, status } = await mailData(requestId);
-      await sendMail(user_email, user_name, requestId, status);
+      // Send email notifications
+      await sendEmails(requestId);
     } catch (mailError) {
       console.error("Failed to send receipts validation email:", mailError);
     }

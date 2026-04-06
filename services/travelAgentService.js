@@ -7,6 +7,7 @@
  */
 
 import TravelAgent from "../models/travelAgentModel.js";
+import User from "../models/userModel.js";
 
 /**
  * Completes travel service assignment and routes to Accounts Payable for quoting
@@ -50,7 +51,7 @@ const completeServiceAssignment = async (request_id, user_id) => {
     }
 
     // Get Accounts Payable user from same department
-    const accountsPayable = await TravelAgent.getRandomAccountsPayable(travelAgentUser.department_id);
+    const accountsPayable = await User.getRandomUserByRole(3, travelAgentUser.department_id); // Accounts Payable role_id = 3
     if (!accountsPayable) {
       throw { 
         status: 500, 
@@ -58,7 +59,7 @@ const completeServiceAssignment = async (request_id, user_id) => {
       };
     }
 
-    // Update request: change status quote and assign to Accounts Payable
+    // Update request: change status to quote and assign to Accounts Payable
     await TravelAgent.updateRequestRouting(request_id, accountsPayable.user_id, 3);
 
     return {

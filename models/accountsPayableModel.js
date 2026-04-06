@@ -39,7 +39,12 @@ const AccountsPayable = {
     try {
       conn = await pool.getConnection();
       const rows = await conn.query(
-        `SELECT request_id, request_status_id, hotel_needed_list, plane_needed_list 
+        `SELECT
+          request_id,
+          request_status_id,
+          user_id,
+          hotel_needed_list,
+          plane_needed_list 
         FROM RequestWithRouteDetails WHERE request_id = ?`,
         [requestId],
       );

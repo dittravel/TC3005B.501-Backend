@@ -18,8 +18,6 @@ import pool from "../database/config/db.js";
 // XML data parsing
 import { parseXmlData } from '../services/xmlParserService.js';
 import { extractExternalData } from '../services/orgParserService.js';
-import fs from 'fs/promises'; // For file handling in importData function
-
 
 /**
 * Get list of all users
@@ -193,10 +191,26 @@ export const getRoles = async (req, res) => {
   }
 };
 
+// Get an auth rule by ID
+export const getAuthRuleById = async (req, res) => {
+  try {
+    const ruleId = req.params.rule_id;
+    const rule = await adminService.getAuthRuleById(ruleId);
+    if (!rule) {
+      return res.status(404).json({ error: 'Authorization rule not found' });
+    }
+    res.status(200).json(rule);
+  } catch (error) {
+    console.error('Error getting auth rule by ID:', error.message);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
 // Get list of all auth rules
 export const getAuthRules = async (req, res) => {
   try {
     const rules = await adminService.getAuthRules();
+    console.log('Retrieved auth rules:', rules);
     res.status(200).json(rules);
   } catch (error) {
     console.error('Error getting auth rules:', error.message);
@@ -209,7 +223,7 @@ export const createAuthRule = async (req, res) => {
   try {
     const ruleData = req.body;
     await adminService.createAuthRule(ruleData);
-    return res.status(201).json({ message: 'Authorization rule created successfully' });
+    return res.status(201).json({ success: true, message: 'Authorization rule created successfully' });
   } catch (error) {
     console.error('Error creating auth rule:', error.message);
     return res.status(500).json({ error: 'Internal server error' });

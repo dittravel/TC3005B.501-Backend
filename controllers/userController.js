@@ -51,34 +51,40 @@ export const login = async (req, res) => {
     // Authenticate user credentials through service layer
     const result = await userService.authenticateUser(username, password, req);
     
-    // Set secure HTTP-only cookies for session management
+    /**
+     * Set secure HTTP-only cookies for session management
+     * Lax allows cookies to be sent between some cross-site requests
+     * This is used to maintain session after login and click email links
+     * The system still requires authentication for sensitive operations,
+     * so this is a balance between security and usability
+     */
     res
       .cookie("token", result.token, {
         httpOnly: true,
         secure: process.env.NODE_ENV === "production",
-        sameSite: "Strict",
+        sameSite: "Lax",
         maxAge: 1000 * 60 * 60, // 1 hour expiration
       })
       .cookie("role", result.role, {
-        sameSite: "Strict",
+        sameSite: "Lax",
         httpOnly: true,
         secure: true,
         maxAge: 1000 * 60 * 60,
       })
       .cookie("username", result.username, {
-        sameSite: "Strict",
+        sameSite: "Lax",
         httpOnly: true,
         secure: true,
         maxAge: 1000 * 60 * 60,
       })
       .cookie("id", result.user_id.toString(), {
-        sameSite: "Strict",
+        sameSite: "Lax",
         httpOnly: true,
         secure: true,
         maxAge: 1000 * 60 * 60,
       })
       .cookie("department_id", result.department_id.toString(), {
-        sameSite: "Strict",
+        sameSite: "Lax",
         httpOnly: true,
         secure: true,
         maxAge: 1000 * 60 * 60,

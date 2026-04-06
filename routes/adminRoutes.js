@@ -60,7 +60,11 @@ router.route("/get-departments")
 router.route("/get-roles")
   .get(generalRateLimiter, authenticateToken, authorizeRole(['Administrador']), adminController.getRoles);
 
-// Get auth rules
+// Get an auth rule by ID
+router.route("/auth-rules/:rule_id")
+  .get(generalRateLimiter, authenticateToken, authorizeRole(['Administrador']), adminController.getAuthRuleById);
+
+// Get all auth rules
 router.route("/get-auth-rules")
   .get(generalRateLimiter, authenticateToken, authorizeRole(['Administrador']), adminController.getAuthRules);
 

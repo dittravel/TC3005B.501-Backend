@@ -7,24 +7,12 @@
  */
 
 import pool from "../database/config/db.js";
+import User from "./userModel.js";
+import AuthorizationRuleService from "../services/authorizationRuleService.js";
 import { formatRoutes, getRequestDays, getCountryId, getCityId } from "../services/applicantService.js";
 import { uploadReceiptFiles } from "../services/receiptFileService.js";
 
 const Applicant = {
-  // Helper function to get a random user with a specific role from the same department
-  async getRandomUserByRole(conn, roleId, departmentId) {
-    try {
-      const rows = await conn.query(
-        `SELECT user_id FROM User WHERE role_id = ? AND department_id = ? ORDER BY RAND() LIMIT 1`,
-        [roleId, departmentId]
-      );
-      return rows.length > 0 ? rows[0].user_id : null;
-    } catch (error) {
-      console.error(`Error getting random user with role ${roleId} in department ${departmentId}:`, error);
-      throw error;
-    }
-  },
-
   // Find applicant by ID
   async findById(id) {
     let conn;
@@ -104,6 +92,7 @@ const Applicant = {
         plane_needed,
         hotel_needed,
         additionalRoutes = [],
+        travel_type,
       } = travelDetails;
       
       // Format the routes into a single array
@@ -138,30 +127,87 @@ const Applicant = {
         throw new Error("User not found");
       }
 
-      let request_status;
-      let assignedTo = null;
-
-      const bossId = role.boss_id;
       const departmentId = role.department_id;
 
-      // If user has no boss, check travel requirements to determine initial status and assignment
-      if (!bossId) {
-        // If trip requires flights or hotels, set status to agent travel and assign to random travel agent
-        // Otherwise, set to travel quote and assign to random accounts payable
-        if (plane_needed || hotel_needed) {
-          request_status = 4; // Agent Travel
-          assignedTo = await this.getRandomUserByRole(conn, 2, departmentId); // Travel Agent role_id = 2
+      if (role.role_id !== 1 && role.role_id !== 4) { // Solicitant or Authorizer
+        throw new Error("User role is not allowed to create a travel request");
+      }
+
+      // Select applicable authorization rule
+      let authorizationRuleId = null;
+      let applicableRule = null;
+      try {
+        applicableRule = await AuthorizationRuleService.selectApplicableRule(
+          travel_type,
+          request_days,
+          requested_fee
+        );
+
+        if (applicableRule) {
+          authorizationRuleId = applicableRule.rule_id;
+          console.log(`Authorization rule selected: ${applicableRule.rule_name} (ID: ${authorizationRuleId})`);
         } else {
-          request_status = 3; // Travel Quote
-          assignedTo = await this.getRandomUserByRole(conn, 3, departmentId); // Accounts Payable role_id = 3
+          console.warn('No applicable authorization rule found, proceeding without rule assignment');
+        }
+      } catch (error) {
+        console.error('Error selecting authorization rule:', error);
+      }
+
+      // Determine assignment based on rule or fallback logic
+      let request_status = 2; // Default: Revision
+      let assignedTo = null;
+
+      if (applicableRule && applicableRule.levels && applicableRule.levels.length > 0) {
+        // Use the first level of the rule to determine initial approver
+        const firstRuleLevel = applicableRule.levels[0];
+        
+        try {
+          assignedTo = await AuthorizationRuleService.getNextApproverForRuleLevel(
+            firstRuleLevel,
+            user_id,
+            departmentId
+          );
+          
+          if (!assignedTo) {
+            console.warn('Could not determine approver from rule level, using fallback logic');
+            // Fallback: If rule didn't work, try direct boss
+            const bossId = await User.getBossId(user_id);
+            assignedTo = bossId;
+          }
+          console.log(`Assigned to user ${assignedTo} based on authorization rule level 1`);
+        } catch (error) {
+          console.error('Error assigning based on rule level:', error);
+          // Fallback to boss
+          const bossId = await User.getBossId(user_id);
+          assignedTo = bossId;
+        }
+      } else if (applicableRule && applicableRule.automatic) {
+        // Automatic rule without specific levels, use direct boss
+        const bossId = await User.getBossId(user_id);
+        assignedTo = bossId;
+        if (bossId) {
+          console.log(`Assigned to boss (user_id: ${bossId}) using automatic rule`);
+        } else {
+          console.warn('Automatic rule selected but user has no boss, will route directly to Travel Agent/Accounts Payable');
         }
       } else {
-        if (role.role_id == 1 || role.role_id == 4) { // Solicitant or Authorizer
-          console.log("Role ID:", role.role_id);
-          request_status = 2; // Revision
-          assignedTo = bossId; // Assign to boss
+        // No rule or no levels in rule, use fallback logic
+        const bossId = await User.getBossId(user_id);
+        
+        if (!bossId) {
+          // User has no boss: assign to Travel Agent or Accounts Payable based on trip needs
+          if (plane_needed || hotel_needed) {
+            request_status = 4; // Agent Travel
+            const travelAgent = await User.getRandomUserByRole(2, departmentId); // Travel Agent role_id = 2
+            assignedTo = travelAgent ? travelAgent.user_id : null;
+          } else {
+            request_status = 3; // Travel Quote
+            const accountsPayable = await User.getRandomUserByRole(3, departmentId); // Accounts Payable role_id = 3
+            assignedTo = accountsPayable ? accountsPayable.user_id : null;
+          }
         } else {
-          throw new Error("User role is not allowed to create a travel request");
+          // Has boss, assign to him (will go through authorization levels)
+          assignedTo = bossId;
         }
       }
       
@@ -171,11 +217,12 @@ const Applicant = {
           request_status_id,
           assigned_to,
           authorization_level,
+          authorization_rule_id,
           notes,
           requested_fee,
           imposed_fee,
           request_days
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
       `;
       
       const requestTableResult = await conn.execute(insertIntoRequestTable, [
@@ -183,6 +230,7 @@ const Applicant = {
         request_status,
         assignedTo,            // assigned_to = boss_id, travel agent, or accounts payable
         0,                     // authorization_level = 0 (starting level)
+        authorizationRuleId,   // authorization_rule_id = selected rule or null
         notes,
         requested_fee,
         imposed_fee,
@@ -726,16 +774,8 @@ const Applicant = {
       // Step 1: Insert into Request table
       const request_days = getRequestDays(allRoutes);
       
-      // Get user boss_id
-      const userResult = await conn.query(
-        `SELECT boss_id FROM User WHERE user_id = ?`,
-        [user_id],
-      );
-      
-      const user = userResult[0];
-      if (!user) {
-        throw new Error("User not found");
-      }
+      // Get the boss (checking if they're out of office)
+      const bossId = await User.getBossId(user_id);
 
       // Set query to insert into Request table
       const insertIntoRequestTable = `
@@ -755,7 +795,8 @@ const Applicant = {
       const requestTableResult = await conn.execute(insertIntoRequestTable, [
         user_id,
         1, // Set status to 1 ('Abierto')
-        user.boss_id || null,  // assigned_to = boss_id (or null if no boss)
+        bossId,  // assigned_to = boss_id (or null if no boss or boss out of office with no substitute)
+        0,                     // authorization_level = 0 (starting level)
         0,                     // authorization_level = 0 (starting level)
         notes,
         requested_fee,

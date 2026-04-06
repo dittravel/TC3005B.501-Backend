@@ -151,3 +151,15 @@ INSERT INTO Role_Permission (role_id, permission_id)
         'travel:view_flights', 'travel:view_hotels',
         'travel:finalize', 'travel:cancel'
     ) WHERE r.role_name = 'Agencia de viajes';
+
+-- ============================================================================
+-- Authorization Rules
+-- ============================================================================
+
+INSERT INTO AuthorizationRule (rule_name, is_default, num_levels, automatic, travel_type, min_duration, max_duration, min_amount, max_amount) VALUES
+    ('Regla predeterminada', TRUE, 3, FALSE, 'Todos', NULL, NULL, NULL, NULL);
+
+INSERT INTO AuthorizationRuleLevel (rule_id, level_number, level_type, superior_level_number) VALUES
+    (1, 1, 'Jefe', NULL),
+    (1, 2, 'Aleatorio', NULL),
+    (1, 3, 'Nivel Superior', 1); 

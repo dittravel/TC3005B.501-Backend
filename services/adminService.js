@@ -437,6 +437,16 @@ export const getRoles = async () => {
   }
 }
 
+// Get an auth rule by ID
+export const getAuthRuleById = async (ruleId) => {
+  try {
+    const rule = await Admin.getAuthRuleById(ruleId);
+    return rule;
+  } catch (error) {
+    throw new Error(`Error fetching authorization rule: ${error.message}`);
+  }
+};
+
 // Get auth rules
 export const getAuthRules = async () => {
   try {

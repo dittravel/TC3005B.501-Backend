@@ -12,8 +12,7 @@
 
 import TravelAgent from "../models/travelAgentModel.js";
 import TravelAgentService from "../services/travelAgentService.js";
-import { sendMail } from "../services/email/mail.cjs";
-import mailData from "../services/email/mailData.js";
+import { sendEmails } from "../services/email/emailService.js";
 
 // Process travel requests requiring hotel/flight arrangements
 const attendTravelRequest = async (req, res) => {
@@ -30,9 +29,8 @@ const attendTravelRequest = async (req, res) => {
     const updated = await TravelAgent.attendTravelRequest(requestId);
     
     if (updated) {
-      // Notify applicant that travel arrangements are being processed
-      const { user_email, user_name, request_id, status } = await mailData(requestId);
-      await sendMail(user_email, user_name, request_id, status);
+      // Send email notifications
+      await sendEmails(requestId);
       
       return res.status(200).json({
         message: "Travel request status updated successfully",
@@ -64,6 +62,9 @@ const completeServiceAssignment = async (req, res) => {
     }
 
     const result = await TravelAgentService.completeServiceAssignment(request_id, user_id);
+
+    // Send email notifications
+    await sendEmails(request_id);
     
     return res.status(200).json({
       message: result.message,

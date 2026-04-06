@@ -9,6 +9,7 @@
 
 import Applicant from "../models/applicantModel.js";
 import Authorizer from "../models/authorizerModel.js";
+import User from "../models/userModel.js";
 
 /**
  * Formats the main route and additional routes into a consistent structure.
@@ -230,7 +231,7 @@ export async function sendReceiptsForValidation(requestId) {
 
   // Update request status to receipt validation
   // Get a random accounts payable user from the department
-  const accountsPayable = await Authorizer.getRandomAccountsPayable(departmentId);
+  const accountsPayable = await User.getRandomUserByRole(3, departmentId); // Accounts Payable role_id = 3
 
   if (accountsPayable) {
     await Authorizer.updateRequestRouting(requestId, accountsPayable.user_id, 2, 6);

@@ -92,6 +92,43 @@ CREATE TABLE IF NOT EXISTS Audit_Log (
 );
 
 -- ============================================================================
+-- Authorization Rules
+-- ============================================================================
+
+-- AuthorizationRule: Defines authorization rules based on trip parameters
+CREATE TABLE IF NOT EXISTS AuthorizationRule (
+    rule_id INT PRIMARY KEY AUTO_INCREMENT,
+    rule_name VARCHAR(50) NOT NULL,
+
+    -- Default rule indicator
+    is_default BOOL NOT NULL DEFAULT FALSE,
+
+    -- Authorization levels
+    num_levels INT NOT NULL,
+    automatic BOOL NOT NULL DEFAULT TRUE,
+    travel_type ENUM('Nacional', 'Internacional', 'Todos'),
+
+    -- Duration
+    min_duration INT,
+    max_duration INT,
+
+    -- Amount of requested fee
+    min_amount FLOAT,
+    max_amount FLOAT
+);
+
+-- AuthorizationRuleLevel: Defines approval levels within a rule
+CREATE TABLE IF NOT EXISTS AuthorizationRuleLevel (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    rule_id INT NOT NULL,
+    level_number INT NOT NULL,
+    level_type ENUM('Jefe', 'Aleatorio', 'Nivel Superior') NOT NULL,
+    superior_level_number INT NULL,  -- For "Nivel Superior", indicates how many levels above the requester to go
+
+    FOREIGN KEY (rule_id) REFERENCES AuthorizationRule(rule_id)
+);
+
+-- ============================================================================
 -- Request Management Tables
 -- ============================================================================
 
@@ -108,6 +145,7 @@ CREATE TABLE IF NOT EXISTS Request (
     request_status_id INT DEFAULT 1,         -- Current workflow status
     assigned_to INT NULL,                    -- User who must handle the request next
     authorization_level INT DEFAULT 0,       -- Current level in authorization (0 = not yet assigned, 1 = first level, etc.)
+    authorization_rule_id INT NULL,          -- Authorization rule applied to this request
 
     notes LONGTEXT,                          -- Justification and additional details
     requested_fee FLOAT,                     -- Amount requested by applicant
@@ -119,7 +157,8 @@ CREATE TABLE IF NOT EXISTS Request (
 
     FOREIGN KEY (user_id) REFERENCES User(user_id),
     FOREIGN KEY (request_status_id) REFERENCES Request_status(request_status_id),
-    FOREIGN KEY (assigned_to) REFERENCES User(user_id)
+    FOREIGN KEY (assigned_to) REFERENCES User(user_id),
+    FOREIGN KEY (authorization_rule_id) REFERENCES AuthorizationRule(rule_id)
 );
 
 -- Alert: Notifications for users based on request status changes
@@ -315,38 +354,3 @@ CREATE TABLE IF NOT EXISTS Role_Permission (
         ON DELETE CASCADE ON UPDATE CASCADE
 );
 
--- ============================================================================
--- System configuration
--- ============================================================================
-
-CREATE TABLE IF NOT EXISTS AuthorizationRule (
-    id INT PRIMARY KEY AUTO_INCREMENT,
-    name VARCHAR(50) NOT NULL,
-
-    -- Default rule indicator
-    is_default BOOL NOT NULL DEFAULT FALSE,
-
-    -- Authorization levels
-    num_levels INT NOT NULL,
-    automatic BOOL NOT NULL DEFAULT TRUE,
-    travel_type ENUM('Nacional', 'Internacional', 'Todos'),
-
-    -- Duration
-    min_duration INT,
-    max_duration INT,
-
-    -- Amount of requested fee
-    min_amount FLOAT,
-    max_amount FLOAT
-);
-
-CREATE TABLE IF NOT EXISTS AuthorizationRuleLevel (
-    id INT PRIMARY KEY AUTO_INCREMENT,
-    rule_id INT NOT NULL,
-    level INT NOT NULL,
-    type ENUM('Jefe', 'Departamento', 'Usuario') NOT NULL,
-    user_id INT,
-
-    FOREIGN KEY (rule_id) REFERENCES AuthorizationRule(id),
-    FOREIGN KEY (user_id) REFERENCES User(user_id)
-);

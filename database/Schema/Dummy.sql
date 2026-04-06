@@ -245,12 +245,9 @@ INSERT INTO Receipt (receipt_type_id, request_id, validation, amount, validation
 -- Auth Rules
 -- ============================================================================
 
--- Default auth rule
-INSERT INTO AuthorizationRule (name, is_default, num_levels, automatic, travel_type, min_duration, max_duration, min_amount, max_amount) VALUES
-  ('Regla predeterminada', TRUE, 2, FALSE, 'Todos', NULL, NULL, NULL, NULL),
+INSERT INTO AuthorizationRule (rule_name, is_default, num_levels, automatic, travel_type, min_duration, max_duration, min_amount, max_amount) VALUES
   ('Viajes internacionales cortos', FALSE, 3, TRUE, 'Internacional', 0, 5, 0, 5000.00);
 
--- Auth levels for default rule
-INSERT INTO AuthorizationRuleLevel (rule_id, level, type, user_id) VALUES
-  (1, 1, 'Jefe', NULL),
-  (1, 2, 'Usuario', 1);
+INSERT INTO AuthorizationRuleLevel (rule_id, level_number, level_type, superior_level_number) VALUES
+  (2, 1, 'Jefe', NULL),
+  (2, 2, 'Aleatorio', 1);

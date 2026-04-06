@@ -300,6 +300,45 @@ const Admin = {
     }
   },
 
+  // Get an auth rule by ID
+  async getAuthRuleById(ruleId) {
+    let conn;
+    try {
+      conn = await pool.getConnection();
+      const rules = await conn.query(`
+        SELECT * FROM AuthorizationRule 
+        WHERE rule_id = ?`, 
+        [ruleId]
+      );
+      
+      if (rules.length === 0) {
+        return null; // No rule found with the given ID
+      }
+      
+      const rule = rules[0];
+      
+      const levels = await conn.query(
+        `SELECT
+          level_number,
+          level_type,
+          superior_level_number
+        FROM AuthorizationRuleLevel
+        WHERE rule_id = ?
+        ORDER BY level_number`,
+        [ruleId]
+      );
+      
+      rule.levels = levels;
+      return rule;
+
+    } catch (error) {
+      console.error('Error getting auth rule by ID:', error);
+      throw error;
+    } finally {
+      if (conn) conn.release();
+    }
+  },
+
   // Get auth rules
   async getAuthRules() {
     let conn;
@@ -312,8 +351,14 @@ const Admin = {
       // For each rule, get its associated auth levels
       for (const rule of rules) {
         const levels = await conn.query(
-          `SELECT level, type, user_id FROM AuthorizationRuleLevel WHERE rule_id = ? ORDER BY level`,
-          [rule.id]
+          `SELECT
+            level_number,
+            level_type,
+            superior_level_number
+          FROM AuthorizationRuleLevel
+          WHERE rule_id = ?
+          ORDER BY level_number`,
+          [rule.rule_id]
         );
         rule.levels = levels;
       }
@@ -336,7 +381,7 @@ const Admin = {
       // Create the new auth rule
       const ruleRes = await conn.query(`
         INSERT INTO AuthorizationRule (
-          name,
+          rule_name,
           is_default,
           num_levels,
           automatic,
@@ -348,6 +393,7 @@ const Admin = {
         )
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
       `, [
+        ruleData.rule_name,
         ruleData.is_default,
         ruleData.num_levels,
         ruleData.automatic,
@@ -358,23 +404,31 @@ const Admin = {
         ruleData.max_amount
       ]);
 
-      // Create associated auth levels
-      const authLevelValues = ruleData.niveles.map(level => [
-        ruleRes.insertId,
-        level.level,
-        level.type,
-        level.user_id
-      ]);
+      // Validate ruleRes.insertId before using it
+      const rule_id = ruleRes.insertId;
+      if (!rule_id) {
+        throw new Error("Failed to retrieve rule_id after inserting AuthorizationRule");
+      }
 
-      await conn.batch(`
-        INSERT INTO AuthorizationRuleLevel (
+      const levels = Array.isArray(ruleData.niveles) ? ruleData.niveles : [];
+      if (levels.length > 0) {
+        const authLevelValues = levels.map(level => [
           rule_id,
-          level,
-          type,
-          user_id
-        )
-        VALUES (?, ?, ?, ?)
-      `, authLevelValues);
+          level.level_number,
+          level.level_type,
+          level.superior_level_number
+        ]);
+
+        await conn.batch(`
+          INSERT INTO AuthorizationRuleLevel (
+            rule_id,
+            level_number,
+            level_type,
+            superior_level_number
+          )
+          VALUES (?, ?, ?, ?)
+        `, authLevelValues);
+      }
 
     } catch (error) {
       console.error('Error creating auth rule:', error);
@@ -394,7 +448,7 @@ const Admin = {
       await conn.query(`
         UPDATE AuthorizationRule
         SET
-          name = ?,
+          rule_name = ?,
           is_default = ?,
           num_levels = ?,
           automatic = ?,
@@ -403,9 +457,9 @@ const Admin = {
           max_duration = ?,
           min_amount = ?,
           max_amount = ?
-        WHERE id = ?
+        WHERE rule_id = ?
       `, [
-        ruleData.name,
+        ruleData.rule_name,
         ruleData.is_default,
         ruleData.num_levels,
         ruleData.automatic,
@@ -423,9 +477,9 @@ const Admin = {
       // Create new auth levels
       const authLevelValues = ruleData.niveles.map(level => [
         ruleId,
-        level.level,
-        level.type,
-        level.user_id
+        level.level_number,
+        level.level_type,
+        level.superior_level_number
       ]);
 
       const levels = Array.isArray(ruleData.niveles) ? ruleData.niveles : [];
@@ -433,9 +487,9 @@ const Admin = {
         await conn.batch(`
           INSERT INTO AuthorizationRuleLevel (
             rule_id,
-            level,
-            type,
-            user_id
+            level_number,
+            level_type,
+            superior_level_number
           )
           VALUES (?, ?, ?, ?)
         `, authLevelValues);
@@ -459,8 +513,9 @@ const Admin = {
       await conn.query(`DELETE FROM AuthorizationRuleLevel WHERE rule_id = ?`, [ruleId]);
 
       // Delete the auth rule
-      await conn.query(`DELETE FROM AuthorizationRule WHERE id = ?`, [ruleId]);
+      await conn.query(`DELETE FROM AuthorizationRule WHERE rule_id = ?`, [ruleId]);
 
+      console.log(`Auth rule with ID ${ruleId} and its associated levels have been deleted.`);
     } catch (error) {
       console.error('Error deleting auth rule:', error);
       throw error;

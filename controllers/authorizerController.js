@@ -12,8 +12,7 @@ import Authorizer from "../models/authorizerModel.js";
 import authorizerServices from "../services/authorizerService.js";
 import AuditLogService from "../services/auditLogService.js";
 import pool from "../database/config/db.js";
-import { sendMail } from "../services/email/mail.cjs";
-import mailData from "../services/email/mailData.js"
+import { sendEmails } from "../services/email/emailService.js";
 
 // Get pending requests assigned to user
 const getPendingRequests = async (req, res) => {
@@ -69,8 +68,8 @@ const authorizeTravelRequest = async (req, res) => {
     }, { connection });
     await connection.commit();
     try {
-      const { user_email, user_name, requestId: mailRequestId, status } = await mailData(requestId);
-      await sendMail(user_email, user_name, mailRequestId, status);
+      // Send email notifications
+      await sendEmails(requestId);
     } catch (mailError) {
       console.error("Failed to send request authorization email:", mailError);
     }
@@ -111,8 +110,8 @@ const declineTravelRequest = async (req, res) => {
     }, { connection });
     await connection.commit();
     try {
-      const { user_email, user_name, requestId: mailRequestId, status } = await mailData(requestId);
-      await sendMail(user_email, user_name, mailRequestId, status);
+      // Send email notifications
+      await sendEmails(requestId);
     } catch (mailError) {
       console.error("Failed to send request decline email:", mailError);
     }

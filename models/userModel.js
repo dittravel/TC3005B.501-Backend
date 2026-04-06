@@ -237,6 +237,125 @@ const User = {
       if (conn) conn.release();
     }
   },
+
+  // Helper function: Check if a user is out of office and return their effective ID (user_id or substitute_id)
+  // Returns: user_id, substitute_id, or null if out-of-office with no substitute
+  async getEffectiveUserId(user) {
+    const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
+
+    // Check if user is out of office today
+    if (user.out_of_office_start_date && user.out_of_office_end_date) {
+      // Convert dates to ISO string format (handles both Date objects and strings from DB)
+      const startDate = user.out_of_office_start_date instanceof Date
+        ? user.out_of_office_start_date.toISOString().split('T')[0]
+        : String(user.out_of_office_start_date).split('T')[0];
+      
+      const endDate = user.out_of_office_end_date instanceof Date
+        ? user.out_of_office_end_date.toISOString().split('T')[0]
+        : String(user.out_of_office_end_date).split('T')[0];
+
+      if (today >= startDate && today <= endDate) {
+        // User is out of office today
+        if (user.substitute_id) {
+          console.log(`User ${user.user_id} is out of office. Using substitute ${user.substitute_id} instead.`);
+          return user.substitute_id;
+        } else {
+          console.warn(`User ${user.user_id} is out of office but has no substitute assigned.`);
+          return null;
+        }
+      }
+    }
+
+    // User is not out of office
+    return user.user_id;
+  },
+
+  // Get the boss of a user, checking if they're out of office
+  // If boss is out of office today, returns their substitute_id if available, otherwise null
+  // If boss is available, returns their user_id
+  async getBossId(userId) {
+    try {
+      const rows = await pool.query(
+        `SELECT boss_id FROM User WHERE user_id = ?`,
+        [userId]
+      );
+      
+      if (rows.length === 0 || !rows[0].boss_id) {
+        return null; // User has no boss
+      }
+
+      const bossId = rows[0].boss_id;
+      
+      // Get boss details including out-of-office info
+      const bossRows = await pool.query(
+        `SELECT user_id, out_of_office_start_date, out_of_office_end_date, substitute_id 
+         FROM User 
+         WHERE user_id = ?`,
+        [bossId]
+      );
+      
+      if (bossRows.length === 0) {
+        return null; // Boss not found
+      }
+
+      // Use helper to check out-of-office status and return effective ID
+      return await this.getEffectiveUserId(bossRows[0]);
+    } catch (error) {
+      console.error(`Error getting boss ID for user ${userId}:`, error);
+      throw error;
+    }
+  },
+
+  // Get a random user with a specific role from the same department
+  // If the user is out of office today, returns their substitute with user_id and user_name if available, otherwise null
+  async getRandomUserByRole(roleId, departmentId) {
+    try {
+      const rows = await pool.query(
+        `SELECT user_id, user_name, out_of_office_start_date, out_of_office_end_date, substitute_id 
+         FROM User 
+         WHERE role_id = ? AND department_id = ? 
+         ORDER BY RAND() LIMIT 1`,
+        [roleId, departmentId]
+      );
+      
+      if (rows.length === 0) {
+        return null;
+      }
+
+      const user = rows[0];
+      
+      // Use helper to get effective user ID (considering out-of-office)
+      const effectiveUserId = await this.getEffectiveUserId(user);
+      
+      if (!effectiveUserId) {
+        return null;
+      }
+
+      // If the effective ID is the original user, return their info
+      if (effectiveUserId === user.user_id) {
+        return {
+          user_id: user.user_id,
+          user_name: user.user_name
+        };
+      } else {
+        // Effective ID is the substitute, fetch their details
+        const substituteRows = await pool.query(
+          `SELECT user_id, user_name FROM User WHERE user_id = ?`,
+          [effectiveUserId]
+        );
+        if (substituteRows.length > 0) {
+          return {
+            user_id: substituteRows[0].user_id,
+            user_name: substituteRows[0].user_name
+          };
+        }
+        return null;
+      }
+    } catch (error) {
+      console.error(`Error getting random user with role ${roleId} in department ${departmentId}:`, error);
+      throw error;
+    }
+  },
 };
 
 export default User;
