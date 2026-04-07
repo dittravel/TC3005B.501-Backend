@@ -87,6 +87,10 @@ router.route("/update-receipt/:receipt_id")
 router.route("/update-request-status/:request_id/:status_id")
   .put(generalRateLimiter, authenticateToken, authorizeRole(['Solicitante', 'Autorizador']), validateId, validateInputs, applicantController.updateRequestStatus);
 
+// Get submission deadline status for a travel request
+router.route("/deadline-status/:request_id")
+  .get(generalRateLimiter, authenticateToken, authorizeRole(['Solicitante', 'Autorizador', 'Cuentas por pagar']), validateId, validateInputs, applicantController.getDeadlineStatus);
+
 // Create expense validation with files
 router.route("/create-expense-with-files")
   .post(
