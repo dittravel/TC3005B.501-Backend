@@ -756,12 +756,10 @@ export const validateAuditLogQuery = [
 
 // Validate forgot-password request body
 export const validateForgotPassword = [
-  body('username')
-    .isString()
-    .trim()
-    .notEmpty()
-    .isLength({ max: 60 })
-    .withMessage('username is required and must be at most 60 characters'),
+  body('email')
+    .isEmail()
+    .normalizeEmail()
+    .withMessage('email must be a valid email address'),
 ];
 
 // Validate reset-password request body

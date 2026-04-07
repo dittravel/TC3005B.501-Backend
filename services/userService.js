@@ -159,18 +159,16 @@ export async function updateOutOfOffice(userId, data) {
  * Always resolves without error to avoid user enumeration.
  * @param {string} username
  */
-export async function requestPasswordReset(username) {
-  const user = await userModel.getUserForRecovery(username);
+export async function requestPasswordReset(email) {
+  const user = await userModel.getUserByEmail(email);
 
-  // Bail silently if user not found or inactive — don't leak existence
-  if (!user || !user.active) return;
+  // Bail silently if user not found — don't leak whether email is registered
+  if (!user) return;
 
   const token = crypto.randomBytes(32).toString('hex');
   const expires = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
 
   await userModel.setPasswordResetToken(user.user_id, token, expires);
-
-  const email = decrypt(user.email);
   await sendPasswordResetEmail(email, user.user_name, token);
 }
 

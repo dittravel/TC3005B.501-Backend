@@ -204,17 +204,18 @@ const User = {
     }
   },
 
-  // Get user by username including email — used for password recovery
-  async getUserForRecovery(username) {
+  // Find an active user by decrypted email.
+  // Emails are AES-256-CBC encrypted with a random IV so we cannot query by value —
+  // we decrypt all active users in the application layer and match there.
+  async getUserByEmail(plaintextEmail) {
     let conn;
     try {
       conn = await pool.getConnection();
       const rows = await conn.query(
-        `SELECT user_id, user_name, email, active
-         FROM User WHERE user_name = ?`,
-        [username]
+        `SELECT user_id, user_name, email FROM User WHERE active = TRUE`
       );
-      return rows[0] || null;
+      const { decrypt } = await import('../middleware/decryption.js');
+      return rows.find(u => decrypt(u.email) === plaintextEmail) || null;
     } finally {
       if (conn) conn.release();
     }

@@ -254,7 +254,7 @@ export const getSubstituteUsers = async (req, res) => {
 // Request a password reset — sends a recovery email if the username exists
 export const forgotPassword = async (req, res) => {
   try {
-    await requestPasswordReset(req.body.username);
+    await requestPasswordReset(req.body.email);
     // Always 200 — don't reveal whether the username exists
     return res.status(200).json({ message: 'If an account with that username exists, a recovery email has been sent.' });
   } catch (err) {
