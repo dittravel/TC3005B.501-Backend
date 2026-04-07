@@ -754,6 +754,29 @@ export const validateAuditLogQuery = [
     .withMessage('offset must be a non-negative integer'),
 ];
 
+// Validate forgot-password request body
+export const validateForgotPassword = [
+  body('username')
+    .isString()
+    .trim()
+    .notEmpty()
+    .isLength({ max: 60 })
+    .withMessage('username is required and must be at most 60 characters'),
+];
+
+// Validate reset-password request body
+export const validateResetPassword = [
+  body('token')
+    .isString()
+    .trim()
+    .matches(/^[a-f0-9]{64}$/)
+    .withMessage('token must be a valid 64-character hex string'),
+  body('new_password')
+    .isString()
+    .isLength({ min: 8, max: 128 })
+    .withMessage('new_password must be between 8 and 128 characters'),
+];
+
 // Validate receipt search query parameters
 export const validateReceiptSearchQuery = [
   query('user_id')
