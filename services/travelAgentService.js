@@ -7,11 +7,12 @@
  */
 
 import TravelAgent from "../models/travelAgentModel.js";
+import User from "../models/userModel.js";
 
 /**
  * Completes travel service assignment and routes to Accounts Payable for quoting
  * - Verifies request is assigned to this user
- * - Changes status from 5 (Atención Agencia) to 4 (Cotización del Viaje)
+ * - Changes status from agency to quote
  * - Assigns to Accounts Payable (Cuentas por Pagar) in same department
  * 
  * @param {number} request_id - The ID of the travel request
@@ -35,11 +36,11 @@ const completeServiceAssignment = async (request_id, user_id) => {
       };
     }
 
-    // Verify request is in status 5 (Atención Agencia de Viajes)
-    if (request.request_status_id !== 5) {
+    // Verify request is in agency travel status
+    if (request.request_status_id !== 4) {
       throw { 
         status: 400, 
-        message: "Request must be in 'Atención Agencia de Viajes' (status 5) to complete service assignment" 
+        message: "Request must be in 'Atención Agencia de Viajes' to complete service assignment" 
       };
     }
 
@@ -50,7 +51,7 @@ const completeServiceAssignment = async (request_id, user_id) => {
     }
 
     // Get Accounts Payable user from same department
-    const accountsPayable = await TravelAgent.getRandomAccountsPayable(travelAgentUser.department_id);
+    const accountsPayable = await User.getRandomUserByRole(3, travelAgentUser.department_id); // Accounts Payable role_id = 3
     if (!accountsPayable) {
       throw { 
         status: 500, 
@@ -58,14 +59,14 @@ const completeServiceAssignment = async (request_id, user_id) => {
       };
     }
 
-    // Update request: change status to 4 (Cotización del Viaje) and assign to Accounts Payable
-    await TravelAgent.updateRequestRouting(request_id, accountsPayable.user_id, 4);
+    // Update request: change status to quote and assign to Accounts Payable
+    await TravelAgent.updateRequestRouting(request_id, accountsPayable.user_id, 3);
 
     return {
       message: "Service assignment completed and routed to Accounts Payable",
       new_assigned_to: accountsPayable.user_id,
       new_assigned_to_name: accountsPayable.user_name,
-      new_status_id: 4,
+      new_status_id: 3,
       new_status_name: "Cotización del Viaje"
     };
 

@@ -1,0 +1,110 @@
+paths:
+  /get-logs:
+    get:
+      summary: Get audit logs
+      description: Returns a paginated list of critical action logs. Only accessible by administrators.
+      tags:
+        - Audit Log
+      operationId: getAuditLogs
+      security:
+        - TokenAuth: []
+      parameters:
+        - in: query
+          name: actor_user_id
+          schema:
+            type: integer
+        - in: query
+          name: action_type
+          schema:
+            type: string
+        - in: query
+          name: entity_type
+          schema:
+            type: string
+        - in: query
+          name: entity_id
+          schema:
+            type: string
+        - in: query
+          name: include_metadata
+          schema:
+            type: boolean
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+        - in: query
+          name: offset
+          schema:
+            type: integer
+            minimum: 0
+      responses:
+        "200":
+          description: Audit logs returned successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        audit_log_id:
+                          type: integer
+                        actor_user_id:
+                          type: integer
+                          nullable: true
+                        actor_user_name:
+                          type: string
+                          nullable: true
+                        action_type:
+                          type: string
+                        entity_type:
+                          type: string
+                        entity_id:
+                          type: string
+                          nullable: true
+                        source_ip:
+                          type: string
+                          nullable: true
+                        metadata:
+                          type: object
+                          nullable: true
+                        event_timestamp:
+                          type: string
+                          format: date-time
+                  meta:
+                    type: object
+                    properties:
+                      count:
+                        type: integer
+                      total_count:
+                        type: integer
+                      has_more:
+                        type: boolean
+              example:
+                data:
+                  - audit_log_id: 1
+                    actor_user_id: 21
+                    actor_user_name: admin
+                    action_type: USER_CREATED
+                    entity_type: User
+                    entity_id: "25"
+                    source_ip: "::1"
+                    metadata:
+                      user_name: jdoe
+                      role_id: 2
+                      department_id: 3
+                    event_timestamp: "2026-03-27T18:00:00.000Z"
+                meta:
+                  count: 1
+                  total_count: 1
+                  has_more: false
+        "401":
+          description: Token missing
+        "403":
+          description: Access denied

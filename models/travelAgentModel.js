@@ -9,13 +9,13 @@
 import pool from "../database/config/db.js";
 
 const TravelAgent = {
-  // Update request status to 6 
+  // Update request status to receipt validation
   async attendTravelRequest(requestId) {
     let conn;
     try {
       conn = await pool.getConnection();
       const result = await conn.query(
-        "UPDATE `Request` SET request_status_id = 6 WHERE request_id = ?",
+        "UPDATE `Request` SET request_status_id = 5 WHERE request_id = ?",
         [requestId],
       );
       return result.affectedRows > 0;
@@ -113,39 +113,6 @@ const TravelAgent = {
 
     } catch (error) {
       console.error('Error getting user with department:', error);
-      throw error;
-
-    } finally {
-      if (conn) conn.release();
-    }
-  },
-
-  /**
-   * Get a random Accounts Payable user from a department
-   * @param {number} dept_id - The department ID
-   * @returns {object} A user object with user_id and user_name, or null if none found
-   */
-  async getRandomAccountsPayable(dept_id) {
-    let conn;
-    const query = `
-      SELECT 
-        user_id,
-        user_name
-      FROM User
-      WHERE department_id = ? AND role_id = (
-        SELECT role_id FROM Role WHERE role_name = 'Cuentas por pagar'
-      )
-      ORDER BY RAND()
-      LIMIT 1
-    `;
-
-    try {
-      conn = await pool.getConnection();
-      const rows = await conn.query(query, [dept_id]);
-      return rows.length > 0 ? rows[0] : null;
-
-    } catch (error) {
-      console.error('Error getting random accounts payable user:', error);
       throw error;
 
     } finally {

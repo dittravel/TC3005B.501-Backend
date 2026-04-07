@@ -6,7 +6,7 @@
  */
 
 import express from "express";
-import { validateId, validateInputs } from "../middleware/validation.js";
+import { validateId, validateInputs, validateReceiptSearchQuery } from "../middleware/validation.js";
 import { authenticateToken, authorizeRole } from "../middleware/auth.js";
 import { generalRateLimiter } from "../middleware/rateLimiters.js";
 import AccountsPayableController from "../controllers/accountsPayableController.js";
@@ -31,6 +31,10 @@ router.route("/validate-receipt/:receipt_id")
 
 // Get expense validations for a travel request by request ID
 router.route("/get-expense-validations/:request_id")
-  .get(generalRateLimiter, authenticateToken, authorizeRole(['Cuentas por pagar', 'Solicitante', 'N1', 'N2']), validateId, validateInputs, AccountsPayableController.getExpenseValidations);
+  .get(generalRateLimiter, authenticateToken, authorizeRole(['Cuentas por pagar', 'Solicitante', 'Autorizador']), validateId, validateInputs, AccountsPayableController.getExpenseValidations);
+
+// Search receipts across all requests by user_id, date range, and/or validation status
+router.route("/search-receipts")
+  .get(generalRateLimiter, authenticateToken, authorizeRole(['Cuentas por pagar', 'Administrador']), validateReceiptSearchQuery, validateInputs, AccountsPayableController.searchReceipts);
 
 export default router;

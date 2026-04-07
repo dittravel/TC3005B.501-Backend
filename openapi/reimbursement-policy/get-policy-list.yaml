@@ -1,0 +1,19 @@
+paths:
+  /get-policy-list:
+    get:
+      summary: List reimbursement policies
+      description: Returns all reimbursement policies with assignment and rule counts.
+      tags:
+        - Reimbursement Policy
+      operationId: getReimbursementPolicyList
+      security:
+        - TokenAuth: []
+      responses:
+        "200":
+          description: Policy list retrieved successfully
+        "401":
+          description: Authentication required
+        "403":
+          description: Admin privileges required
+        "500":
+          description: Internal server error

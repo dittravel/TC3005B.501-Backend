@@ -1,0 +1,33 @@
+paths:
+  /update-policy/{policy_id}:
+    put:
+      summary: Update reimbursement policy
+      description: Replaces the reimbursement policy configuration, assignments, and rules.
+      tags:
+        - Reimbursement Policy
+      operationId: updateReimbursementPolicy
+      security:
+        - TokenAuth: []
+      parameters:
+        - name: policy_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        "200":
+          description: Policy updated successfully
+        "400":
+          description: Invalid payload
+        "404":
+          description: Policy not found
+        "409":
+          description: Assignment overlap or duplicate policy code
+        "500":
+          description: Internal server error
