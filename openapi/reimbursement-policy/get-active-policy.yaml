@@ -1,0 +1,23 @@
+paths:
+  /get-active-policy/{department_id}:
+    get:
+      summary: Resolve active reimbursement policy for a department
+      description: Returns the active reimbursement policy assigned to the department or its global fallback.
+      tags:
+        - Reimbursement Policy
+      operationId: getActiveReimbursementPolicy
+      security:
+        - TokenAuth: []
+      parameters:
+        - name: department_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Active policy resolved successfully
+        "404":
+          description: Department or policy not found
+        "500":
+          description: Internal server error

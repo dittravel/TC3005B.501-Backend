@@ -9,12 +9,11 @@
 import pool from "../database/config/db.js";
 
 const AccountsPayable = {
-  // Update request status to 5 (Atención Agencia de Viajes)
-  async attendTravelRequest(requestId, imposedFee, new_status) {
+  // Update request status to Atención Agencia de Viajes
+  async attendTravelRequest(requestId, imposedFee, new_status, connection = null) {
     let conn;
     try {
-      // Get a connection from the pool
-      conn = await pool.getConnection();
+      conn = connection || (await pool.getConnection());
       const result = await conn.query(
         `UPDATE Request SET request_status_id = ?, imposed_fee = ? 
         WHERE request_id = ?`,
@@ -28,7 +27,7 @@ const AccountsPayable = {
       throw error;
 
     } finally {
-      if (conn) {
+      if (!connection && conn) {
         conn.release();
       }
     }
@@ -40,7 +39,12 @@ const AccountsPayable = {
     try {
       conn = await pool.getConnection();
       const rows = await conn.query(
-        `SELECT request_id, request_status_id, hotel_needed_list, plane_needed_list 
+        `SELECT
+          request_id,
+          request_status_id,
+          user_id,
+          hotel_needed_list,
+          plane_needed_list 
         FROM RequestWithRouteDetails WHERE request_id = ?`,
         [requestId],
       );
@@ -79,7 +83,7 @@ const AccountsPayable = {
     }
   },
   
-  async updateRequestStatus(requestId, statusId) {
+  async updateRequestStatus(requestId, statusId, connection = null) {
     let conn;
     const query = `
       UPDATE Request
@@ -88,7 +92,7 @@ const AccountsPayable = {
     `;
     
     try {
-      conn = await pool.getConnection();
+      conn = connection || (await pool.getConnection());
       await conn.query(query, [statusId, requestId]);
 
     } catch (error) {
@@ -96,7 +100,7 @@ const AccountsPayable = {
       throw error;
 
     } finally {
-      if (conn) conn.release();
+      if (!connection && conn) conn.release();
     }
   },
   
@@ -106,7 +110,7 @@ const AccountsPayable = {
     try {
       conn = await pool.getConnection();
       const rows = await conn.query(
-        "SELECT receipt_id, validation FROM `Receipt` WHERE receipt_id = ?",
+        "SELECT receipt_id, request_id, validation FROM `Receipt` WHERE receipt_id = ?",
         [receiptId],
       );
       return rows[0];
@@ -123,10 +127,10 @@ const AccountsPayable = {
   },
   
   // Accept or Reject a Travel Request
-  async validateReceipt(requestId, approval) {
+  async validateReceipt(requestId, approval, connection = null) {
     let conn;
     try {
-      conn = await pool.getConnection();
+      conn = connection || (await pool.getConnection());
       const result = await conn.query(
         `UPDATE Receipt
         SET validation = ? WHERE receipt_id = ?`,
@@ -139,12 +143,103 @@ const AccountsPayable = {
       throw error;
 
     } finally {
-      if (conn) {
+      if (!connection && conn) {
         conn.release();
       }
     }
   },
   
+  // Search receipts across all requests with optional filters
+  async searchReceipts({ userId, startDate, endDate, validation, limit = 50, offset = 0 } = {}) {
+    let conn;
+    try {
+      conn = await pool.getConnection();
+
+      const conditions = [];
+      const params = [];
+
+      if (userId) {
+        conditions.push('req.user_id = ?');
+        params.push(userId);
+      }
+      if (startDate) {
+        conditions.push('rec.submission_date >= ?');
+        params.push(startDate);
+      }
+      if (endDate) {
+        conditions.push('rec.submission_date <= ?');
+        params.push(endDate);
+      }
+      if (validation) {
+        conditions.push('rec.validation = ?');
+        params.push(validation);
+      }
+
+      const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+
+      const rows = await conn.query(
+        `SELECT
+           rec.receipt_id,
+           rec.request_id,
+           rec.route_id,
+           rec.validation,
+           rec.amount,
+           rec.currency,
+           rec.submission_date,
+           rt.receipt_type_name,
+           rec.pdf_file_id,
+           rec.pdf_file_name,
+           rec.xml_file_id,
+           rec.xml_file_name,
+           u.user_id,
+           u.user_name
+         FROM Receipt rec
+         JOIN Receipt_Type rt ON rec.receipt_type_id = rt.receipt_type_id
+         JOIN Request req ON req.request_id = rec.request_id
+         JOIN User u ON u.user_id = req.user_id
+         ${whereClause}
+         ORDER BY rec.submission_date ASC
+         LIMIT ? OFFSET ?`,
+        [...params, limit, offset]
+      );
+
+      const [{ total_count }] = await conn.query(
+        `SELECT COUNT(*) AS total_count
+         FROM Receipt rec
+         JOIN Request req ON req.request_id = rec.request_id
+         ${whereClause}`,
+        params
+      );
+
+      return {
+        total_count: Number(total_count),
+        limit,
+        offset,
+        receipts: rows.map(row => ({
+          receipt_id: row.receipt_id,
+          request_id: row.request_id,
+          route_id: row.route_id,
+          receipt_type_name: row.receipt_type_name,
+          amount: row.amount,
+          currency: row.currency,
+          validation: row.validation,
+          submission_date: row.submission_date,
+          applicant_user_id: row.user_id,
+          applicant_user_name: row.user_name,
+          pdf_id: row.pdf_file_id,
+          pdf_name: row.pdf_file_name,
+          xml_id: row.xml_file_id,
+          xml_name: row.xml_file_name,
+        })),
+      };
+    } catch (error) {
+      console.error('Error searching receipts:', error);
+      throw error;
+    } finally {
+      if (conn) conn.release();
+    }
+  },
+
   // Get the validation status of all receipts associated with a request
   async getExpenseValidations(requestId) {
     let conn;

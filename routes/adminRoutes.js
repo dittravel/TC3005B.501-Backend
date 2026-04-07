@@ -14,9 +14,12 @@ import { generalRateLimiter } from "../middleware/rateLimiters.js";
 
 const router = express.Router();
 
-// Multer used for handling file uploads
+// Multer used for handling file uploads (memory storage - no disk writes)
 const upload = multer({
-  dest: "uploads/"
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 10 * 1024 * 1024 // 10MB max
+  }
 });
 
 router.use((req, res, next) => {
@@ -48,5 +51,46 @@ router.route('/update-user/:user_id')
 // Delete a user by user ID
 router.route("/delete-user/:user_id")
   .put(generalRateLimiter, authenticateToken, authorizeRole(['Administrador']), adminController.deactivateUser);
+
+// Get departments
+router.route("/get-departments")
+  .get(generalRateLimiter, authenticateToken, authorizeRole(['Administrador']), adminController.getDepartments);
+
+// Get roles
+router.route("/get-roles")
+  .get(generalRateLimiter, authenticateToken, authorizeRole(['Administrador']), adminController.getRoles);
+
+// Get an auth rule by ID
+router.route("/auth-rules/:rule_id")
+  .get(generalRateLimiter, authenticateToken, authorizeRole(['Administrador']), adminController.getAuthRuleById);
+
+// Get all auth rules
+router.route("/get-auth-rules")
+  .get(generalRateLimiter, authenticateToken, authorizeRole(['Administrador']), adminController.getAuthRules);
+
+// Create auth rule
+router.route("/create-auth-rule")
+  .post(generalRateLimiter, authenticateToken, authorizeRole(['Administrador']), adminController.createAuthRule);
+
+// Update auth rule
+router.route("/update-auth-rule/:rule_id")
+  .put(generalRateLimiter, authenticateToken, authorizeRole(['Administrador']), adminController.updateAuthRule);
+
+// Delete auth rule
+router.route("/delete-auth-rule/:rule_id")
+  .delete(generalRateLimiter, authenticateToken, authorizeRole(['Administrador']), adminController.deleteAuthRule);
+
+// Get boss list for a department
+router.route("/get-boss-list/:department_id")
+  .get(generalRateLimiter, authenticateToken, authorizeRole(['Administrador']), adminController.getBossList);
+
+// Import data from XML file
+router.route("/import-data")
+  .post(
+    generalRateLimiter,
+    authenticateToken, authorizeRole(['Administrador']),
+    upload.single("file"),
+    adminController.importData
+  );
 
 export default router;
