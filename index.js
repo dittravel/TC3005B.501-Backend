@@ -25,6 +25,7 @@ import reimbursementPolicyRoutes from "./routes/reimbursementPolicyRoutes.js";
 import integrationRoutes from "./routes/integrationRoutes.js";
 import auditLogRoutes from "./routes/auditLogRoutes.js";
 import emailActionsRoutes from './routes/emailActionsRoutes.js';
+import cfdiRoutes from './routes/cfdiRoutes.js';
 
 // Import MongoDB connection for file storage
 import { connectMongo } from './services/fileStorage.js';
@@ -66,6 +67,7 @@ app.use("/api/reimbursement-policy", reimbursementPolicyRoutes);
 app.use("/api/integrations", integrationRoutes);
 app.use("/api/audit-log", auditLogRoutes);
 app.use("/api/email-actions", emailActionsRoutes);
+app.use("/api/cfdi", cfdiRoutes);
 
 // Connect to MongoDB for file storage
 connectMongo().catch(err => console.error('Failed to connect to MongoDB:', err));
