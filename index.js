@@ -21,6 +21,10 @@ import accountsPayableRoutes from './routes/accountsPayableRoutes.js';
 import fileRoutes from './routes/fileRoutes.js';
 import systemRoutes from "./routes/systemRoutes.js";
 import exchangeRateRoutes from "./routes/exchangeRateRoutes.js";
+import reimbursementPolicyRoutes from "./routes/reimbursementPolicyRoutes.js";
+import integrationRoutes from "./routes/integrationRoutes.js";
+import auditLogRoutes from "./routes/auditLogRoutes.js";
+import emailActionsRoutes from './routes/emailActionsRoutes.js';
 
 // Import MongoDB connection for file storage
 import { connectMongo } from './services/fileStorage.js';
@@ -58,6 +62,11 @@ app.use("/api/accounts-payable", accountsPayableRoutes);
 app.use("/api/files", fileRoutes);
 app.use("/api/system", systemRoutes);
 app.use("/api/exchange-rate", exchangeRateRoutes);
+app.use("/api/reimbursement-policy", reimbursementPolicyRoutes);
+app.use("/api/integrations", integrationRoutes);
+app.use("/api/audit-log", auditLogRoutes);
+app.use("/api/email-actions", emailActionsRoutes);
+
 // Connect to MongoDB for file storage
 connectMongo().catch(err => console.error('Failed to connect to MongoDB:', err));
 

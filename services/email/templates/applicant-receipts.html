@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Comprobación de gastos de viaje</title>
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <div class="container">
+    
+    <div class="header">
+      <img src="https://raw.githubusercontent.com/dittravel/.github/refs/heads/main/profile/logo_dittravel_color.png" alt="Logo" class="logo">
+      <h2>Comprobación de gastos de viaje</h2>
+    </div>
+
+    <p>Hola <strong>{{username}}</strong>,</p>
+    <p>Tu solicitud de viaje requiere que envíes los comprobantes de gastos para su revisión. A continuación, encontrarás los detalles de tu solicitud:</p>
+
+    <div class="details">
+      <ul>
+        <li><strong>Número de solicitud:</strong> {{requestId}}</li>
+        <li><strong>Estado actual:</strong> {{status}}</li>
+        <li><strong>Fecha de actualización:</strong> {{currentDate}}</li>
+      </ul>
+    </div>
+
+    <div class="actions">
+      <p><strong>Próximos pasos:</strong></p>
+      <p>Reúne los comprobantes de gastos del viaje y haz clic en el siguiente botón para subirlos a tu portal:</p>
+      
+      <p class="text-center">
+        <a href="{{portalUrl}}/comprobar-solicitud/{{requestId}}" class="btn">Subir Comprobantes</a>
+      </p>
+    </div>
+
+    <div class="footer">
+      <p>
+        Si deseas más información, puedes acceder a tu portal en 
+        <a href="{{portalUrl}}/login">{{portalUrl}}/login</a>
+      </p>
+    </div>
+  </div>
+</body>
+</html>

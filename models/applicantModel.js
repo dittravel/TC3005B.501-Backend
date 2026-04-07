@@ -7,6 +7,8 @@
  */
 
 import pool from "../database/config/db.js";
+import User from "./userModel.js";
+import AuthorizationRuleService from "../services/authorizationRuleService.js";
 import { formatRoutes, getRequestDays, getCountryId, getCityId } from "../services/applicantService.js";
 import { uploadReceiptFiles } from "../services/receiptFileService.js";
 
@@ -38,13 +40,17 @@ const Applicant = {
   // Find cost center by user ID
   async findCostCenterByUserId(user_id) {
     let conn;
-    
+
     try {
       conn = await pool.getConnection();
       const rows = await conn.query(`
-        SELECT d.department_name, d.costs_center FROM User u
-        JOIN Department d
-        ON u.department_id = d.department_id
+        SELECT
+          d.department_name,
+          d.cost_center_id,
+          cc.cost_center_name AS costs_center
+        FROM User u
+        JOIN Department d ON u.department_id = d.department_id
+        JOIN CostCenter cc ON d.cost_center_id = cc.cost_center_id
         WHERE u.user_id = ?;`,
         [user_id],
       );
@@ -86,6 +92,7 @@ const Applicant = {
         plane_needed,
         hotel_needed,
         additionalRoutes = [],
+        travel_type,
       } = travelDetails;
       
       // Format the routes into a single array
@@ -109,34 +116,99 @@ const Applicant = {
       // Step 1: Insert into Request table
       const request_days = getRequestDays(allRoutes);
       
-      // Get user role and boss_id
+      // Get user role, boss_id, and department_id
       const userResult = await conn.query(
-        `SELECT role_id, boss_id FROM User WHERE user_id = ?`,
+        `SELECT role_id, boss_id, department_id FROM User WHERE user_id = ?`,
         [user_id],
       );
-      
+
       const role = userResult[0];
       if (!role) {
         throw new Error("User not found");
       }
 
-      console.log("Role ID:", role.role_id);
-      let request_status;
-        
-      if (role.role_id == 1) { // Solicitant
-        console.log("Role ID:", role.role_id);
-        request_status = 2; // 2 = First Revision
+      const departmentId = role.department_id;
 
-      } else if (role.role_id == 4) { // N1
-        console.log("Role ID:", role.role_id);
-        request_status = 3; // 3 = Second Revision
-
-      } else if (role.role_id == 5) { // N2
-        console.log("Role ID:", role.role_id);
-        request_status = 4; // 4 = Trip Quote
-
-      } else {
+      if (role.role_id !== 1 && role.role_id !== 4) { // Solicitant or Authorizer
         throw new Error("User role is not allowed to create a travel request");
+      }
+
+      // Select applicable authorization rule
+      let authorizationRuleId = null;
+      let applicableRule = null;
+      try {
+        applicableRule = await AuthorizationRuleService.selectApplicableRule(
+          travel_type,
+          request_days,
+          requested_fee
+        );
+
+        if (applicableRule) {
+          authorizationRuleId = applicableRule.rule_id;
+          console.log(`Authorization rule selected: ${applicableRule.rule_name} (ID: ${authorizationRuleId})`);
+        } else {
+          console.warn('No applicable authorization rule found, proceeding without rule assignment');
+        }
+      } catch (error) {
+        console.error('Error selecting authorization rule:', error);
+      }
+
+      // Determine assignment based on rule or fallback logic
+      let request_status = 2; // Default: Revision
+      let assignedTo = null;
+
+      if (applicableRule && applicableRule.levels && applicableRule.levels.length > 0) {
+        // Use the first level of the rule to determine initial approver
+        const firstRuleLevel = applicableRule.levels[0];
+        
+        try {
+          assignedTo = await AuthorizationRuleService.getNextApproverForRuleLevel(
+            firstRuleLevel,
+            user_id,
+            departmentId
+          );
+          
+          if (!assignedTo) {
+            console.warn('Could not determine approver from rule level, using fallback logic');
+            // Fallback: If rule didn't work, try direct boss
+            const bossId = await User.getBossId(user_id);
+            assignedTo = bossId;
+          }
+          console.log(`Assigned to user ${assignedTo} based on authorization rule level 1`);
+        } catch (error) {
+          console.error('Error assigning based on rule level:', error);
+          // Fallback to boss
+          const bossId = await User.getBossId(user_id);
+          assignedTo = bossId;
+        }
+      } else if (applicableRule && applicableRule.automatic) {
+        // Automatic rule without specific levels, use direct boss
+        const bossId = await User.getBossId(user_id);
+        assignedTo = bossId;
+        if (bossId) {
+          console.log(`Assigned to boss (user_id: ${bossId}) using automatic rule`);
+        } else {
+          console.warn('Automatic rule selected but user has no boss, will route directly to Travel Agent/Accounts Payable');
+        }
+      } else {
+        // No rule or no levels in rule, use fallback logic
+        const bossId = await User.getBossId(user_id);
+        
+        if (!bossId) {
+          // User has no boss: assign to Travel Agent or Accounts Payable based on trip needs
+          if (plane_needed || hotel_needed) {
+            request_status = 4; // Agent Travel
+            const travelAgent = await User.getRandomUserByRole(2, departmentId); // Travel Agent role_id = 2
+            assignedTo = travelAgent ? travelAgent.user_id : null;
+          } else {
+            request_status = 3; // Travel Quote
+            const accountsPayable = await User.getRandomUserByRole(3, departmentId); // Accounts Payable role_id = 3
+            assignedTo = accountsPayable ? accountsPayable.user_id : null;
+          }
+        } else {
+          // Has boss, assign to him (will go through authorization levels)
+          assignedTo = bossId;
+        }
       }
       
       const insertIntoRequestTable = `
@@ -145,18 +217,20 @@ const Applicant = {
           request_status_id,
           assigned_to,
           authorization_level,
+          authorization_rule_id,
           notes,
           requested_fee,
           imposed_fee,
           request_days
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
       `;
       
       const requestTableResult = await conn.execute(insertIntoRequestTable, [
         user_id,
         request_status,
-        role.boss_id || null,  // assigned_to = boss_id (or null if no boss)
+        assignedTo,            // assigned_to = boss_id, travel agent, or accounts payable
         0,                     // authorization_level = 0 (starting level)
+        authorizationRuleId,   // authorization_rule_id = selected rule or null
         notes,
         requested_fee,
         imposed_fee,
@@ -444,13 +518,37 @@ const Applicant = {
       if (conn) conn.release();
     }
   },
+
+  // Get request department
+  async getRequestDepartment(request_id) {
+    let conn;
+    const query = `
+      SELECT d.department_id FROM Request r
+      JOIN User u ON r.user_id = u.user_id
+      JOIN Department d ON u.department_id = d.department_id
+      WHERE r.request_id = ?
+    `;
+
+    try {
+      conn = await pool.getConnection();
+      const rows = await conn.query(query, [request_id]);
+      return rows.length > 0 ? rows[0].department_id : null;
+
+    } catch (error) {
+      console.error('Error getting request department:', error);
+      throw error;
+
+    } finally {
+      if (conn) conn.release();
+    }
+  },
   
   // Cancel travel request
   async cancelTravelRequest(request_id) {
     let conn;
     const query = `
       UPDATE Request
-      SET request_status_id = 9
+      SET request_status_id = 8
       WHERE request_id = ?
     `;
 
@@ -519,7 +617,7 @@ const Applicant = {
       JOIN Request_status rs ON r.request_status_id = rs.request_status_id
       LEFT JOIN User u ON r.assigned_to = u.user_id
       WHERE r.user_id = ?
-        AND r.request_status_id NOT IN (8, 9, 10)
+        AND r.request_status_id NOT IN (7, 8, 9)
       GROUP BY r.request_id
     `;
 
@@ -676,16 +774,8 @@ const Applicant = {
       // Step 1: Insert into Request table
       const request_days = getRequestDays(allRoutes);
       
-      // Get user boss_id
-      const userResult = await conn.query(
-        `SELECT boss_id FROM User WHERE user_id = ?`,
-        [user_id],
-      );
-      
-      const user = userResult[0];
-      if (!user) {
-        throw new Error("User not found");
-      }
+      // Get the boss (checking if they're out of office)
+      const bossId = await User.getBossId(user_id);
 
       // Set query to insert into Request table
       const insertIntoRequestTable = `
@@ -705,7 +795,8 @@ const Applicant = {
       const requestTableResult = await conn.execute(insertIntoRequestTable, [
         user_id,
         1, // Set status to 1 ('Abierto')
-        user.boss_id || null,  // assigned_to = boss_id (or null if no boss)
+        bossId,  // assigned_to = boss_id (or null if no boss or boss out of office with no substitute)
+        0,                     // authorization_level = 0 (starting level)
         0,                     // authorization_level = 0 (starting level)
         notes,
         requested_fee,
@@ -804,18 +895,9 @@ const Applicant = {
       );
 
       let request_status;
-      if (role[0].role_id == 1) {
+      if (role[0].role_id == 1 || role[0].role_id == 4) { // Solicitant or Authorizer
         console.log("Role ID:", role[0].role_id);
-        request_status = 2; // 2 = First Revision
-
-      } else if (role[0].role_id == 4) {
-        console.log("Role ID:", role[0].role_id);
-        request_status = 3; // 3 = Second Revision
-
-      } else if (role[0].role_id == 5) {
-        console.log("Role ID:", role[0].role_id);
-        request_status = 4; // 4 = Trip Quote
-
+        request_status = 2; // Revision
       } else {
         throw new Error("User role in not allowed to create a travel request");
       }
@@ -869,7 +951,7 @@ const Applicant = {
     try {
       conn = await pool.getConnection();
       await conn.query(
-        `UPDATE Request SET request_status_id = 7 WHERE request_id = ?`,
+        `UPDATE Request SET request_status_id = 6 WHERE request_id = ?`,
         [requestId]
       );
 

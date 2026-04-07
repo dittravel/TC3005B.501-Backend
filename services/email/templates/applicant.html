@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Actualización de Solicitud de Viaje</title>
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <div class="container">
+    
+    <div class="header">
+      <img src="https://raw.githubusercontent.com/dittravel/.github/refs/heads/main/profile/logo_dittravel_color.png" alt="Logo" class="logo">
+      <h2>Actualización de tu Solicitud de Viaje</h2>
+    </div>
+
+    <p>Hola <strong>{{username}}</strong>,</p>
+    <p>El estado de tu solicitud de viaje ha cambiado. A continuación te compartimos los nuevos detalles:</p>
+
+    <div class="details">
+      <ul>
+        <li><strong>Número de solicitud:</strong> {{requestId}}</li>
+        <li><strong>Estado actual:</strong> {{status}}</li>
+        <li><strong>Fecha de actualización:</strong> {{currentDate}}</li>
+      </ul>
+    </div>
+
+    <div class="actions">
+      <p><strong>Próximos pasos:</strong></p>
+      <p>Puedes revisar los detalles completos de tu solicitud y dar seguimiento a tu viaje:</p>
+      
+      <p class="text-center">
+        <a href="{{portalUrl}}/detalles-solicitud/{{requestId}}" class="btn">Ver Solicitud</a>
+      </p>
+    </div>
+
+    <div class="footer">
+      <p>
+        Si deseas más información, puedes acceder a tu portal en 
+        <a href="{{portalUrl}}/login">{{portalUrl}}/login</a>
+      </p>
+    </div>
+  </div>
+</body>
+</html>

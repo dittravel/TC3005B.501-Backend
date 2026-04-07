@@ -29,60 +29,59 @@ const Admin = {
     }
   },
     
-  // Create multiple users in a single batch operation
-  async createMultipleUsers(users) {
-    let conn;
-    
-    const values = users.map(user => [
-      user.role_id,
-      user.department_id,
-      user.boss_id || null,
-      user.user_name,
-      user.password,
-      user.workstation,
-      user.email,
-      user.phone_number
-    ]);
-    
-    const query = `
-      INSERT INTO User (
-        role_id,
-        department_id,
-        boss_id,
-        user_name,
-        password,
-        workstation,
-        email,
-        phone_number
-      )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    `;
-    
-    try {
-      conn = await pool.getConnection();
-      const result = await conn.batch(query, values);
-      return result.affectedRows;
+    // Create multiple users in a single batch operation
+    async createMultipleUsers(users, connection = null) {
+      let conn;
+      const values = users.map(user => [
+        user.role_id,
+        user.department_id,
+        user.boss_id || null,
+        user.user_name,
+        user.password,
+        user.workstation,
+        user.email,
+        user.phone_number
+      ]);
       
-    } catch (error) {
-      console.error('Error getting completed requests:', error);
-      throw error;
+      const query = `
+        INSERT INTO User (
+          role_id,
+          department_id,
+          boss_id,
+          user_name,
+          password,
+          workstation,
+          email,
+          phone_number
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      `;
       
-    } finally {
-      if (conn){
-        conn.release();
-      } 
-    }
-  },
-  
-  // Find role ID by role name
-  async findRoleID(role_name) {
-    let conn;
-    try {
-      conn = await pool.getConnection();
-      const name = await conn.query(
-        'SELECT role_id FROM Role WHERE role_name = ?',
-        [role_name]
-      );
+      try {
+        conn = connection || (await pool.getConnection());
+        const result = await conn.batch(query, values);
+        return result.affectedRows;
+        
+      } catch (error) {
+        console.error('Error getting completed requests:', error);
+        throw error;
+        
+      } finally {
+        if (!connection && conn){
+          conn.release();
+        } 
+      }
+    },
+    
+    // Find role ID by role name
+    async findRoleID(role_name) {
+      let conn;
+      try {
+        conn = await pool.getConnection();
+        const name = await conn.query(
+          'SELECT role_id FROM Role WHERE role_name = ?',
+          [role_name]
+        );
 
       if (name && name.length > 0) {
         return name[0].role_id;
@@ -149,10 +148,11 @@ const Admin = {
   },
   
   // Create a single user
-  async createUser(userData) {
-    const connection = await db.getConnection();
+  async createUser(userData, connection = null) {
+    let conn;
+    conn = connection || (await db.getConnection());
     try{
-      const existingUser = await connection.query(`
+      const existingUser = await conn.query(`
         SELECT user_id FROM User
         WHERE email = ? OR user_name = ?`,
         [userData.email, userData.user_name]
@@ -162,7 +162,7 @@ const Admin = {
         throw new Error('User with this email or username already exists');
       }
       
-      await connection.query(`
+      const result = await conn.query(`
         INSERT INTO User (
           role_id,
           department_id,
@@ -171,8 +171,8 @@ const Admin = {
           workstation,
           email,
           phone_number,
-          creation_date,
-          boss_id
+          boss_id,
+          creation_date
         ) 
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`,
         [
@@ -186,8 +186,12 @@ const Admin = {
           userData.boss_id || null
         ]
       );
+
+        return {
+          user_id: result.insertId,
+        };
     } finally {
-      connection.release();
+      if (!connection) conn.release();
     }
   },
   
@@ -208,48 +212,47 @@ const Admin = {
     } catch (error) {
       throw error;
 
-    } finally {
-      if (conn) conn.release();
-    }
-  },
-  
-  // Update user information
-  async updateUser(user_id, fieldsToUpdate) {
-    let conn;
+      } finally {
+        if (conn) conn.release();
+      }
+    },
     
-    const setClauses = [];
-    const values =[];
-    
-    for (const field in fieldsToUpdate) {
-      setClauses.push(`${field} = ?`);
-      values.push(fieldsToUpdate[field]);
-    }
-    
-    values.push(user_id);
-    
-    const query = `
-      UPDATE User
-      SET ${setClauses.join(', ')}
-      WHERE user_id = ?
-    `;
-    try {
-      conn = await pool.getConnection();
-      const result = await conn.query(query, values);
-      return result;
+    // Update user information
+    async updateUser(user_id, fieldsToUpdate, connection = null) {
+      let conn;
+      const setClauses = [];
+      const values =[];
+      
+      for (const field in fieldsToUpdate) {
+        setClauses.push(`${field} = ?`);
+        values.push(fieldsToUpdate[field]);
+      }
+      
+      values.push(user_id);
+      
+      const query = `
+        UPDATE User
+        SET ${setClauses.join(', ')}
+        WHERE user_id = ?
+      `;
+      try {
+        conn = connection || (await pool.getConnection());
+        const result = await conn.query(query, values);
+        return result;
 
     } catch (error) {
       throw error;
 
     } finally {
-      if (conn) conn.release();
+      if (!connection && conn) conn.release();
     }
   },
   
   // Deactivate a user by ID
-  async deactivateUserById(userId) {
+  async deactivateUserById(userId, connection = null) {
     let conn;
     try {
-      conn = await pool.getConnection();
+      conn = connection || (await pool.getConnection());
       const result = await conn.query(
         `UPDATE User SET active = FALSE WHERE user_id = ?`,
         [userId]
@@ -261,9 +264,78 @@ const Admin = {
       throw error;
       
     } finally {
-      if (conn) {
+      if (!connection && conn) {
         conn.release();
       }
+    }
+  },
+
+  // Get departments
+  async getDepartments() {
+    let conn;
+    try {
+      conn = await pool.getConnection();
+      const departments = await conn.query(`SELECT department_id, department_name FROM Department`);
+      return departments;
+    } catch (error) {
+      console.error('Error getting departments:', error);
+      throw error;
+    } finally {
+      if (conn) conn.release();
+    }
+  },
+
+  // Get roles
+  async getRoles() {
+    let conn;
+    try {
+      conn = await pool.getConnection();
+      const roles = await conn.query(`SELECT role_id, role_name FROM Role`);
+      return roles;
+    } catch (error) {
+      console.error('Error getting roles:', error);
+      throw error;
+    } finally {
+      if (conn) conn.release();
+    }
+  },
+
+  // Get an auth rule by ID
+  async getAuthRuleById(ruleId) {
+    let conn;
+    try {
+      conn = await pool.getConnection();
+      const rules = await conn.query(`
+        SELECT * FROM AuthorizationRule 
+        WHERE rule_id = ?`, 
+        [ruleId]
+      );
+      
+      if (rules.length === 0) {
+        return null; // No rule found with the given ID
+      }
+      
+      const rule = rules[0];
+      
+      const levels = await conn.query(
+        `SELECT
+          level_number,
+          level_type,
+          superior_level_number
+        FROM AuthorizationRuleLevel
+        WHERE rule_id = ?
+        ORDER BY level_number`,
+        [ruleId]
+      );
+      
+      rule.levels = levels;
+      return rule;
+
+    } catch (error) {
+      console.error('Error getting auth rule by ID:', error);
+      throw error;
+    } finally {
+      if (conn) conn.release();
     }
   },
 
@@ -279,8 +351,14 @@ const Admin = {
       // For each rule, get its associated auth levels
       for (const rule of rules) {
         const levels = await conn.query(
-          `SELECT level, type, user_id FROM AuthorizationRuleLevel WHERE rule_id = ? ORDER BY level`,
-          [rule.id]
+          `SELECT
+            level_number,
+            level_type,
+            superior_level_number
+          FROM AuthorizationRuleLevel
+          WHERE rule_id = ?
+          ORDER BY level_number`,
+          [rule.rule_id]
         );
         rule.levels = levels;
       }
@@ -303,7 +381,7 @@ const Admin = {
       // Create the new auth rule
       const ruleRes = await conn.query(`
         INSERT INTO AuthorizationRule (
-          name,
+          rule_name,
           is_default,
           num_levels,
           automatic,
@@ -315,6 +393,7 @@ const Admin = {
         )
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
       `, [
+        ruleData.rule_name,
         ruleData.is_default,
         ruleData.num_levels,
         ruleData.automatic,
@@ -325,23 +404,31 @@ const Admin = {
         ruleData.max_amount
       ]);
 
-      // Create associated auth levels
-      const authLevelValues = ruleData.niveles.map(level => [
-        ruleRes.insertId,
-        level.level,
-        level.type,
-        level.user_id
-      ]);
+      // Validate ruleRes.insertId before using it
+      const rule_id = ruleRes.insertId;
+      if (!rule_id) {
+        throw new Error("Failed to retrieve rule_id after inserting AuthorizationRule");
+      }
 
-      await conn.batch(`
-        INSERT INTO AuthorizationRuleLevel (
+      const levels = Array.isArray(ruleData.niveles) ? ruleData.niveles : [];
+      if (levels.length > 0) {
+        const authLevelValues = levels.map(level => [
           rule_id,
-          level,
-          type,
-          user_id
-        )
-        VALUES (?, ?, ?, ?)
-      `, authLevelValues);
+          level.level_number,
+          level.level_type,
+          level.superior_level_number
+        ]);
+
+        await conn.batch(`
+          INSERT INTO AuthorizationRuleLevel (
+            rule_id,
+            level_number,
+            level_type,
+            superior_level_number
+          )
+          VALUES (?, ?, ?, ?)
+        `, authLevelValues);
+      }
 
     } catch (error) {
       console.error('Error creating auth rule:', error);
@@ -361,7 +448,7 @@ const Admin = {
       await conn.query(`
         UPDATE AuthorizationRule
         SET
-          name = ?,
+          rule_name = ?,
           is_default = ?,
           num_levels = ?,
           automatic = ?,
@@ -370,9 +457,9 @@ const Admin = {
           max_duration = ?,
           min_amount = ?,
           max_amount = ?
-        WHERE id = ?
+        WHERE rule_id = ?
       `, [
-        ruleData.name,
+        ruleData.rule_name,
         ruleData.is_default,
         ruleData.num_levels,
         ruleData.automatic,
@@ -390,9 +477,9 @@ const Admin = {
       // Create new auth levels
       const authLevelValues = ruleData.niveles.map(level => [
         ruleId,
-        level.level,
-        level.type,
-        level.user_id
+        level.level_number,
+        level.level_type,
+        level.superior_level_number
       ]);
 
       const levels = Array.isArray(ruleData.niveles) ? ruleData.niveles : [];
@@ -400,9 +487,9 @@ const Admin = {
         await conn.batch(`
           INSERT INTO AuthorizationRuleLevel (
             rule_id,
-            level,
-            type,
-            user_id
+            level_number,
+            level_type,
+            superior_level_number
           )
           VALUES (?, ?, ?, ?)
         `, authLevelValues);
@@ -426,8 +513,9 @@ const Admin = {
       await conn.query(`DELETE FROM AuthorizationRuleLevel WHERE rule_id = ?`, [ruleId]);
 
       // Delete the auth rule
-      await conn.query(`DELETE FROM AuthorizationRule WHERE id = ?`, [ruleId]);
+      await conn.query(`DELETE FROM AuthorizationRule WHERE rule_id = ?`, [ruleId]);
 
+      console.log(`Auth rule with ID ${ruleId} and its associated levels have been deleted.`);
     } catch (error) {
       console.error('Error deleting auth rule:', error);
       throw error;
@@ -441,9 +529,16 @@ const Admin = {
     let conn;
     try {
       conn = await pool.getConnection();
+
+      // Fetch users who are authorizers (role_id = 4)
       const bosses = await conn.query(`
-        SELECT user_id, user_name FROM User
-        WHERE department_id = ? AND active = 1
+        SELECT
+          user_id,
+          user_name
+        FROM User
+        WHERE department_id = ?
+        AND active = 1
+        AND role_id = 4
       `, [departmentId]);
       return bosses;
     } catch (error) {
@@ -453,7 +548,99 @@ const Admin = {
       if (conn) conn.release();
     }
   },
+
+  // Find department ID by department name
+  async findDepartmentID(department_name) {
+    let conn;
+    try {
+      conn = await pool.getConnection();
+      const name = await conn.query(
+        'SELECT department_id FROM Department WHERE department_name = ?',
+        [department_name]
+      );
+      
+      if (name && name.length > 0) {
+        return name[0].department_id;
+      }
+      return null;
+
+    } catch (error) {
+      console.error('Error finding department ID for %s:', department_name, error);
+      throw error;
+
+    } finally {
+      if (conn) conn.release();
+    }
+  },
+
+  // Create department
+  async createDepartment(departmentData) {
+    let conn;
+    try {
+      conn = await pool.getConnection();
+      await conn.query(`
+        INSERT INTO Department (
+          department_name,
+          cost_center_id
+        )
+        VALUES (?, ?)
+      `, [
+        departmentData.department_name
+      ]
+      );
+    } catch (error) {
+      console.error('Error creating department:', error);
+      throw error;
+    } finally {
+      if (conn) conn.release();
+    }
+  },
+
+  // Find cost center ID by cost center name
+  async findCostCenterID(cost_center_name) {
+    let conn;
+    try {
+      conn = await pool.getConnection();
+      const name = await conn.query(
+        'SELECT cost_center_id FROM CostCenter WHERE cost_center_name = ?',
+        [cost_center_name]
+      );
+      
+      if (name && name.length > 0) {
+        return name[0].cost_center_id;
+      }
+      return null;
+
+    } catch (error) {
+      console.error('Error finding cost center ID for %s:', cost_center_name, error);
+      throw error;
+
+    } finally {
+      if (conn) conn.release();
+    }
+  },
+
+  // Create cost center
+  async createCostCenter(costCenterData) {
+    let conn;
+    try {
+      conn = await pool.getConnection();
+      await conn.query(`
+        INSERT INTO CostCenter (
+          cost_center_name
+        )
+        VALUES (?)
+      `, [
+        costCenterData.cost_center_name,
+      ]
+      );
+    } catch (error) {
+      console.error('Error creating cost center:', error);
+      throw error;
+    } finally {
+      if (conn) conn.release();
+    }
+  },
 };
   
 export default Admin;
-  

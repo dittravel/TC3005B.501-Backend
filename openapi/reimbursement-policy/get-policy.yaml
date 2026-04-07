@@ -1,0 +1,23 @@
+paths:
+  /get-policy/{policy_id}:
+    get:
+      summary: Get reimbursement policy details
+      description: Returns a reimbursement policy with its assignments and rules.
+      tags:
+        - Reimbursement Policy
+      operationId: getReimbursementPolicyById
+      security:
+        - TokenAuth: []
+      parameters:
+        - name: policy_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Policy retrieved successfully
+        "404":
+          description: Policy not found
+        "500":
+          description: Internal server error

@@ -51,41 +51,47 @@ export const login = async (req, res) => {
     // Authenticate user credentials through service layer
     const result = await userService.authenticateUser(username, password, req);
     
-    // Set secure HTTP-only cookies for session management
+    /**
+     * Set secure HTTP-only cookies for session management
+     * Lax allows cookies to be sent between some cross-site requests
+     * This is used to maintain session after login and click email links
+     * The system still requires authentication for sensitive operations,
+     * so this is a balance between security and usability
+     */
     res
       .cookie("token", result.token, {
         httpOnly: true,
         secure: process.env.NODE_ENV === "production",
-        sameSite: "Strict",
+        sameSite: "Lax",
         maxAge: 1000 * 60 * 60, // 1 hour expiration
       })
       .cookie("role", result.role, {
-        sameSite: "Strict",
+        sameSite: "Lax",
         httpOnly: true,
         secure: true,
         maxAge: 1000 * 60 * 60,
       })
       .cookie("username", result.username, {
-        sameSite: "Strict",
+        sameSite: "Lax",
         httpOnly: true,
         secure: true,
         maxAge: 1000 * 60 * 60,
       })
       .cookie("id", result.user_id.toString(), {
-        sameSite: "Strict",
+        sameSite: "Lax",
         httpOnly: true,
         secure: true,
         maxAge: 1000 * 60 * 60,
       })
       .cookie("department_id", result.department_id.toString(), {
-        sameSite: "Strict",
+        sameSite: "Lax",
         httpOnly: true,
         secure: true,
         maxAge: 1000 * 60 * 60,
       })
       .json(result);
   } catch (error) {
-    res.status(401).json({ error: error.message });
+    res.status(400).json({ error: error.message });
   }
 }
 
@@ -202,6 +208,46 @@ export const getUserWallet = async (req, res) => {
 // Helper function to format dates to YYYY-MM-DD
 const formatDate = (date) => {
   return new Date(date).toISOString().split('T')[0];
+};
+
+// Update user's out-of-office information
+export const updateOutOfOffice = async (req, res) => {
+  try {
+    const userId = parseInt(req.params.user_id);
+
+    if (isNaN(userId)) {
+      return res.status(400).json({ error: 'Invalid user ID format' });
+    }
+
+    // Security: users can only modify their own out-of-office information
+    if (req.user.user_id !== userId) {
+      return res.status(403).json({ error: 'Forbidden: You can only update your own out-of-office information' });
+    }
+
+    const result = await userService.updateOutOfOffice(userId, req.body);
+    return res.status(200).json(result);
+
+  } catch (error) {
+    console.error('Error updating out-of-office:', error);
+    return res.status(400).json({ error: error.message });
+  }
+};
+
+// Get substitute users in the same department for a given user ID
+export const getSubstituteUsers = async (req, res) => {
+  try {
+    const userId = parseInt(req.params.user_id);
+
+    if (isNaN(userId)) {
+      return res.status(400).json({ error: 'Invalid user ID format' });
+    }
+
+    const users = await User.getUserDepartmentMembers(userId);
+    return res.status(200).json(users);
+  } catch (error) {
+    console.error('Error retrieving department users:', error);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
 };
 
 // Clear all session cookies and log user out

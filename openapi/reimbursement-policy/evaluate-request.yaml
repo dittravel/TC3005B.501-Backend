@@ -1,0 +1,25 @@
+paths:
+  /evaluate-request/{request_id}:
+    get:
+      summary: Evaluate request receipts against reimbursement policy
+      description: Returns a policy evaluation for the request and each of its receipts.
+      tags:
+        - Reimbursement Policy
+      operationId: evaluateRequestAgainstReimbursementPolicy
+      security:
+        - TokenAuth: []
+      parameters:
+        - name: request_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Evaluation completed successfully
+        "403":
+          description: Access denied for the requested travel request
+        "404":
+          description: Request or active policy not found
+        "500":
+          description: Internal server error

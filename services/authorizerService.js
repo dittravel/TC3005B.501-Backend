@@ -2,35 +2,38 @@
  * Authorizer Service
  * 
  * This service contains the business logic for handling
- * authorizer-related operations with hierarchical authorization routing.
+ * authorizer-related operations with rule-based authorization routing.
  * 
  * Workflow:
- * 1. Solicitante creates request -> assigned_to = boss_id, authorization_level = 0
- * 2. Boss approves:
- *    - If boss has boss_id: escalate to boss, increment authorization_level
- *    - If boss has no boss_id: increment authorization_level, assigned_to stays same
- * 3. When authorization_level >= AUTHORIZATION_LEVELS:
+ * 1. Solicitante creates request -> gets authorization_rule_id, assigned_to based on rule level 1
+ * 2. Authorizer approves:
+ *    - Next approver determined by rule level and configuration
+ *    - If level is "Jefe": escalate to direct boss
+ *    - If level is "Aleatorio": random authorizer from department
+ *    - If level is "Nivel Superior": N levels up the hierarchy (or highest available)
+ * 3. When authorization_level >= rule.num_levels:
  *    - If trip requires flights or hotels: route to Travel Agent (status 5)
  *    - Otherwise: route to Accounts Payable for quotation (status 4)
  */
 
 import Authorizer from "../models/authorizerModel.js";
-import { AUTHORIZATION_LEVELS } from "../config/constants.js";
+import User from "../models/userModel.js";
+import AuthorizationRuleService from "./authorizationRuleService.js";
 
 /**
- * Authorizes a travel request with hierarchical routing.
- * - If user has boss_id: escalate to boss, increment authorization_level
- * - If user has no boss_id: increment authorization_level
- * - If authorization_level >= AUTHORIZATION_LEVELS: route to Travel Agent and advance status
+ * Authorizes a travel request based on the associated authorization rule.
+ * - Fetches the rule and current level configuration
+ * - Determines next approver based on rule level type (Jefe, Aleatorio, Nivel Superior)
+ * - Routes to Travel Agent or Accounts Payable when all levels complete
  * 
  * @param {number} request_id - The ID of the travel request to authorize
  * @param {number} user_id - The ID of the user authorizing the request
  * @returns {object} An object with authorization result
  * @throws Will throw an error if validation fails
  */
-const authorizeRequest = async (request_id, user_id) => {
+const authorizeRequest = async (request_id, user_id, options = {}) => {
   try {
-    // Get request details
+    // Get request details including authorization rule
     const request = await Authorizer.getRequestWithDetails(request_id);
     if (!request) {
       throw { status: 404, message: "Request not found" };
@@ -44,35 +47,44 @@ const authorizeRequest = async (request_id, user_id) => {
       };
     }
 
+    // Get authorization rule for this request
+    let authorizationRule = null;
+    if (request.authorization_rule_id) {
+      authorizationRule = await AuthorizationRuleService.getRuleById(request.authorization_rule_id);
+    }
+
+    // If no rule found, throw error
+    if (!authorizationRule) {
+      throw { 
+        status: 400, 
+        message: "No authorization rule associated with this request" 
+      };
+    }
+
     // Get authorizer user with boss info
     const authorizerUser = await Authorizer.getUserWithBoss(user_id);
     if (!authorizerUser) {
       throw { status: 404, message: "Authorizer user not found" };
     }
 
-    let new_assigned_to;
-    let new_authorization_level;
-    let new_status_id = request.request_status_id + 1; // Advance status
+    let new_assigned_to = null;
+    let new_authorization_level = request.authorization_level + 1;
+    let new_status_id = request.request_status_id;
 
-    // Hierarchical authorization logic
-    if (authorizerUser.boss_id) {
-      // If user has a boss, escalate to boss, increment authorization_level
-      new_assigned_to = authorizerUser.boss_id;
-      new_authorization_level = request.authorization_level + 1;
-    } else {
-      // If user has no boss, increment authorization_level, assigned_to stays same
-      new_assigned_to = user_id;
-      new_authorization_level = request.authorization_level + 1;
+    // Get the requester info (original applicant)
+    const requesterUser = await Authorizer.getUserWithBoss(request.user_id);
+    if (!requesterUser) {
+      throw { status: 404, message: "Requester user not found" };
     }
 
     // Check if we've completed all authorization levels
-    if (new_authorization_level >= AUTHORIZATION_LEVELS) {
-      // All hierarchical approvals done, check if trip requires travel agency services
+    if (AuthorizationRuleService.isAuthorizationComplete(new_authorization_level, authorizationRule.num_levels)) {
+      // All rules-based approvals done, check if trip requires travel agency services
       const needsTravelAgent = await Authorizer.requiresTravelAgencyServices(request_id);
       
       if (needsTravelAgent) {
-        // Trip requires flights or hotels: assign to Travel Agent - status 5 (Atención Agencia de Viajes)
-        const travelAgent = await Authorizer.getRandomTravelAgent(authorizerUser.department_id);
+        // Trip requires flights or hotels: assign to Travel Agent
+        const travelAgent = await User.getRandomUserByRole(2, requesterUser.department_id); // Travel Agent role_id = 2
         if (!travelAgent) {
           throw { 
             status: 500, 
@@ -80,10 +92,10 @@ const authorizeRequest = async (request_id, user_id) => {
           };
         }
         new_assigned_to = travelAgent.user_id;
-        new_status_id = 5; // Atención Agencia de Viajes
+        new_status_id = 4; // Agency travel
       } else {
-        // Trip doesn't require flights or hotels: assign to Accounts Payable - status 4 (Cotización del Viaje)
-        const accountsPayable = await Authorizer.getRandomAccountsPayable(authorizerUser.department_id);
+        // Trip doesn't require flights or hotels: assign to Accounts Payable
+        const accountsPayable = await User.getRandomUserByRole(3, requesterUser.department_id); // Accounts Payable role_id = 3
         if (!accountsPayable) {
           throw { 
             status: 500, 
@@ -91,7 +103,72 @@ const authorizeRequest = async (request_id, user_id) => {
           };
         }
         new_assigned_to = accountsPayable.user_id;
-        new_status_id = 4; // Cotización del Viaje
+        new_status_id = 3; // Travel quote
+      }
+    } else {
+      // Handle automatic rules (without specific levels defined)
+      if (authorizationRule.automatic) {
+        // Automatic rule: escalate through hierarchy (direct boss)
+        const bossId = await User.getBossId(request.assigned_to);
+        if (bossId) {
+          // Check if boss is an authorizer
+          const bossRole = await Authorizer.getUserRole(bossId);
+          if (bossRole === 4) {
+            // Boss is an authorizer, escalate to them
+            new_assigned_to = bossId;
+            console.log(`Automatic rule: Escalating to boss (user_id: ${bossId}), new authorization level: ${new_authorization_level}`);
+          } else {
+            // Boss is not an authorizer, route to next step (Travel Agent or Accounts Payable)
+            const needsTravelAgent = await Authorizer.requiresTravelAgencyServices(request_id);
+            if (needsTravelAgent) {
+              const travelAgent = await User.getRandomUserByRole(2, requesterUser.department_id);
+              new_assigned_to = travelAgent ? travelAgent.user_id : null;
+              new_status_id = 4;
+            } else {
+              const accountsPayable = await User.getRandomUserByRole(3, requesterUser.department_id);
+              new_assigned_to = accountsPayable ? accountsPayable.user_id : null;
+              new_status_id = 3;
+            }
+          }
+        } else {
+          // No boss found, route to Travel Agent or Accounts Payable
+          const needsTravelAgent = await Authorizer.requiresTravelAgencyServices(request_id);
+          if (needsTravelAgent) {
+            const travelAgent = await User.getRandomUserByRole(2, requesterUser.department_id);
+            new_assigned_to = travelAgent ? travelAgent.user_id : null;
+            new_status_id = 4;
+          } else {
+            const accountsPayable = await User.getRandomUserByRole(3, requesterUser.department_id);
+            new_assigned_to = accountsPayable ? accountsPayable.user_id : null;
+            new_status_id = 3;
+          }
+        }
+      } else {
+        // Rule has specific levels defined
+        const nextRuleLevel = authorizationRule.levels.find(level => level.level_number === new_authorization_level);
+        
+        if (!nextRuleLevel) {
+          throw {
+            status: 500,
+            message: `Rule level ${new_authorization_level} not found in authorization rule`
+          };
+        }
+
+        // Determine next approver based on rule level type
+        new_assigned_to = await AuthorizationRuleService.getNextApproverForRuleLevel(
+          nextRuleLevel,
+          request.user_id, // requester (original applicant)
+          requesterUser.department_id
+        );
+
+        if (!new_assigned_to) {
+          throw {
+            status: 500,
+            message: `Could not determine next approver for rule level ${new_authorization_level}`
+          };
+        }
+
+        console.log(`Escalating to next level approver (user_id: ${new_assigned_to}), new authorization level: ${new_authorization_level}`);
       }
     }
 
@@ -100,15 +177,16 @@ const authorizeRequest = async (request_id, user_id) => {
       request_id, 
       new_assigned_to, 
       new_authorization_level, 
-      new_status_id
+      new_status_id,
+      options.connection
     );
 
     return {
       message: "Request authorized successfully",
       new_assigned_to: new_assigned_to,
       new_authorization_level: new_authorization_level,
-      escalated_to_boss: authorizerUser.boss_id ? true : false,
-      completed_all_authorizations: new_authorization_level >= AUTHORIZATION_LEVELS,
+      new_status: new_status_id,
+      completed_all_authorizations: AuthorizationRuleService.isAuthorizationComplete(new_authorization_level, authorizationRule.num_levels),
       status_advanced: true
     };
 
@@ -120,14 +198,14 @@ const authorizeRequest = async (request_id, user_id) => {
 
 /**
  * Declines a travel request.
- * Sets status to "Rechazado" (status_id 10)
+ * Sets status to "Rechazado"
  * 
  * @param {number} request_id - The ID of the travel request to decline
  * @param {number} user_id - The ID of the user declining the request
  * @returns {object} An object with decline confirmation
  * @throws Will throw an error if validation fails
  */
-const declineRequest = async (request_id, user_id) => {
+const declineRequest = async (request_id, user_id, options = {}) => {
   try {
     // Get request details
     const request = await Authorizer.getRequestWithDetails(request_id);
@@ -144,7 +222,7 @@ const declineRequest = async (request_id, user_id) => {
     }
 
     // Decline the request (set to status 10: Rechazado)
-    await Authorizer.declineTravelRequest(request_id);
+    await Authorizer.declineTravelRequest(request_id, options.connection);
 
     return {
       message: "Request declined successfully",

@@ -11,8 +11,7 @@
 import Applicant from "../models/applicantModel.js";
 import { cancelTravelRequestValidation, createExpenseValidationBatch, sendReceiptsForValidation } from '../services/applicantService.js';
 import { decrypt } from '../middleware/decryption.js';
-import { sendMail } from "../services/email/mail.cjs";
-import mailData from "../services/email/mailData.js";
+import { sendEmails } from "../services/email/emailService.js";
 
 // Get basic applicant information by ID
 export const getApplicantById = async (req, res) => {
@@ -138,8 +137,11 @@ export const createTravelRequest = async (req, res) => {
       applicantId,
       travelDetails,
     );
-    const { user_email, user_name, requestId, status } = await mailData(travelRequest.requestId);
-    await sendMail(user_email, user_name, travelRequest.requestId, status);
+    const requestId = travelRequest.requestId;
+
+    // Send email notifications
+    await sendEmails(requestId);
+
     res.status(201).json(travelRequest);
   } catch (err) {
     console.error("Controller error:", err);
@@ -165,12 +167,14 @@ export const editTravelRequest = async (req, res) => {
 
 // Cancel a travel request and send notification
 export const cancelTravelRequest = async (req, res) => {
-  const { request_id } = req.params;
+  const { requestId } = req.params;
 
   try {
-    const result = await cancelTravelRequestValidation(Number(request_id));
-    const { user_email, user_name, requestId, status } = await mailData(request_id);
-    await sendMail(user_email, user_name, request_id, status);
+    const result = await cancelTravelRequestValidation(Number(requestId));
+    
+    // Send email notifications
+    await sendEmails(requestId);
+
     return res.status(200).json(result);
   } catch (err) {
     if (err.status) {
@@ -245,7 +249,6 @@ export const createDraftTravelRequest = async (req, res) => {
     res.status(500).json({ error: "Internal server error" });
 
   }
-
 }
 
 // Helper function to format dates
@@ -261,8 +264,10 @@ export const confirmDraftTravelRequest = async (req, res) => {
 
   try {
     const result = await Applicant.confirmDraftTravelRequest(userId, requestId);
-    const { user_email, user_name, request_id, status } = await mailData(requestId);
-    await sendMail(user_email, user_name, requestId, status);
+    
+    // Send email notifications
+    await sendEmails(requestId);
+
     return res.status(200).json(result);
   } catch (err) {
     if (err.status) {
@@ -279,8 +284,10 @@ export const sendExpenseValidation = async (req, res) => {
 
   try {
     const result = await sendReceiptsForValidation(requestId);
-    const { user_email, user_name, request_id, status } = await mailData(requestId);
-    await sendMail(user_email, user_name, requestId, status);
+    
+    // Send email notifications
+    await sendEmails(requestId);
+
     return res.status(200).json(result);
   } catch (err) {
     if (err.status) {

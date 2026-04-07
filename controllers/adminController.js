@@ -12,6 +12,12 @@
 import * as adminService from "../services/adminService.js";
 import Admin from "../models/adminModel.js";
 import userModel from "../models/userModel.js";
+import AuditLogService from "../services/auditLogService.js";
+import pool from "../database/config/db.js";
+
+// XML data parsing
+import { parseXmlData } from '../services/xmlParserService.js';
+import { extractExternalData } from '../services/orgParserService.js';
 
 /**
 * Get list of all users
@@ -64,32 +70,66 @@ export const createMultipleUsers = async (req, res) => {
 * @returns {Object} JSON response with created user data
 */
 export const createUser = async (req, res) => {
+  let connection;
   try {
     const userData = req.body;
-    await adminService.createUser(userData);
+    connection = await pool.getConnection();
+    await connection.beginTransaction();
+    const createdUser = await adminService.createUser(userData, { connection });
+    await AuditLogService.recordAuditLogFromRequest(req, {
+      actionType: 'USER_CREATED',
+      entityType: 'User',
+      entityId: createdUser.user_id,
+      metadata: {
+        user_name: createdUser.user_name,
+        role_id: createdUser.role_id,
+        department_id: createdUser.department_id,
+      },
+    }, { connection });
+    await connection.commit();
     return res.status(201).json({ message: 'User created succesfully'});
   } catch (error) {
+    if (connection) await connection.rollback();
     console.error('Error creating user:', error.message);
     return res.status(500).json({ error: 'Internal server error' });
+  } finally {
+    if (connection) connection.release();
   }
 }
 
 // Update existing user information
 export const updateUser = async (req, res) => {
+  let connection;
   try {
     const userId = req.params.user_id;
-    
-    const result = await adminService.updateUserData(userId, req.body);
+    connection = await pool.getConnection();
+    await connection.beginTransaction();
+    const result = await adminService.updateUserData(userId, req.body, { connection });
+    if (result.updated_fields) {
+      await AuditLogService.recordAuditLogFromRequest(req, {
+        actionType: 'USER_UPDATED',
+        entityType: 'User',
+        entityId: userId,
+        metadata: {
+          updated_fields: result.updated_fields,
+        },
+      }, { connection });
+    }
+    await connection.commit();
     return res.status(200).json(result);
     
   } catch (error) {
+    if (connection) await connection.rollback();
     console.error('An error occurred updating the user:', error);
     return res.status(error.status || 500).json({ error: error.message || 'Internal server error' });
+  } finally {
+    if (connection) connection.release();
   }
 };
 
 // Deactivate user account (soft delete)
 export const deactivateUser = async (req, res) => {
+  let connection;
   try {
     const user_id = parseInt(req.params.user_id);
     
@@ -98,7 +138,20 @@ export const deactivateUser = async (req, res) => {
       return res.status(404).json({error: "User not found"});
     }
     
-    const result = await Admin.deactivateUserById(user_id);
+    connection = await pool.getConnection();
+    await connection.beginTransaction();
+    const result = await Admin.deactivateUserById(user_id, connection);
+    if (result) {
+      await AuditLogService.recordAuditLogFromRequest(req, {
+        actionType: 'USER_DEACTIVATED',
+        entityType: 'User',
+        entityId: user_id,
+        metadata: {
+          active: false,
+        },
+      }, { connection });
+    }
+    await connection.commit();
     
     return res.status(200).json({
       message: "User successfully deactivated",
@@ -106,17 +159,58 @@ export const deactivateUser = async (req, res) => {
       active: false
     });
   } catch (err) {
+    if (connection) await connection.rollback();
     console.error("Error in deactivateUser:", err);
     return res.status(500).json({
       error: "Unexpected error while deactivating user"
     });
+  } finally {
+    if (connection) connection.release();
   }
 }
+
+// Get list of all departments
+export const getDepartments = async (req, res) => {
+  try {
+    const departments = await adminService.getDepartments();
+    res.status(200).json(departments);
+  } catch (error) {
+    console.error('Error getting departments:', error.message);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+// Get list of all roles
+export const getRoles = async (req, res) => {
+  try {
+    const roles = await adminService.getRoles();
+    res.status(200).json(roles);
+  } catch (error) {
+    console.error('Error getting roles:', error.message);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+// Get an auth rule by ID
+export const getAuthRuleById = async (req, res) => {
+  try {
+    const ruleId = req.params.rule_id;
+    const rule = await adminService.getAuthRuleById(ruleId);
+    if (!rule) {
+      return res.status(404).json({ error: 'Authorization rule not found' });
+    }
+    res.status(200).json(rule);
+  } catch (error) {
+    console.error('Error getting auth rule by ID:', error.message);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+};
 
 // Get list of all auth rules
 export const getAuthRules = async (req, res) => {
   try {
     const rules = await adminService.getAuthRules();
+    console.log('Retrieved auth rules:', rules);
     res.status(200).json(rules);
   } catch (error) {
     console.error('Error getting auth rules:', error.message);
@@ -129,7 +223,7 @@ export const createAuthRule = async (req, res) => {
   try {
     const ruleData = req.body;
     await adminService.createAuthRule(ruleData);
-    return res.status(201).json({ message: 'Authorization rule created successfully' });
+    return res.status(201).json({ success: true, message: 'Authorization rule created successfully' });
   } catch (error) {
     console.error('Error creating auth rule:', error.message);
     return res.status(500).json({ error: 'Internal server error' });
@@ -172,6 +266,37 @@ export const getBossList = async (req, res) => {
   }
 };
 
+// Import data from XML file
+export const importData = async (req, res) => {
+  if (!req.file) {
+    return res.status(400).json({ error: 'No XML file uploaded' });
+  }
+
+  if (!req.file.buffer) {
+    return res.status(400).json({ error: 'File buffer not available - upload failed' });
+  }
+
+  try {
+    // Convert buffer to UTF-8 string
+    const xmlContent = req.file.buffer.toString('utf-8');
+
+    if (!xmlContent || xmlContent.trim() === '') {
+      return res.status(400).json({ error: 'XML file is empty' });
+    }
+
+    const xmlData = await parseXmlData(xmlContent);
+    const xmlObj = await extractExternalData(xmlData);
+
+    // Process the extracted data and store it in the database
+    const result = await adminService.createDataFromXml(xmlObj);
+
+    res.status(200).json(result);
+  }
+  catch (error) {
+    return res.status(500).json({ error: error.message || 'Internal server error' });
+  }
+};
+
 export default {
   // Users
   getUserList,
@@ -179,6 +304,10 @@ export default {
   createMultipleUsers,
   createUser,
   updateUser,
+  // Departments
+  getDepartments,
+  // Roles
+  getRoles,
   // Auth rules
   getAuthRules,
   createAuthRule,
@@ -186,4 +315,6 @@ export default {
   deleteAuthRule,
   // Departments
   getBossList,
+  // Data import
+  importData,
 };

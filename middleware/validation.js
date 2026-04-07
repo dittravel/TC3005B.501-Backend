@@ -6,7 +6,7 @@
  * request bodies, and ensures data integrity using express-validator.
  */
 
-import { body, param, validationResult } from 'express-validator';
+import { body, param, query, validationResult } from 'express-validator';
 
 // Validate and sanitize ID parameters in endpoints
 export const validateId = [
@@ -30,8 +30,25 @@ export const validateId = [
     .isInt()
     .toInt()
     .withMessage('Receipt ID must be a valid number'),
+  param('policy_id')
+    .optional()
+    .isInt()
+    .toInt()
+    .withMessage('Policy ID must be a valid number'),
+  param('department_id')
+    .optional()
+    .isInt()
+    .toInt()
+    .withMessage('Department ID must be a valid number'),
   (req, res, next) => {
-    if (!req.params.id && !req.params.user_id && !req.params.request_id && !req.params.receipt_id) {
+    if (
+      !req.params.id &&
+      !req.params.user_id &&
+      !req.params.request_id &&
+      !req.params.receipt_id &&
+      !req.params.policy_id &&
+      !req.params.department_id
+    ) {
       return res.status(400).json({ error: "At least one ID needs to be provided" });
     }
     next();
@@ -506,11 +523,242 @@ export const validateCreateUser = [
     .withMessage('Phone number cannot be empty.')
 ];
 
+// Validate out-of-office dates and substitute selection
+export const validateOutOfOffice = [
+  param('user_id')
+    .isInt({ min: 1 })
+    .toInt()
+    .withMessage('User ID must be a valid number'),
+  body('out_of_office_start_date')
+    .optional({ nullable: true })
+    .isISO8601()
+    .withMessage('Start date must be a valid ISO 8601 date'),
+  body('out_of_office_end_date')
+    .optional({ nullable: true })
+    .isISO8601()
+    .withMessage('End date must be a valid ISO 8601 date'),
+  body('substitute_id')
+    .optional({ nullable: true })
+    .isInt({ min: 1 })
+    .toInt()
+    .withMessage('Substitute ID must be a valid number'),
+];
+
+// Validate reimbursement policy create/update payloads
+export const validateReimbursementPolicyPayload = [
+  body('policy_code')
+    .isString()
+    .trim()
+    .notEmpty()
+    .isLength({ max: 40 })
+    .withMessage('Policy code is required and must be 40 characters or fewer')
+    .bail(),
+  body('policy_name')
+    .isString()
+    .trim()
+    .notEmpty()
+    .isLength({ max: 120 })
+    .withMessage('Policy name is required and must be 120 characters or fewer')
+    .bail(),
+  body('description')
+    .optional({ nullable: true })
+    .isString()
+    .trim()
+    .withMessage('Description must be a string')
+    .bail(),
+  body('base_currency')
+    .optional()
+    .isString()
+    .trim()
+    .isLength({ min: 3, max: 6 })
+    .withMessage('Base currency must be a valid currency code')
+    .bail(),
+  body('effective_from')
+    .isISO8601()
+    .withMessage('effective_from must be a valid date')
+    .bail(),
+  body('effective_to')
+    .optional({ nullable: true, checkFalsy: true })
+    .isISO8601()
+    .withMessage('effective_to must be a valid date')
+    .bail()
+    .custom((value, { req }) => {
+      if (!value || !req.body.effective_from) {
+        return true;
+      }
+
+      return value >= req.body.effective_from;
+    })
+    .withMessage('effective_to cannot be earlier than effective_from'),
+  body('active')
+    .optional()
+    .isBoolean()
+    .toBoolean()
+    .withMessage('active must be a boolean value'),
+  body('assignments')
+    .isArray({ min: 1 })
+    .bail()
+    .withMessage('At least one policy assignment is required'),
+  body('assignments')
+    .custom((assignments) => {
+      const seen = new Set();
+
+      for (const assignment of assignments) {
+        const key =
+          assignment.department_id === null || assignment.department_id === undefined
+            ? 'GLOBAL'
+            : `DEPT:${assignment.department_id}`;
+
+        if (seen.has(key)) {
+          throw new Error(`Duplicate assignment detected for ${key}`);
+        }
+
+        seen.add(key);
+      }
+
+      return true;
+    }),
+  body('assignments.*.department_id')
+    .optional({ nullable: true })
+    .custom((value) => value === null || (Number.isInteger(Number(value)) && Number(value) > 0))
+    .withMessage('Assignment department_id must be null or a valid positive integer'),
+  body('assignments.*.active')
+    .optional()
+    .isBoolean()
+    .toBoolean()
+    .withMessage('Assignment active must be a boolean value'),
+  body('rules')
+    .isArray({ min: 1 })
+    .bail()
+    .withMessage('At least one reimbursement policy rule is required'),
+  body('rules')
+    .custom((rules) => {
+      const seen = new Set();
+
+      for (const rule of rules) {
+        const key = `${rule.receipt_type_id}:${String(rule.trip_scope || '').toUpperCase()}`;
+        if (seen.has(key)) {
+          throw new Error(`Duplicate rule detected for ${key}`);
+        }
+
+        seen.add(key);
+      }
+
+      return true;
+    }),
+  body('rules.*.receipt_type_id')
+    .isInt({ min: 1 })
+    .toInt()
+    .withMessage('Rule receipt_type_id must be a valid positive integer'),
+  body('rules.*.trip_scope')
+    .isIn(['NACIONAL', 'INTERNACIONAL', 'TODOS'])
+    .withMessage('Rule trip_scope must be NACIONAL, INTERNACIONAL, or TODOS'),
+  body('rules.*.max_amount_mxn')
+    .isFloat({ min: 0 })
+    .toFloat()
+    .withMessage('Rule max_amount_mxn must be a valid non-negative amount'),
+  body('rules.*.submission_deadline_days')
+    .optional({ nullable: true })
+    .isInt({ min: 0 })
+    .toInt()
+    .withMessage('Rule submission_deadline_days must be a non-negative integer'),
+  body('rules.*.requires_xml')
+    .isBoolean()
+    .toBoolean()
+    .withMessage('Rule requires_xml must be a boolean value'),
+  body('rules.*.allow_foreign_without_xml')
+    .isBoolean()
+    .toBoolean()
+    .withMessage('Rule allow_foreign_without_xml must be a boolean value'),
+  body('rules.*.refundable')
+    .isBoolean()
+    .toBoolean()
+    .withMessage('Rule refundable must be a boolean value'),
+  body('rules.*.active')
+    .optional()
+    .isBoolean()
+    .toBoolean()
+    .withMessage('Rule active must be a boolean value'),
+];
+
+// Validate ERP employee integration query parameters
+export const validateERPEmployeeQuery = [
+  query('updated_since')
+    .optional()
+    .isISO8601()
+    .withMessage('updated_since must be a valid ISO 8601 date'),
+  query('department_id')
+    .optional()
+    .isInt({ min: 1 })
+    .toInt()
+    .withMessage('department_id must be a valid positive integer'),
+  query('active_only')
+    .optional()
+    .isBoolean()
+    .toBoolean()
+    .withMessage('active_only must be a boolean value'),
+  query('limit')
+    .optional()
+    .isInt({ min: 1, max: 200 })
+    .toInt()
+    .withMessage('limit must be an integer between 1 and 200'),
+  query('offset')
+    .optional()
+    .isInt({ min: 0 })
+    .toInt()
+    .withMessage('offset must be a non-negative integer'),
+];
+
+// Validate audit log query parameters
+export const validateAuditLogQuery = [
+  query('actor_user_id')
+    .optional()
+    .isInt({ min: 1 })
+    .toInt()
+    .withMessage('actor_user_id must be a valid positive integer'),
+  query('action_type')
+    .optional()
+    .isString()
+    .trim()
+    .notEmpty()
+    .isLength({ max: 80 })
+    .withMessage('action_type must be a non-empty string up to 80 characters'),
+  query('entity_type')
+    .optional()
+    .isString()
+    .trim()
+    .notEmpty()
+    .isLength({ max: 80 })
+    .withMessage('entity_type must be a non-empty string up to 80 characters'),
+  query('entity_id')
+    .optional()
+    .isString()
+    .trim()
+    .notEmpty()
+    .isLength({ max: 64 })
+    .withMessage('entity_id must be a non-empty string up to 64 characters'),
+  query('include_metadata')
+    .optional()
+    .isBoolean()
+    .toBoolean()
+    .withMessage('include_metadata must be a boolean value'),
+  query('limit')
+    .optional()
+    .isInt({ min: 1, max: 200 })
+    .toInt()
+    .withMessage('limit must be an integer between 1 and 200'),
+  query('offset')
+    .optional()
+    .isInt({ min: 0 })
+    .toInt()
+    .withMessage('offset must be a non-negative integer'),
+];
+
 // Generic validation error handler
 export const validateInputs = (req, res, next) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() }); 
+      return res.status(400).json({ errors: errors.array() });
   }
   next();
 };
@@ -521,5 +769,10 @@ export default {
   validateExpenseReceipts,
   validateInputs,
   validateDraftTravelRequest,
-  validateCreateUser
+  validateCreateUser,
+  validateOutOfOffice,
+  validateReimbursementPolicyPayload,
+  validateERPEmployeeQuery,
+  validateAuditLogQuery
 };
+

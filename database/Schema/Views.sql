@@ -149,7 +149,7 @@ CREATE OR REPLACE VIEW UserFullInfo AS
         u.user_name,
         u.email,
         u.active,              -- User account status
-        r.role_name,           -- Access level (Solicitante, N1, Admin, etc.)
+        r.role_name,           -- Access level (Solicitante, Autorizador, Admin, etc.)
         d.department_name,     -- Department name
         d.department_id        -- Department ID for filtering
     FROM

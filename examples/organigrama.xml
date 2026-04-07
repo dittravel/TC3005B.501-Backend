@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Organizacion name="Ditta Consulting">
+  <Departamento name="Finanzas" cost_center="CC-001">
+    <Empleado usuario="laura.flores" correo="laura.flores@empresa.com" telefono="5551234567" rol="Autorizador" workstation="WS104" password="laura321"/>
+    <Empleado usuario="diego.hernandez" correo="diego.hernandez@empresa.com" telefono="5552345678" rol="Autorizador" workstation="WS105" password="diego654" jefe_usuario="laura.flores"/>
+    <Empleado usuario="andres.gomez" correo="andres.gomez@empresa.com" telefono="5553456789" rol="Solicitante" workstation="WS101" password="andres123" jefe_usuario="diego.hernandez"/>
+    <Empleado usuario="paula.martinez" correo="paula.martinez@empresa.com" telefono="5554567890" rol="Agencia de viajes" workstation="WS102" password="paula456"/>
+    <Empleado usuario="carlos.ramos" correo="carlos.ramos@empresa.com" telefono="5555678901" rol="Cuentas por pagar" workstation="WS103" password="carlos789"/>
+    <Empleado usuario="solicitante1" correo="solicitante1@empresa.com" telefono="5556789012" rol="Solicitante" workstation="WS106" password="123" jefe_usuario="diego.hernandez"/>
+  </Departamento>
+
+  <Departamento name="Recursos Humanos" cost_center="CC-002">
+    <Empleado usuario="miguel.de.cervantes" correo="miguel@delamancha.com" telefono="5557890123" rol="Autorizador" workstation="DON-QUI" password="donquixote2023"/>
+    <Empleado usuario="sofia_r" correo="sofia_random@mail.com" telefono="5558901234" rol="Autorizador" workstation="SOFIA-PC" password="m1cor4zon" jefe_usuario="miguel.de.cervantes"/>
+    <Empleado usuario="adminX_special" correo="adminx@empresaxd.com" telefono="5559012345" rol="Solicitante" workstation="HACK001" password="sup3rS3cret!" jefe_usuario="sofia_r"/>
+    <Empleado usuario="xx_m4nu_xx" correo="manuel@empresa.com" telefono="5550123456" rol="Agencia de viajes" workstation="WS???" password="qwerty123"/>
+    <Empleado usuario="el_ch4p0" correo="chapo@correo.com" telefono="5551122334" rol="Cuentas por pagar" workstation="SOPHIA-PC" password="p4sSw0rd"/>
+  </Departamento>
+</Organizacion>

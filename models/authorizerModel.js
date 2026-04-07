@@ -147,16 +147,16 @@ const Authorizer = {
   },
   
   // Decline a travel request
-  async declineTravelRequest(request_id) {
+  async declineTravelRequest(request_id, connection = null) {
     let conn;
     const query = `
       UPDATE Request
-      SET request_status_id = 10
+      SET request_status_id = 9
       WHERE request_id = ?
     `;
 
     try {
-      conn = await pool.getConnection();
+      conn = connection || (await pool.getConnection());
       const rows = await conn.query(query, [request_id]);
       return true;
 
@@ -166,7 +166,7 @@ const Authorizer = {
       
     } finally {
       if (conn) {
-        conn.release();
+        if (!connection) conn.release();
       }
     }
   },
@@ -181,6 +181,7 @@ const Authorizer = {
         request_status_id,
         assigned_to,
         authorization_level,
+        authorization_rule_id,
         notes,
         requested_fee,
         imposed_fee,
@@ -234,70 +235,8 @@ const Authorizer = {
     }
   },
 
-  // Get random travel agent from department
-  async getRandomTravelAgent(dept_id) {
-    let conn;
-    const query = `
-      SELECT 
-        user_id,
-        user_name
-      FROM User
-      WHERE department_id = ? AND role_id = (
-        SELECT role_id FROM Role WHERE role_name = 'Agencia de viajes'
-      )
-      ORDER BY RAND()
-      LIMIT 1
-    `;
-
-    try {
-      conn = await pool.getConnection();
-      const rows = await conn.query(query, [dept_id]);
-      return rows.length > 0 ? rows[0] : null;
-
-    } catch (error) {
-      console.error('Error getting random travel agent:', error);
-      throw error;
-
-    } finally {
-      if (conn) conn.release();
-    }
-  },
-
-  /**
-   * Get a random Accounts Payable user from the department
-   * @param {number} dept_id - The department ID
-   * @returns {object} A user object with user_id and user_name, or null if none found
-   */
-  async getRandomAccountsPayable(dept_id) {
-    let conn;
-    const query = `
-      SELECT 
-        user_id,
-        user_name
-      FROM User
-      WHERE department_id = ? AND role_id = (
-        SELECT role_id FROM Role WHERE role_name = 'Cuentas por pagar'
-      )
-      ORDER BY RAND()
-      LIMIT 1
-    `;
-
-    try {
-      conn = await pool.getConnection();
-      const rows = await conn.query(query, [dept_id]);
-      return rows.length > 0 ? rows[0] : null;
-
-    } catch (error) {
-      console.error('Error getting random accounts payable user:', error);
-      throw error;
-
-    } finally {
-      if (conn) conn.release();
-    }
-  },
-
   // Update request routing
-  async updateRequestRouting(request_id, assigned_to, authorization_level, status_id = null) {
+  async updateRequestRouting(request_id, assigned_to, authorization_level, status_id = null, connection = null) {
     let conn;
     let query;
     let params;
@@ -319,7 +258,7 @@ const Authorizer = {
     }
 
     try {
-      conn = await pool.getConnection();
+      conn = connection || (await pool.getConnection());
       const result = await conn.query(query, params);
       return result;
 
@@ -328,7 +267,7 @@ const Authorizer = {
       throw error;
 
     } finally {
-      if (conn) conn.release();
+      if (!connection && conn) conn.release();
     }
   },
 
