@@ -248,6 +248,26 @@ const validateReceipt = async (req, res) => {
   }
 };
 
+// Search receipts across requests by applicant user_id, date range, and/or validation status
+const searchReceipts = async (req, res) => {
+  const { user_id, start_date, end_date, validation, limit, offset } = req.query;
+
+  try {
+    const result = await AccountsPayable.searchReceipts({
+      userId: user_id,
+      startDate: start_date,
+      endDate: end_date,
+      validation,
+      limit,
+      offset,
+    });
+    return res.status(200).json(result);
+  } catch (err) {
+    console.error('Error in searchReceipts controller:', err);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+};
+
 // Get expense validation details for a specific travel request
 const getExpenseValidations = async (req, res) => {
   const request_id = Number(req.params.request_id);
@@ -285,4 +305,5 @@ export default {
   validateReceiptsHandler,
   validateReceipt,
   getExpenseValidations,
+  searchReceipts,
 };

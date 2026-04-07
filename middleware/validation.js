@@ -754,6 +754,37 @@ export const validateAuditLogQuery = [
     .withMessage('offset must be a non-negative integer'),
 ];
 
+// Validate receipt search query parameters
+export const validateReceiptSearchQuery = [
+  query('user_id')
+    .optional()
+    .isInt({ min: 1 })
+    .toInt()
+    .withMessage('user_id must be a valid positive integer'),
+  query('start_date')
+    .optional()
+    .isISO8601()
+    .withMessage('start_date must be a valid ISO 8601 date'),
+  query('end_date')
+    .optional()
+    .isISO8601()
+    .withMessage('end_date must be a valid ISO 8601 date'),
+  query('validation')
+    .optional()
+    .isIn(['Pendiente', 'Aprobado', 'Rechazado'])
+    .withMessage('validation must be one of: Pendiente, Aprobado, Rechazado'),
+  query('limit')
+    .optional()
+    .isInt({ min: 1, max: 200 })
+    .toInt()
+    .withMessage('limit must be an integer between 1 and 200'),
+  query('offset')
+    .optional()
+    .isInt({ min: 0 })
+    .toInt()
+    .withMessage('offset must be a non-negative integer'),
+];
+
 // Generic validation error handler
 export const validateInputs = (req, res, next) => {
   const errors = validationResult(req);
