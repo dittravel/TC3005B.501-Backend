@@ -579,6 +579,75 @@ function buildReimbursementPolicyService({
         receipts: evaluatedReceipts,
       };
     },
+
+    async getRequestDeadlineStatus(requestId) {
+      const evaluationContext = await policyModel.getRequestEvaluationContext(requestId);
+      if (!evaluationContext) {
+        throw createHttpError(404, 'Travel request not found');
+      }
+
+      const policyReferenceDate = formatDateOnly(evaluationContext.request.creation_date);
+      const policy = await policyModel.getActivePolicyByDepartment(
+        evaluationContext.request.department_id,
+        policyReferenceDate
+      );
+
+      if (!policy) {
+        return { policy_configured: false, is_within_deadline: true, request_id: requestId };
+      }
+
+      const tripScope = deriveTripScope(evaluationContext.routes);
+
+      const maxEndingDate = evaluationContext.routes.reduce((max, route) => {
+        const d = route.ending_date ? new Date(route.ending_date) : null;
+        return d && (!max || d > max) ? d : max;
+      }, null);
+
+      // Use formatDateOnly(new Date()) for UTC consistency — all other dates in this
+      // service go through formatDateOnly → toISOString(), so today must match.
+      const todayOnly = formatDateOnly(new Date());
+
+      const perRuleDeadlines = policy.rules
+        .filter(r => r.active && r.trip_scope === tripScope && r.submission_deadline_days !== null)
+        .map(rule => {
+          const deadlineDate = addDays(maxEndingDate, rule.submission_deadline_days);
+          const deadlineDateOnly = formatDateOnly(deadlineDate);
+          // Compare UTC date strings directly — avoids DST and timezone drift
+          const daysRemaining = deadlineDateOnly
+            ? Math.round(
+                (new Date(deadlineDateOnly).getTime() - new Date(todayOnly).getTime()) /
+                (1000 * 60 * 60 * 24)
+              )
+            : null;
+
+          return {
+            receipt_type_id: rule.receipt_type_id,
+            receipt_type_name: rule.receipt_type_name ?? null,
+            submission_deadline_days: rule.submission_deadline_days,
+            deadline_date: deadlineDateOnly,
+            days_remaining: daysRemaining,
+            is_within_deadline: todayOnly <= deadlineDateOnly,
+          };
+          // Note: todayOnly and deadlineDateOnly are both 'YYYY-MM-DD' UTC strings,
+          // so lexicographic comparison is correct and timezone-safe.
+        });
+
+      const allWithinDeadline = perRuleDeadlines.length === 0 ||
+        perRuleDeadlines.every(r => r.is_within_deadline);
+
+      const tightest = perRuleDeadlines.reduce((min, r) =>
+        !min || (r.deadline_date && r.deadline_date < min.deadline_date) ? r : min, null);
+
+      return {
+        policy_configured: true,
+        request_id: requestId,
+        trip_scope: tripScope,
+        is_within_deadline: allWithinDeadline,
+        tightest_deadline_date: tightest?.deadline_date ?? null,
+        days_remaining_tightest: tightest?.days_remaining ?? null,
+        per_rule_deadlines: perRuleDeadlines,
+      };
+    },
   };
 }
 
