@@ -41,3 +41,38 @@ export const authorizeRole = (roles) => {
     next();
   };
 };
+
+/**
+ * Middleware to authenticate using cookies instead of JWT headers
+ * Used for email action endpoints where cookies are available but JWT might not be
+ */
+export const authenticateTokenFromCookies = (req, res, next) => {
+  // Parse cookies from the Cookie header
+  const cookieHeader = req.headers.cookie || '';
+  const cookies = {};
+  
+  // Split the cookie header into individual cookies 
+  // and populate the cookies object with key-value pairs
+  cookieHeader.split(';').forEach(cookie => {
+    const [key, value] = cookie.trim().split('=');
+    if (key && value) {
+      cookies[key] = decodeURIComponent(value);
+    }
+  });
+
+  const userRole = cookies.role;
+  const userId = cookies.id;
+  const userName = cookies.username;
+
+  if (!userRole || !userId) {
+    return res.status(401).json({ error: 'User is not authenticated' });
+  }
+  
+  req.user = {
+    role: userRole,
+    user_id: parseInt(userId),
+    username: userName
+  };
+
+  next();
+};

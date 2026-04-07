@@ -1,0 +1,23 @@
+paths:
+  /deactivate-policy/{policy_id}:
+    put:
+      summary: Deactivate reimbursement policy
+      description: Marks a reimbursement policy as inactive so it can no longer be resolved for evaluation.
+      tags:
+        - Reimbursement Policy
+      operationId: deactivateReimbursementPolicy
+      security:
+        - TokenAuth: []
+      parameters:
+        - name: policy_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Policy deactivated successfully
+        "404":
+          description: Policy not found
+        "500":
+          description: Internal server error
