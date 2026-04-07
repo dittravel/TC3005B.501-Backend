@@ -10,6 +10,7 @@
  * data and operations appropriate to their role and department.
  */
 import * as userService from '../services/userService.js';
+import { requestPasswordReset, resetPassword as resetPasswordService } from '../services/userService.js';
 import User from '../models/userModel.js';
 import { decrypt } from '../middleware/decryption.js';
 
@@ -246,6 +247,32 @@ export const getSubstituteUsers = async (req, res) => {
     return res.status(200).json(users);
   } catch (error) {
     console.error('Error retrieving department users:', error);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+// Request a password reset — sends a recovery email if the username exists
+export const forgotPassword = async (req, res) => {
+  try {
+    await requestPasswordReset(req.body.email);
+    // Always 200 — don't reveal whether the username exists
+    return res.status(200).json({ message: 'If an account with that username exists, a recovery email has been sent.' });
+  } catch (err) {
+    console.error('Error in forgotPassword controller:', err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+// Validate a reset token and set a new password
+export const resetPassword = async (req, res) => {
+  try {
+    await resetPasswordService(req.body.token, req.body.new_password);
+    return res.status(200).json({ message: 'Password updated successfully.' });
+  } catch (err) {
+    if (err.status === 400) {
+      return res.status(400).json({ error: err.message });
+    }
+    console.error('Error in resetPassword controller:', err);
     return res.status(500).json({ error: 'Internal server error' });
   }
 };

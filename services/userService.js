@@ -9,7 +9,9 @@
 import userModel from '../models/userModel.js';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcrypt';
+import crypto from 'crypto';
 import { decrypt } from '../middleware/decryption.js';
+import { sendPasswordResetEmail } from './email/mail.js';
 
 /**
  * Get user by ID
@@ -150,6 +152,42 @@ export async function updateOutOfOffice(userId, data) {
   } catch (error) {
     throw new Error(`Error updating out-of-office: ${error.message}`);
   }
+}
+
+/**
+ * Issue a password reset token and send a recovery email.
+ * Always resolves without error to avoid user enumeration.
+ * @param {string} username
+ */
+export async function requestPasswordReset(email) {
+  const user = await userModel.getUserByEmail(email);
+
+  // Bail silently if user not found — don't leak whether email is registered
+  if (!user) return;
+
+  const token = crypto.randomBytes(32).toString('hex');
+  const expires = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+
+  await userModel.setPasswordResetToken(user.user_id, token, expires);
+  await sendPasswordResetEmail(email, user.user_name, token);
+}
+
+/**
+ * Validate a reset token and update the user's password.
+ * @param {string} token - Plaintext reset token from the email link
+ * @param {string} newPassword - New plaintext password
+ */
+export async function resetPassword(token, newPassword) {
+  const user = await userModel.getUserByResetToken(token);
+  if (!user) {
+    const err = new Error('Invalid or expired password reset token');
+    err.status = 400;
+    throw err;
+  }
+
+  const hashed = await bcrypt.hash(newPassword, 10);
+  await userModel.updatePassword(user.user_id, hashed);
+  await userModel.clearPasswordResetToken(user.user_id);
 }
 
 // Export default object with all service functions

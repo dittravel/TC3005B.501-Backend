@@ -207,4 +207,43 @@ export async function sendMail(userId, requestId) {
   }
 }
 
+/**
+ * Send a password reset email with a one-time recovery link.
+ * @param {string} email - Decrypted recipient email address
+ * @param {string} username - Username for personalisation
+ * @param {string} token - Plaintext reset token (64-char hex)
+ */
+export async function sendPasswordResetEmail(email, username, token) {
+  const resetUrl = `${BASE_URL}/reset-password?token=${token}`;
+
+  const htmlContent = `
+    <!DOCTYPE html>
+    <html lang="es">
+    <head><meta charset="UTF-8"></head>
+    <body style="font-family: Arial, sans-serif; background: #f4f4f4; padding: 24px;">
+      <div style="max-width: 520px; margin: auto; background: #ffffff; border-radius: 8px; padding: 32px;">
+        <h2 style="color: #1a1a2e;">Recuperación de contraseña</h2>
+        <p>Hola <strong>${username}</strong>,</p>
+        <p>Recibimos una solicitud para restablecer tu contraseña. Haz clic en el botón a continuación para continuar. Este enlace es válido por <strong>1 hora</strong>.</p>
+        <div style="text-align: center; margin: 32px 0;">
+          <a href="${resetUrl}"
+             style="background: #4f46e5; color: #ffffff; padding: 12px 28px; border-radius: 6px; text-decoration: none; font-weight: bold;">
+            Restablecer contraseña
+          </a>
+        </div>
+        <p style="color: #666; font-size: 13px;">Si no solicitaste este cambio puedes ignorar este correo. Tu contraseña no será modificada.</p>
+        <p style="color: #666; font-size: 13px;">O copia y pega este enlace en tu navegador:<br>${resetUrl}</p>
+      </div>
+    </body>
+    </html>
+  `;
+
+  await transporter.sendMail({
+    from: `Portal de Viajes <${process.env.MAIL_USER}>`,
+    to: email,
+    subject: 'Recuperación de contraseña — Portal de Viajes',
+    html: htmlContent,
+  });
+}
+
 export default sendMail;
