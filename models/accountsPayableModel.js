@@ -110,7 +110,7 @@ const AccountsPayable = {
     try {
       conn = await pool.getConnection();
       const rows = await conn.query(
-        "SELECT receipt_id, validation FROM `Receipt` WHERE receipt_id = ?",
+        "SELECT receipt_id, request_id, validation FROM `Receipt` WHERE receipt_id = ?",
         [receiptId],
       );
       return rows[0];

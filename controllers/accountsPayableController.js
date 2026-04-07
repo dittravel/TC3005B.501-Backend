@@ -14,6 +14,7 @@ import AccountsPayable from "../models/accountsPayableModel.js";
 import AccountsPayableService from '../services/accountsPayableService.js';
 import RequestService from '../services/requestService.js';
 import AuditLogService from "../services/auditLogService.js";
+import ReimbursementPolicyService from "../services/reimbursementPolicyService.js";
 import pool from "../database/config/db.js";
 import { sendEmails } from "../services/email/emailService.js";
 
@@ -149,12 +150,40 @@ const validateReceipt = async (req, res) => {
     if(receipt.validation != "Pendiente"){
       return res.status(404).json({ error: "Receipt already approved or rejected" });
     }
-    
+
+    // Enforce reimbursement policy before approving
+    let policyWarnings = null;
+    if (approval === 1) {
+      try {
+        const evaluation = await ReimbursementPolicyService.evaluateRequest(
+          receipt.request_id,
+          req.user
+        );
+        const receiptEval = evaluation.receipts.find(r => r.receipt_id === Number(receiptId));
+        if (receiptEval) {
+          if (receiptEval.evaluation_status === 'REJECTED') {
+            return res.status(422).json({
+              error: 'Receipt cannot be approved: policy violations detected',
+              violations: receiptEval.violations,
+            });
+          }
+          if (receiptEval.evaluation_status === 'WARNING') {
+            policyWarnings = receiptEval.violations;
+          }
+        }
+      } catch (policyError) {
+        // 404 means no active policy is configured for this department — allow approval
+        if (!policyError.status || policyError.status !== 404) {
+          throw policyError;
+        }
+      }
+    }
+
     /**
      * Since the "rejected" state is 3 and the "approved" state
      * is 2, by subtracting the approval value (1 or 0) we can send
      * the desired value for the validation (3 for rejected or 2 for
-     * approved 
+     * approved
      */
     connection = await pool.getConnection();
     await connection.beginTransaction();
@@ -195,6 +224,7 @@ const validateReceipt = async (req, res) => {
         entityId: receiptId,
         metadata: {
           new_status: 'Aprobado',
+          policy_warnings: policyWarnings,
         },
       }, { connection });
       await connection.commit();
@@ -203,7 +233,8 @@ const validateReceipt = async (req, res) => {
         value: {
           receipt_id: receiptId,
           new_status: "Aprobado",
-          message: "Receipt has been approved." 
+          message: "Receipt has been approved.",
+          ...(policyWarnings && { policy_warnings: policyWarnings }),
         }
       });
     }
