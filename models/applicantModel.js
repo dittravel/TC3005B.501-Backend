@@ -47,6 +47,7 @@ const Applicant = {
         SELECT
           d.department_name,
           d.cost_center_id,
+          cc.cost_center_name AS cost_center_name,
           cc.cost_center_name AS costs_center
         FROM User u
         JOIN Department d ON u.department_id = d.department_id

@@ -21,6 +21,7 @@ const User = {
           u.phone_number,
           u.workstation,
           d.department_name,
+          cc.cost_center_name,
           u.creation_date,
           r.role_name,
           u.boss_id,
@@ -31,6 +32,7 @@ const User = {
           (SELECT user_name FROM User WHERE user_id = u.substitute_id) AS substitute_name
         FROM User u
         JOIN Department d ON u.department_id = d.department_id
+        JOIN CostCenter cc ON d.cost_center_id = cc.cost_center_id
         JOIN Role r ON u.role_id = r.role_id
         WHERE u.user_id = ?`,
         [userId]

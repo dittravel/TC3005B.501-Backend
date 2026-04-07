@@ -60,12 +60,14 @@ function buildEmployeeSelect({ includeBossId }) {
             r.role_name,
             d.department_id,
             d.department_name,
-            d.costs_center
+            cc.cost_center_name AS cost_center_name
           FROM User u
           LEFT JOIN Role r
             ON r.role_id = u.role_id
           LEFT JOIN Department d
-            ON d.department_id = u.department_id`;
+            ON d.department_id = u.department_id
+          LEFT JOIN CostCenter cc
+            ON cc.cost_center_id = d.cost_center_id`;
 }
 
 function buildIntegrationModel({
