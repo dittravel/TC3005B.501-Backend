@@ -71,11 +71,14 @@ export async function authenticateUser(username, password, req) {
       throw new Error("User acccount is inactive")
     }
 
-    const token = jwt.sign(
-      { user_id: user.user_id, role: user.role_name, ip: req.ip },
-      process.env.JWT_SECRET,
-      { expiresIn: '1h' }
-    );
+    const enforceIpBinding = String(process.env.ENFORCE_TOKEN_IP_BINDING || 'false').toLowerCase() === 'true';
+    const tokenPayload = {
+      user_id: user.user_id,
+      role: user.role_name,
+      ...(enforceIpBinding ? { ip: req.ip } : {}),
+    };
+
+    const token = jwt.sign(tokenPayload, process.env.JWT_SECRET, { expiresIn: '1h' });
     
     return {
       token,

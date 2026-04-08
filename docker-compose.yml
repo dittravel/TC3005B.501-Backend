@@ -1,7 +1,6 @@
 services:
   mongodb:
     image: mongo:7
-    container_name: tc3005-mongodb
     restart: unless-stopped
     ports:
       - "27017:27017"
@@ -15,18 +14,18 @@ services:
 
   mariadb:
     image: mariadb:11.4
-    container_name: tc3005-mariadb
     restart: unless-stopped
     environment:
-      MARIADB_DATABASE: AQUÍIRIAcOCOsCHEMECREO
-      MARIADB_USER: CAMBIENESTO
-      MARIADB_PASSWORD: IDK
-      MARIADB_ROOT_PASSWORD: DEPENDEQUEHAYANPUESTO
+      MARIADB_DATABASE: CocoScheme
+      MARIADB_USER: travel_user
+      MARIADB_PASSWORD: password
+      MARIADB_ROOT_PASSWORD: root_password
     ports:
-      - "3306:3306"
+      - "3307:3306"
     volumes:
       - mariadb_data:/var/lib/mysql
-      - ./database/Schema:/docker-entrypoint-initdb.d:ro
+      - ./database/Schema:/schema:ro
+      - ./database/docker-init:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
       interval: 10s
@@ -37,7 +36,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: tc3005-backend
+    command: ["sh", "-c", "if [ \"${SEED_ON_STARTUP:-false}\" = \"true\" ]; then node database/config/dev_db.js dev; fi; node index.js"]
     restart: unless-stopped
     depends_on:
       mongodb:
@@ -58,27 +57,9 @@ services:
       MAIL_USER: test.mail@outlook.com
       MAIL_PASSWORD: password
       MONGO_URI: mongodb://mongodb:27017
+      SEED_ON_STARTUP: "false"
     ports:
       - "3000:3000"
-
-  frontend:
-    build:
-      context: ../TC3005B.501-Frontend
-      dockerfile: Dockerfile
-      args:
-        PUBLIC_API_BASE_URL: https://localhost:3000/api
-        PUBLIC_IS_DEV: "false"
-    container_name: tc3005-frontend
-    restart: unless-stopped
-    depends_on:
-      - backend
-    environment:
-      PUBLIC_API_BASE_URL: https://localhost:3000/api
-      PUBLIC_IS_DEV: false
-      HOST: 0.0.0.0
-      PORT: 4321
-    ports:
-      - "4321:4321"
 
 volumes:
   mongodb_data:

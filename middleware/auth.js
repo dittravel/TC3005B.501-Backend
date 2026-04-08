@@ -8,6 +8,8 @@
 
 import jwt from 'jsonwebtoken';
 
+const isIpBindingEnabled = String(process.env.ENFORCE_TOKEN_IP_BINDING || 'false').toLowerCase() === 'true';
+
 // Middleware to authenticate JWT token and verify IP address
 export const authenticateToken = (req, res, next) => {
   const token = req.headers.authorization;
@@ -18,8 +20,8 @@ export const authenticateToken = (req, res, next) => {
       }
       
       const requestIp = req.headers['x-forwarded-for'] || req.ip;
-      
-      if (process.env.NODE_ENV === 'production' && decoded.ip !== requestIp) {
+
+      if (isIpBindingEnabled && decoded.ip && decoded.ip !== requestIp) {
         return res.status(403).json({ error: 'Token mismatch: unauthorized device' });
       }
       
