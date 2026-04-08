@@ -266,6 +266,14 @@ const AccountsPayable = {
           Receipt r
         JOIN
           Receipt_Type rt ON r.receipt_type_id = rt.receipt_type_id
+        JOIN
+          Request req ON r.request_id = req.request_id
+        JOIN
+          User u ON req.user_id = u.user_id
+        JOIN
+          Department d ON u.department_id = d.department_id
+        LEFT JOIN
+          CostCenter cc ON d.cost_center_id = cc.cost_center_id
         WHERE
           r.request_id = ?
       `;
@@ -295,6 +303,8 @@ const AccountsPayable = {
       const formatted = {
         request_id: requestId,
         status: expense_status,
+        department_name: rows[0].department_name,
+        cost_center_name: rows[0].cost_center_name,
         Expenses: rows.map(row => ({
           receipt_id: row.receipt_id,
           route_id: row.route_id,
@@ -306,7 +316,9 @@ const AccountsPayable = {
           pdf_id: row.pdf_file_id,
           pdf_name: row.pdf_file_name,
           xml_id: row.xml_file_id,
-          xml_name: row.xml_file_name
+          xml_name: row.xml_file_name,
+          department_name: row.department_name,
+          cost_center_name: row.cost_center_name
         }))
       };
       

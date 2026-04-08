@@ -3,7 +3,7 @@ paths:
     get:
       summary: Get all receipts and validation status for a specific travel request
       description: >
-        Returns a detailed list of all receipts linked to a given request, including validation status, amount, and file references.
+        Returns a detailed list of all receipts linked to a given request, including validation status, amount, file references, and the employee department/cost center.
       tags:
         - Expense Validations
       operationId: getExpenseValidations
@@ -29,6 +29,10 @@ paths:
                   status:
                     type: string
                     description: Global status of the expense validation (e.g., Pendiente or Sin Pendientes)
+                  department_name:
+                    type: string
+                  cost_center_name:
+                    type: string
                   Expenses:
                     type: array
                     items:
@@ -51,9 +55,15 @@ paths:
                           type: integer
                         xml_name:
                           type: string
+                        department_name:
+                          type: string
+                        cost_center_name:
+                          type: string
                 example:
                   request_id: 1023
                   status: "Pendiente"
+                  department_name: "Administrativo"
+                  cost_center_name: "CC-001"
                   Expenses:
                     - receipt_id: 45
                       receipt_type_name: "Comida"
@@ -63,6 +73,8 @@ paths:
                       pdf_name: "receipt45.pdf"
                       xml_id: 456
                       xml_name: "receipt45.xml"
+                      department_name: "Administrativo"
+                      cost_center_name: "CC-001"
                     - receipt_id: 46
                       receipt_type_name: "Hospedaje"
                       amount: 875.00
@@ -71,6 +83,8 @@ paths:
                       pdf_name: "receipt46.pdf"
                       xml_id: 457
                       xml_name: "receipt46.xml"
+                      department_name: "Administrativo"
+                      cost_center_name: "CC-001"
         "400":
           description: Failed to retrieve expense validations
           content:
