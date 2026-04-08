@@ -6,40 +6,39 @@
  */
 
 import pool from '../database/config/db.js';
+import { prisma } from '../lib/prisma.js';
 
 const User = {
   // Get all user data by ID
   async getUserData(userId) {
-    let conn;
-    try {
-      conn = await pool.getConnection();
-      const rows = await conn.query(`
-        SELECT 
-          u.user_id, 
-          u.user_name, 
-          u.email, 
-          u.phone_number,
-          u.workstation,
-          d.department_name,
-          u.creation_date,
-          r.role_name,
-          u.boss_id,
-          u.out_of_office_start_date,
-          u.out_of_office_end_date,
-          u.substitute_id,
-          (SELECT user_name FROM User WHERE user_id = u.boss_id) AS boss_name,
-          (SELECT user_name FROM User WHERE user_id = u.substitute_id) AS substitute_name
-        FROM User u
-        JOIN Department d ON u.department_id = d.department_id
-        JOIN Role r ON u.role_id = r.role_id
-        WHERE u.user_id = ?`,
-        [userId]
-      );
-      return rows[0];
+    // Busca el usuario y sus relaciones
+    const user = await prisma.user.findUnique({
+      where: { user_id: Number(userId) },
+      include: {
+        department: true,
+        role: true,
+        boss: true,
+        substitute: true,
+      },
+    });
+    if (!user) return null;
 
-    } finally {
-      if (conn) conn.release();
-    }
+    return {
+      user_id: user.user_id,
+      user_name: user.user_name,
+      email: user.email,
+      phone_number: user.phone_number,
+      workstation: user.workstation,
+      department_name: user.department?.department_name ?? null,
+      creation_date: user.creation_date,
+      role_name: user.role?.role_name ?? null,
+      boss_id: user.boss_id,
+      out_of_office_start_date: user.out_of_office_start_date,
+      out_of_office_end_date: user.out_of_office_end_date,
+      substitute_id: user.substitute_id,
+      boss_name: user.boss?.user_name ?? null,
+      substitute_name: user.substitute?.user_name ?? null,
+    };
   },
 
   // Get travel request details by request ID

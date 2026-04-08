@@ -104,7 +104,7 @@ export const updateUser = async (req, res) => {
     const userId = req.params.user_id;
     connection = await pool.getConnection();
     await connection.beginTransaction();
-    const result = await adminService.updateUserData(userId, req.body, { connection });
+    const result = await adminService.updateUserData(userId, req.body);
     if (result.updated_fields) {
       await AuditLogService.recordAuditLogFromRequest(req, {
         actionType: 'USER_UPDATED',

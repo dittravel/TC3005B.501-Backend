@@ -4,112 +4,80 @@
  * Data access for critical action logs.
  */
 
-import pool from '../database/config/db.js';
 
-function buildAuditFilters(filters) {
-  const clauses = [];
-  const params = [];
+import { prisma } from '../lib/prisma.js';
 
-  if (filters.actor_user_id !== null) {
-    clauses.push('al.actor_user_id = ?');
-    params.push(filters.actor_user_id);
+function buildAuditWhere(filters) {
+  const where = {};
+  if (filters.actor_user_id !== null && filters.actor_user_id !== undefined) {
+    where.actor_user_id = filters.actor_user_id;
   }
-
   if (filters.action_type) {
-    clauses.push('al.action_type = ?');
-    params.push(filters.action_type);
+    where.action_type = filters.action_type;
   }
-
   if (filters.entity_type) {
-    clauses.push('al.entity_type = ?');
-    params.push(filters.entity_type);
+    where.entity_type = filters.entity_type;
   }
-
   if (filters.entity_id) {
-    clauses.push('al.entity_id = ?');
-    params.push(filters.entity_id);
+    where.entity_id = filters.entity_id;
   }
-
-  return {
-    whereClause: clauses.length > 0 ? `WHERE ${clauses.join(' AND ')}` : '',
-    params,
-  };
+  return where;
 }
 
-function buildAuditLogModel({ dbPool = pool } = {}) {
+function buildAuditLogModel() {
   return {
-    async createAuditLog(entry, connection = null) {
-      const conn = connection || (await dbPool.getConnection());
-
-      try {
-        const result = await conn.query(
-          `INSERT INTO Audit_Log (
-             actor_user_id,
-             action_type,
-             entity_type,
-             entity_id,
-             source_ip,
-             metadata
-           ) VALUES (?, ?, ?, ?, ?, ?)`,
-          [
-            entry.actor_user_id,
-            entry.action_type,
-            entry.entity_type,
-            entry.entity_id,
-            entry.source_ip,
-            entry.metadata,
-          ]
-        );
-
-        return {
-          audit_log_id: result.insertId,
-        };
-      } finally {
-        if (!connection) conn.release();
-      }
+    // Create a new audit log entry
+    async createAuditLog(entry) {
+      const result = await prisma.audit_Log.create({
+        data: {
+          actor_user_id: entry.actor_user_id,
+          action_type: entry.action_type,
+          entity_type: entry.entity_type,
+          entity_id: entry.entity_id,
+          source_ip: entry.source_ip,
+          metadata: entry.metadata,
+        },
+        select: { audit_log_id: true }
+      });
+      return result;
     },
 
+    // Get audit logs with filters and pagination
     async getAuditLogs(filters) {
-      let conn;
+      const where = buildAuditWhere(filters);
+      const [rows, total_count] = await Promise.all([
+        prisma.audit_Log.findMany({
+          where,
+          include: {
+            User: { select: { user_name: true } }
+          },
+          orderBy: [
+            { event_timestamp: 'desc' },
+            { audit_log_id: 'desc' }
+          ],
+          skip: filters.offset,
+          take: filters.limit
+        }),
+        prisma.audit_Log.count({ where })
+      ]);
 
-      try {
-        conn = await dbPool.getConnection();
-        const { whereClause, params } = buildAuditFilters(filters);
+      // Map user_name to actor_user_name for compatibility
+      const mappedRows = rows.map(row => ({
+        audit_log_id: row.audit_log_id,
+        actor_user_id: row.actor_user_id,
+        actor_user_name: row.User?.user_name ?? null,
+        action_type: row.action_type,
+        entity_type: row.entity_type,
+        entity_id: row.entity_id,
+        source_ip: row.source_ip,
+        metadata: row.metadata,
+        event_timestamp: row.event_timestamp
+      }));
 
-        const rows = await conn.query(
-          `SELECT
-             al.audit_log_id,
-             al.actor_user_id,
-             actor.user_name AS actor_user_name,
-             al.action_type,
-             al.entity_type,
-             al.entity_id,
-             al.source_ip,
-             al.metadata,
-             al.event_timestamp
-           FROM Audit_Log al
-           LEFT JOIN User actor
-             ON actor.user_id = al.actor_user_id
-           ${whereClause}
-           ORDER BY al.event_timestamp DESC, al.audit_log_id DESC
-           LIMIT ? OFFSET ?`,
-          [...params, filters.limit, filters.offset]
-        );
-
-        const countRows = await conn.query(
-          `SELECT COUNT(*) AS total_count
-           FROM Audit_Log al
-           ${whereClause}`,
-          params
-        );
-
-        return {
-          rows,
-          total_count: Number(countRows[0]?.total_count || 0),
-        };
-      } finally {
-        if (conn) conn.release();
-      }
+      return {
+        rows: mappedRows,
+        total_count
+      };
     },
   };
 }

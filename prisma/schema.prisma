@@ -1,5 +1,5 @@
 generator client {
-  provider = "prisma-client"
+  provider = "prisma-client-js"
   output   = "../generated/prisma"
 }
 
@@ -330,17 +330,29 @@ model User {
   Reimbursement_Policy                Reimbursement_Policy[]
   Request_Request_assigned_toToUser   Request[]              @relation("Request_assigned_toToUser")
   Request_Request_user_idToUser       Request[]              @relation("Request_user_idToUser")
-  User_User_boss_idToUser             User?                  @relation("User_boss_idToUser", fields: [boss_id], references: [user_id], onDelete: Restrict, onUpdate: Restrict, map: "fk_user_boss")
-  other_User_User_boss_idToUser       User[]                 @relation("User_boss_idToUser")
-  Department                          Department?            @relation(fields: [department_id], references: [department_id], onDelete: Restrict, onUpdate: Restrict, map: "fk_user_department")
-  Role                                Role?                  @relation(fields: [role_id], references: [role_id], onDelete: Restrict, onUpdate: Restrict, map: "fk_user_role")
-  User_User_substitute_idToUser       User?                  @relation("User_substitute_idToUser", fields: [substitute_id], references: [user_id], onDelete: Restrict, onUpdate: Restrict, map: "fk_user_substitute")
-  other_User_User_substitute_idToUser User[]                 @relation("User_substitute_idToUser")
+  boss                                User?                  @relation("UserBoss", fields: [boss_id], references: [user_id], onDelete: Restrict, onUpdate: Restrict, map: "fk_user_boss")
+  subordinates                        User[]                 @relation("UserBoss")
+  department                          Department?            @relation(fields: [department_id], references: [department_id], onDelete: Restrict, onUpdate: Restrict, map: "fk_user_department")
+  role                                Role?                  @relation(fields: [role_id], references: [role_id], onDelete: Restrict, onUpdate: Restrict, map: "fk_user_role")
+  substitute                          User?                  @relation("UserSubstitute", fields: [substitute_id], references: [user_id], onDelete: Restrict, onUpdate: Restrict, map: "fk_user_substitute")
+  substitutedBy                       User[]                 @relation("UserSubstitute")
 
   @@index([boss_id], map: "fk_user_boss")
   @@index([department_id], map: "fk_user_department")
   @@index([role_id], map: "fk_user_role")
   @@index([substitute_id], map: "fk_user_substitute")
+}
+
+model UserFullInfo {
+  user_id        Int       @id
+  user_name      String
+  email          String
+  active         Boolean
+  role_name      String?
+  department_name String?
+  department_id  Int?
+
+  @@map("UserFullInfo")
 }
 
 enum Reimbursement_Policy_Rule_trip_scope {

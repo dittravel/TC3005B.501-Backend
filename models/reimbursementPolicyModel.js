@@ -5,7 +5,7 @@
  * It also provides the request context needed to evaluate reimbursements.
  */
 
-import pool from '../database/config/db.js';
+import { prisma } from '../lib/prisma.js';
 
 const OPEN_ENDED_DATE = '9999-12-31';
 
@@ -100,126 +100,80 @@ async function insertRules(conn, policyId, rules) {
 
 const ReimbursementPolicyModel = {
   async getPolicyList() {
-    let conn;
-
-    try {
-      conn = await pool.getConnection();
-      const rows = await conn.query(
-        `SELECT
-           rp.policy_id,
-           rp.policy_code,
-           rp.policy_name,
-           rp.base_currency,
-           rp.effective_from,
-           rp.effective_to,
-           rp.active,
-           COUNT(DISTINCT rpa.assignment_id) AS assignment_count,
-           COUNT(DISTINCT rpr.rule_id) AS rule_count
-         FROM Reimbursement_Policy rp
-         LEFT JOIN Reimbursement_Policy_Assignment rpa
-           ON rpa.policy_id = rp.policy_id AND rpa.active = TRUE
-         LEFT JOIN Reimbursement_Policy_Rule rpr
-           ON rpr.policy_id = rp.policy_id AND rpr.active = TRUE
-         GROUP BY
-           rp.policy_id,
-           rp.policy_code,
-           rp.policy_name,
-           rp.base_currency,
-           rp.effective_from,
-           rp.effective_to,
-           rp.active
-         ORDER BY rp.active DESC, rp.effective_from DESC, rp.policy_name ASC`
-      );
-
-      return rows.map((row) => ({
-        policy_id: row.policy_id,
-        policy_code: row.policy_code,
-        policy_name: row.policy_name,
-        base_currency: row.base_currency,
-        effective_from: row.effective_from,
-        effective_to: row.effective_to,
-        active: Boolean(row.active),
-        assignment_count: Number(row.assignment_count),
-        rule_count: Number(row.rule_count),
-      }));
-    } finally {
-      if (conn) conn.release();
-    }
+    // Get all policies with assignment and rule counts
+    const policies = await prisma.reimbursement_Policy.findMany({
+      orderBy: [
+        { active: 'desc' },
+        { effective_from: 'desc' },
+        { policy_name: 'asc' },
+      ],
+      include: {
+        Reimbursement_Policy_Assignment: true,
+        Reimbursement_Policy_Rule: true,
+      },
+    });
+    return policies.map((row) => ({
+      policy_id: row.policy_id,
+      policy_code: row.policy_code,
+      policy_name: row.policy_name,
+      base_currency: row.base_currency,
+      effective_from: row.effective_from,
+      effective_to: row.effective_to,
+      active: Boolean(row.active),
+      assignment_count: row.Reimbursement_Policy_Assignment.filter(a => a.active).length,
+      rule_count: row.Reimbursement_Policy_Rule.filter(r => r.active).length,
+    }));
   },
 
   async getPolicyById(policyId) {
-    let conn;
-
-    try {
-      conn = await pool.getConnection();
-      const policyRows = await conn.query(
-        `SELECT
-           rp.policy_id,
-           rp.policy_code,
-           rp.policy_name,
-           rp.description,
-           rp.base_currency,
-           rp.effective_from,
-           rp.effective_to,
-           rp.active,
-           rp.created_by,
-           rp.creation_date,
-           rp.last_mod_date
-         FROM Reimbursement_Policy rp
-         WHERE rp.policy_id = ?`,
-        [policyId]
-      );
-
-      const policy = normalizePolicyRow(policyRows[0]);
-      if (!policy) {
-        return null;
-      }
-
-      const assignmentRows = await conn.query(
-        `SELECT
-           rpa.assignment_id,
-           rpa.department_id,
-           d.department_name,
-           rpa.active,
-           rpa.creation_date
-         FROM Reimbursement_Policy_Assignment rpa
-         LEFT JOIN Department d
-           ON d.department_id = rpa.department_id
-         WHERE rpa.policy_id = ? AND rpa.active = TRUE
-         ORDER BY rpa.department_id IS NULL, d.department_name ASC`,
-        [policyId]
-      );
-
-      const ruleRows = await conn.query(
-        `SELECT
-           rpr.rule_id,
-           rpr.receipt_type_id,
-           rt.receipt_type_name,
-           rpr.trip_scope,
-           rpr.max_amount_mxn,
-           rpr.submission_deadline_days,
-           rpr.requires_xml,
-           rpr.allow_foreign_without_xml,
-           rpr.refundable,
-           rpr.active,
-           rpr.creation_date,
-           rpr.last_mod_date
-         FROM Reimbursement_Policy_Rule rpr
-         INNER JOIN Receipt_Type rt
-           ON rt.receipt_type_id = rpr.receipt_type_id
-         WHERE rpr.policy_id = ? AND rpr.active = TRUE
-         ORDER BY rt.receipt_type_name ASC, rpr.trip_scope ASC`,
-        [policyId]
-      );
-
-      return {
-        ...policy,
-        assignments: assignmentRows.map(normalizeAssignmentRow),
-        rules: ruleRows.map(normalizeRuleRow),
-      };
-    } finally {
-      if (conn) conn.release();
-    }
+    // Get a policy by ID with assignments and rules
+    const policy = await prisma.reimbursement_Policy.findUnique({
+      where: { policy_id: policyId },
+      include: {
+        Reimbursement_Policy_Assignment: {
+          include: {
+            department: true,
+          },
+          orderBy: [
+            { department_id: 'asc' },
+          ],
+        },
+        Reimbursement_Policy_Rule: {
+          include: {
+            receipt_type: true,
+          },
+          orderBy: [
+            { receipt_type_id: 'asc' },
+            { trip_scope: 'asc' },
+          ],
+        },
+      },
+    });
+    if (!policy) return null;
+    return {
+      ...normalizePolicyRow(policy),
+      assignments: policy.Reimbursement_Policy_Assignment.map(a => ({
+        assignment_id: a.assignment_id,
+        department_id: a.department_id,
+        department_name: a.department?.department_name ?? null,
+        active: Boolean(a.active),
+        creation_date: a.creation_date,
+      })),
+      rules: policy.Reimbursement_Policy_Rule.map(r => ({
+        rule_id: r.rule_id,
+        receipt_type_id: r.receipt_type_id,
+        receipt_type_name: r.receipt_type?.receipt_type_name ?? null,
+        trip_scope: r.trip_scope,
+        max_amount_mxn: Number(r.max_amount_mxn),
+        submission_deadline_days: r.submission_deadline_days,
+        requires_xml: Boolean(r.requires_xml),
+        allow_foreign_without_xml: Boolean(r.allow_foreign_without_xml),
+        refundable: Boolean(r.refundable),
+        active: Boolean(r.active),
+        creation_date: r.creation_date,
+        last_mod_date: r.last_mod_date,
+      })),
+    };
   },
 
   async createPolicyGraph(policyData, createdBy) {

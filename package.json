@@ -12,7 +12,9 @@
         "test": "node --test",
         "test:policy": "node --test tests/reimbursementPolicyService.test.js",
         "test:erp": "node --test tests/integration*.test.js",
-        "test:audit": "node --test tests/auditLog*.test.js"
+        "test:audit": "node --test tests/auditLog*.test.js",
+        "prisma:seed": "npx prisma migrate reset --force && node prisma/seed.js",
+        "prisma:seed:dummy": "npx prisma migrate reset --force && node prisma/seed.js && node prisma/seedDummy.js"
     },
     "repository": {
         "type": "git",

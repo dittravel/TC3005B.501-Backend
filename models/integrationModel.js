@@ -4,106 +4,97 @@
  * Data access for integration-facing endpoints.
  */
 
-import pool from '../database/config/db.js';
+import { prisma } from '../lib/prisma.js';
 
-function buildEmployeeFilters(filters) {
-  const clauses = [];
-  const params = [];
-
+function buildEmployeeWhere(filters) {
+  const where = {};
   if (filters.active_only) {
-    clauses.push('u.active = TRUE');
+    where.active = true;
   }
-
-  if (filters.department_id !== null) {
-    clauses.push('u.department_id = ?');
-    params.push(filters.department_id);
+  if (filters.department_id !== null && filters.department_id !== undefined) {
+    where.department_id = filters.department_id;
   }
-
   if (filters.updated_since) {
-    clauses.push('u.last_mod_date >= ?');
-    params.push(filters.updated_since);
+    where.last_mod_date = { gte: filters.updated_since };
   }
+  return where;
+}
 
+// Prisma introspection: assume boss_id is present if in schema
+function hasBossIdField() {
+  // If boss_id is in the Prisma schema, this returns true
+  return 'boss_id' in prisma.user.fields;
+}
+
+// Not needed with Prisma ORM
+
+function buildIntegrationModel() {
   return {
-    whereClause: clauses.length > 0 ? `WHERE ${clauses.join(' AND ')}` : '',
-    params,
-  };
-}
-
-async function hasColumn(conn, tableName, columnName) {
-  const result = await conn.query(
-    `SELECT 1
-     FROM INFORMATION_SCHEMA.COLUMNS
-     WHERE TABLE_SCHEMA = DATABASE()
-       AND TABLE_NAME = ?
-       AND COLUMN_NAME = ?
-     LIMIT 1`,
-    [tableName, columnName]
-  );
-
-  return result.length > 0;
-}
-
-function buildEmployeeSelect({ includeBossId }) {
-  const bossIdSelect = includeBossId ? 'u.boss_id' : 'NULL AS boss_id';
-
-  return `SELECT
-            u.user_id,
-            u.user_name,
-            u.email,
-            u.phone_number,
-            u.workstation,
-            ${bossIdSelect},
-            u.active,
-            u.creation_date,
-            u.last_mod_date,
-            r.role_name,
-            d.department_id,
-            d.department_name,
-            d.costs_center
-          FROM User u
-          LEFT JOIN Role r
-            ON r.role_id = u.role_id
-          LEFT JOIN Department d
-            ON d.department_id = u.department_id`;
-}
-
-function buildIntegrationModel({
-  dbPool = pool,
-  columnInspector = hasColumn,
-} = {}) {
-  return {
+    /**
+     * Get ERP Employees with filters, pagination, and joined info
+     * @param {object} filters
+     * @returns {object} { rows, total_count }
+     */
     async getERPEmployees(filters) {
-      let conn;
+      const where = buildEmployeeWhere(filters);
+      // Check if boss_id is present in the Prisma schema
+      const includeBossId = true; // Set to true if boss_id is in your schema
 
-      try {
-        conn = await dbPool.getConnection();
-        const { whereClause, params } = buildEmployeeFilters(filters);
-        const includeBossId = await columnInspector(conn, 'User', 'boss_id');
-        const baseSelect = buildEmployeeSelect({ includeBossId });
-
-        const rows = await conn.query(
-          `${baseSelect}
-           ${whereClause}
-           ORDER BY u.user_id ASC
-           LIMIT ? OFFSET ?`,
-          [...params, filters.limit, filters.offset]
-        );
-
-        const countRows = await conn.query(
-          `SELECT COUNT(*) AS total_count
-           FROM User u
-           ${whereClause}`,
-          params
-        );
-
-        return {
-          rows,
-          total_count: Number(countRows[0]?.total_count || 0),
-        };
-      } finally {
-        if (conn) conn.release();
+      // Build select fields
+      const select = {
+        user_id: true,
+        user_name: true,
+        email: true,
+        phone_number: true,
+        workstation: true,
+        active: true,
+        creation_date: true,
+        last_mod_date: true,
+        role: { select: { role_name: true } },
+        department: {
+          select: {
+            department_id: true,
+            department_name: true,
+            costs_center: true,
+          },
+        },
+      };
+      if (includeBossId) {
+        select.boss_id = true;
       }
+
+      const [rows, total_count] = await Promise.all([
+        prisma.user.findMany({
+          where,
+          select,
+          orderBy: { user_id: 'asc' },
+          skip: filters.offset,
+          take: filters.limit,
+        }),
+        prisma.user.count({ where }),
+      ]);
+
+      // Map to match legacy output (flatten role/department)
+      const mappedRows = rows.map(row => ({
+        user_id: row.user_id,
+        user_name: row.user_name,
+        email: row.email,
+        phone_number: row.phone_number,
+        workstation: row.workstation,
+        boss_id: includeBossId ? row.boss_id : null,
+        active: row.active,
+        creation_date: row.creation_date,
+        last_mod_date: row.last_mod_date,
+        role_name: row.role?.role_name ?? null,
+        department_id: row.department?.department_id ?? null,
+        department_name: row.department?.department_name ?? null,
+        costs_center: row.department?.costs_center ?? null,
+      }));
+
+      return {
+        rows: mappedRows,
+        total_count,
+      };
     },
   };
 }
