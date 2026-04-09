@@ -21,6 +21,7 @@ const User = {
           u.phone_number,
           u.workstation,
           d.department_name,
+          cc.cost_center_name,
           u.creation_date,
           r.role_name,
           u.boss_id,
@@ -31,6 +32,7 @@ const User = {
           (SELECT user_name FROM User WHERE user_id = u.substitute_id) AS substitute_name
         FROM User u
         JOIN Department d ON u.department_id = d.department_id
+        JOIN CostCenter cc ON d.cost_center_id = cc.cost_center_id
         JOIN Role r ON u.role_id = r.role_id
         WHERE u.user_id = ?`,
         [userId]
@@ -199,6 +201,88 @@ const User = {
       );
       return rows;
 
+    } finally {
+      if (conn) conn.release();
+    }
+  },
+
+  // Find an active user by decrypted email.
+  // Emails are AES-256-CBC encrypted with a random IV so we cannot query by value —
+  // we decrypt all active users in the application layer and match there.
+  async getUserByEmail(plaintextEmail) {
+    let conn;
+    try {
+      conn = await pool.getConnection();
+      const rows = await conn.query(
+        `SELECT user_id, user_name, email FROM User WHERE active = TRUE`
+      );
+      const { decrypt } = await import('../middleware/decryption.js');
+      return rows.find(u => decrypt(u.email) === plaintextEmail) || null;
+    } finally {
+      if (conn) conn.release();
+    }
+  },
+
+  // Store a password reset token and its expiry for a user
+  async setPasswordResetToken(userId, token, expires) {
+    let conn;
+    try {
+      conn = await pool.getConnection();
+      await conn.query(
+        `UPDATE User
+         SET password_reset_token = ?, password_reset_expires = ?
+         WHERE user_id = ?`,
+        [token, expires, userId]
+      );
+    } finally {
+      if (conn) conn.release();
+    }
+  },
+
+  // Find a user whose reset token matches and has not expired
+  async getUserByResetToken(token) {
+    let conn;
+    try {
+      conn = await pool.getConnection();
+      const rows = await conn.query(
+        `SELECT user_id, user_name
+         FROM User
+         WHERE password_reset_token = ?
+           AND password_reset_expires > NOW()
+           AND active = TRUE`,
+        [token]
+      );
+      return rows[0] || null;
+    } finally {
+      if (conn) conn.release();
+    }
+  },
+
+  // Update a user's hashed password
+  async updatePassword(userId, hashedPassword) {
+    let conn;
+    try {
+      conn = await pool.getConnection();
+      await conn.query(
+        `UPDATE User SET password = ? WHERE user_id = ?`,
+        [hashedPassword, userId]
+      );
+    } finally {
+      if (conn) conn.release();
+    }
+  },
+
+  // Clear the reset token after use or expiry
+  async clearPasswordResetToken(userId) {
+    let conn;
+    try {
+      conn = await pool.getConnection();
+      await conn.query(
+        `UPDATE User
+         SET password_reset_token = NULL, password_reset_expires = NULL
+         WHERE user_id = ?`,
+        [userId]
+      );
     } finally {
       if (conn) conn.release();
     }

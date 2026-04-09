@@ -11,7 +11,7 @@
 
 import express from 'express';
 import * as userController from '../controllers/userController.js';
-import { validateId, validateInputs, validateDeptStatus, validateOutOfOffice } from "../middleware/validation.js";
+import { validateId, validateInputs, validateDeptStatus, validateOutOfOffice, validateForgotPassword, validateResetPassword } from "../middleware/validation.js";
 import { authenticateToken, authorizeRole } from '../middleware/auth.js';
 import { loginRateLimiter, generalRateLimiter } from '../middleware/rateLimiters.js';
 
@@ -24,6 +24,14 @@ router.route("/get-user-data/:user_id")
 // Login with username and password
 router.route('/login')
   .post(loginRateLimiter, userController.login);
+
+// Request a password reset email
+router.route('/forgot-password')
+  .post(loginRateLimiter, validateForgotPassword, validateInputs, userController.forgotPassword);
+
+// Reset password using a token received by email
+router.route('/reset-password')
+  .post(loginRateLimiter, validateResetPassword, validateInputs, userController.resetPassword);
 
 // Logout - Clears cookie on client side
 router.route("/logout")

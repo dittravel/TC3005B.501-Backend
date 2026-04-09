@@ -32,6 +32,8 @@ paths:
                     type: string
                   department_name:
                     type: string
+                  cost_center_name:
+                    type: string
                   costs_center:
                     type: string
                   creation_date:
@@ -46,6 +48,7 @@ paths:
                   phone_number: "(719) 860-5684"
                   workstation: "Arturo's workstation"
                   department_name: "Technology Department"
+                  cost_center_name: "TECH01"
                   costs_center: "TECH01"
                   creation_date: "2021-04-17T00:00:00Z"
                   role_name: "N2"

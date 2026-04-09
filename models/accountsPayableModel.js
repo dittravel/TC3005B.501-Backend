@@ -110,7 +110,7 @@ const AccountsPayable = {
     try {
       conn = await pool.getConnection();
       const rows = await conn.query(
-        "SELECT receipt_id, validation FROM `Receipt` WHERE receipt_id = ?",
+        "SELECT receipt_id, request_id, validation FROM `Receipt` WHERE receipt_id = ?",
         [receiptId],
       );
       return rows[0];
@@ -149,6 +149,97 @@ const AccountsPayable = {
     }
   },
   
+  // Search receipts across all requests with optional filters
+  async searchReceipts({ userId, startDate, endDate, validation, limit = 50, offset = 0 } = {}) {
+    let conn;
+    try {
+      conn = await pool.getConnection();
+
+      const conditions = [];
+      const params = [];
+
+      if (userId) {
+        conditions.push('req.user_id = ?');
+        params.push(userId);
+      }
+      if (startDate) {
+        conditions.push('rec.submission_date >= ?');
+        params.push(startDate);
+      }
+      if (endDate) {
+        conditions.push('rec.submission_date <= ?');
+        params.push(endDate);
+      }
+      if (validation) {
+        conditions.push('rec.validation = ?');
+        params.push(validation);
+      }
+
+      const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+
+      const rows = await conn.query(
+        `SELECT
+           rec.receipt_id,
+           rec.request_id,
+           rec.route_id,
+           rec.validation,
+           rec.amount,
+           rec.currency,
+           rec.submission_date,
+           rt.receipt_type_name,
+           rec.pdf_file_id,
+           rec.pdf_file_name,
+           rec.xml_file_id,
+           rec.xml_file_name,
+           u.user_id,
+           u.user_name
+         FROM Receipt rec
+         JOIN Receipt_Type rt ON rec.receipt_type_id = rt.receipt_type_id
+         JOIN Request req ON req.request_id = rec.request_id
+         JOIN User u ON u.user_id = req.user_id
+         ${whereClause}
+         ORDER BY rec.submission_date ASC
+         LIMIT ? OFFSET ?`,
+        [...params, limit, offset]
+      );
+
+      const [{ total_count }] = await conn.query(
+        `SELECT COUNT(*) AS total_count
+         FROM Receipt rec
+         JOIN Request req ON req.request_id = rec.request_id
+         ${whereClause}`,
+        params
+      );
+
+      return {
+        total_count: Number(total_count),
+        limit,
+        offset,
+        receipts: rows.map(row => ({
+          receipt_id: row.receipt_id,
+          request_id: row.request_id,
+          route_id: row.route_id,
+          receipt_type_name: row.receipt_type_name,
+          amount: row.amount,
+          currency: row.currency,
+          validation: row.validation,
+          submission_date: row.submission_date,
+          applicant_user_id: row.user_id,
+          applicant_user_name: row.user_name,
+          pdf_id: row.pdf_file_id,
+          pdf_name: row.pdf_file_name,
+          xml_id: row.xml_file_id,
+          xml_name: row.xml_file_name,
+        })),
+      };
+    } catch (error) {
+      console.error('Error searching receipts:', error);
+      throw error;
+    } finally {
+      if (conn) conn.release();
+    }
+  },
+
   // Get the validation status of all receipts associated with a request
   async getExpenseValidations(requestId) {
     let conn;
@@ -175,6 +266,14 @@ const AccountsPayable = {
           Receipt r
         JOIN
           Receipt_Type rt ON r.receipt_type_id = rt.receipt_type_id
+        JOIN
+          Request req ON r.request_id = req.request_id
+        JOIN
+          User u ON req.user_id = u.user_id
+        JOIN
+          Department d ON u.department_id = d.department_id
+        LEFT JOIN
+          CostCenter cc ON d.cost_center_id = cc.cost_center_id
         WHERE
           r.request_id = ?
       `;
@@ -204,6 +303,8 @@ const AccountsPayable = {
       const formatted = {
         request_id: requestId,
         status: expense_status,
+        department_name: rows[0].department_name,
+        cost_center_name: rows[0].cost_center_name,
         Expenses: rows.map(row => ({
           receipt_id: row.receipt_id,
           route_id: row.route_id,
@@ -215,7 +316,9 @@ const AccountsPayable = {
           pdf_id: row.pdf_file_id,
           pdf_name: row.pdf_file_name,
           xml_id: row.xml_file_id,
-          xml_name: row.xml_file_name
+          xml_name: row.xml_file_name,
+          department_name: row.department_name,
+          cost_center_name: row.cost_center_name
         }))
       };
       

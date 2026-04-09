@@ -43,8 +43,7 @@ function mapEmployeeRow(row, decryptor) {
     department: {
       department_id: row.department_id,
       department_name: row.department_name,
-      // The DB column is currently named `costs_center`; the contract normalizes it to `cost_center`.
-      cost_center: row.costs_center,
+      cost_center: row.cost_center_name || row.costs_center,
     },
     reports_to: {
       employee_id: row.boss_id ?? null,

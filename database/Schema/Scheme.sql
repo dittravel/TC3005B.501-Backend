@@ -67,6 +67,8 @@ CREATE TABLE IF NOT EXISTS User (
     creation_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     last_mod_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     active BOOL NOT NULL DEFAULT TRUE,       -- Soft delete flag
+    password_reset_token VARCHAR(64) NULL,   -- Token for password reset flow (64-char hex)
+    password_reset_expires DATETIME NULL,    -- Expiry for password reset token (1 hour)
 
     FOREIGN KEY (role_id) REFERENCES Role(role_id),
     FOREIGN KEY (department_id) REFERENCES Department(department_id),
