@@ -17,8 +17,8 @@ const router = express.Router();
 router.route('/:request_id')
   .get(
     generalRateLimiter, 
-    //authenticateToken, 
-    //authorizeRole(['Cuentas por pagar', 'Autorizador', 'Admin']), 
+    authenticateToken, 
+    authorizeRole(['Administrador']), 
     exportById
 );
 
@@ -26,13 +26,16 @@ router.route('/:request_id')
 router.route('/')
   .get(
     generalRateLimiter, 
-    //authenticateToken, 
-    //authorizeRole(['Cuentas por pagar', 'Autorizador', 'Admin']), 
+    authenticateToken, 
+    authorizeRole(['Administrador']), 
     exportByDateRange
 );
 
 
-// Example for accessing by ID https://localhost:3000/api/accounting/export/5
+/* Example for accessing by ID 
+ * https://localhost:3000/api/accounting/export/5 
+*/
+
 /* Examples for accessing by dates
  * GET /api/accounting/export?date_from=2025-01-01&date_to=2025-03-31 
  * GET /api/accounting/export?date_from=2025-06-01                     
