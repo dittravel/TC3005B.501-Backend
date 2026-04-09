@@ -11,7 +11,6 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 RUN pnpm prisma:generate
-RUN pnpm prune --prod
 
 FROM base AS runtime
 ENV NODE_ENV=production

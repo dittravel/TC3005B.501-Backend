@@ -4,7 +4,6 @@
 * Database operations for admin functions
 */
 
-import pool from '../database/config/db.js';
 import { prisma } from '../lib/prisma.js';
 
 const Admin = {

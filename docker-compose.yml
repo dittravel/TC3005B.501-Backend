@@ -24,8 +24,6 @@ services:
       - "3307:3306"
     volumes:
       - mariadb_data:/var/lib/mysql
-      - ./database/Schema:/schema:ro
-      - ./database/docker-init:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
       interval: 10s
@@ -36,7 +34,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    command: ["sh", "-c", "if [ \"${SEED_ON_STARTUP:-false}\" = \"true\" ]; then node database/config/dev_db.js dev; fi; node index.js"]
+    command: ["node", "docker-start.js"]
     restart: unless-stopped
     depends_on:
       mongodb:
@@ -57,7 +55,7 @@ services:
       MAIL_USER: test.mail@outlook.com
       MAIL_PASSWORD: password
       MONGO_URI: mongodb://mongodb:27017
-      SEED_ON_STARTUP: "false"
+      SEED_MODE: "dummy"
     ports:
       - "3000:3000"
 

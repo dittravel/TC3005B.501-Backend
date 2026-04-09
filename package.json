@@ -14,8 +14,10 @@
         "test:erp": "node --test tests/integration*.test.js",
         "test:audit": "node --test tests/auditLog*.test.js",
         "prisma:generate": "prisma generate",
-        "prisma:seed": "pnpm prisma:generate && prisma migrate reset --force && node prisma/seed.js",
-        "prisma:seed:dummy": "pnpm prisma:generate && prisma migrate reset --force && node prisma/seed.js && node prisma/seedDummy.js"
+        "prisma:migrate:deploy": "prisma migrate deploy",
+        "prisma:seed": "pnpm prisma:generate && node prisma/seed.js",
+        "prisma:seed:dummy": "pnpm prisma:generate && node prisma/seedDummy.js",
+        "docker:start:prisma": "node docker-start.js"
     },
     "repository": {
         "type": "git",

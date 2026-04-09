@@ -15,8 +15,8 @@
  */
 
 import { ObjectId } from 'mongodb';
-import { uploadFile, getFile, db, bucket } from './fileStorage.js';
-import pool from "../database/config/db.js";
+import { uploadFile, getFile, bucket } from './fileStorage.js';
+import { prisma } from '../lib/prisma.js';
 
 // XML parsing functions
 import { parseXmlData, extractXmlData } from './xmlParserService.js';
@@ -59,37 +59,26 @@ export async function uploadReceiptFiles(receiptId, pdfFile, xmlFile, existingCo
       }
     }
 
-    // Update the receipt record with file IDs
-    // Use existing connection if provided (for transactions), otherwise get a new one
-    const conn = existingConn || (await pool.getConnection());
-    const shouldReleaseConn = !existingConn; // Only release if we got our own connection
-    
     try {
-      await conn.query(`
-        UPDATE Receipt
-        SET 
-          pdf_file_id = ?, pdf_file_name = ?,
-          xml_file_id = ?, xml_file_name = ?,
-          xml_uuid = ?, xml_rfc_emisor = ?, xml_rfc_receptor = ?,
-          xml_nombre_emisor = ?, xml_fecha = ?, xml_total = ?, 
-          xml_subtotal = ?, xml_impuestos = ?, xml_moneda = ?
-        WHERE receipt_id = ?
-        `,
-        [
-          pdfResult.fileId, pdfResult.fileName,
-          xmlResult ? xmlResult.fileId : null, xmlResult ? xmlResult.fileName : null,
-          cfdiData.uuid || null,
-          cfdiData.rfcEmisor || null,
-          cfdiData.rfcReceptor || null,
-          cfdiData.nombreEmisor || null,
-          cfdiData.fecha || null,
-          cfdiData.total || null,
-          cfdiData.subtotal || null,
-          cfdiData.impuestos || null,
-          cfdiData.moneda || null,
-          safeReceiptId
-        ]
-      );
+      const tx = existingConn || prisma;
+      await tx.receipt.update({
+        where: { receipt_id: Number(safeReceiptId) },
+        data: {
+          pdf_file_id: pdfResult.fileId,
+          pdf_file_name: pdfResult.fileName,
+          xml_file_id: xmlResult ? xmlResult.fileId : null,
+          xml_file_name: xmlResult ? xmlResult.fileName : null,
+          xml_uuid: cfdiData.uuid || null,
+          xml_rfc_emisor: cfdiData.rfcEmisor || null,
+          xml_rfc_receptor: cfdiData.rfcReceptor || null,
+          xml_nombre_emisor: cfdiData.nombreEmisor || null,
+          xml_fecha: cfdiData.fecha ? new Date(cfdiData.fecha) : null,
+          xml_total: cfdiData.total ?? null,
+          xml_subtotal: cfdiData.subtotal ?? null,
+          xml_impuestos: cfdiData.impuestos ?? null,
+          xml_moneda: cfdiData.moneda || null,
+        },
+      });
 
       return {
         pdf: pdfResult,
@@ -98,17 +87,12 @@ export async function uploadReceiptFiles(receiptId, pdfFile, xmlFile, existingCo
       };
     } catch (dbError) {
       // Check for duplicate UUID error (MySQL error 1062)
-      if (dbError.code === 'ER_DUP_ENTRY' || (dbError.message && dbError.message.includes('Duplicate entry') && dbError.message.includes('xml_uuid'))) {
+      if (dbError.code === 'ER_DUP_ENTRY' || (dbError.message?.includes('Duplicate entry') && dbError.message?.includes('xml_uuid'))) {
         const error = new Error('Este comprobante ya existe en el sistema');
         error.code = 'DUPLICATE_UUID';
         throw error;
       }
       throw dbError;
-    } finally {
-      // Only release connection if we created it
-      if (shouldReleaseConn) {
-        conn.release();
-      }
     }
   } catch (error) {
     console.error('Error uploading receipt files:', error);
@@ -128,45 +112,42 @@ export async function getReceiptFile(fileId) {
 
 // Get receipt files metadata
 export async function getReceiptFilesMetadata(receiptId) {
-  const conn = await pool.getConnection();
-  try {
-    const [receipt] = await conn.query(
-      `SELECT pdf_file_id, pdf_file_name, xml_file_id, xml_file_name
-       FROM Receipt
-       WHERE receipt_id = ?`,
-      [receiptId]
-    );
+  const receipt = await prisma.receipt.findUnique({
+    where: { receipt_id: Number(receiptId) },
+    select: {
+      pdf_file_id: true,
+      pdf_file_name: true,
+      xml_file_id: true,
+      xml_file_name: true,
+    },
+  });
 
-    if (!receipt) {
-      throw new Error('Receipt not found');
-    }
-
-    return {
-      pdf: {
-        fileId: receipt.pdf_file_id,
-        fileName: receipt.pdf_file_name
-      },
-      xml: {
-        fileId: receipt.xml_file_id,
-        fileName: receipt.xml_file_name
-      }
-    };
-  } finally {
-    conn.release();
+  if (!receipt) {
+    throw new Error('Receipt not found');
   }
+
+  return {
+    pdf: {
+      fileId: receipt.pdf_file_id,
+      fileName: receipt.pdf_file_name
+    },
+    xml: {
+      fileId: receipt.xml_file_id,
+      fileName: receipt.xml_file_name
+    }
+  };
 }
 
 // Delete receipt files from MongoDB
 export async function deleteReceiptFiles(receiptId) {
-  const conn = await pool.getConnection();
   try {
-    // Get file IDs before deleting the receipt
-    const [receipt] = await conn.query(
-      `SELECT pdf_file_id, xml_file_id
-       FROM Receipt
-       WHERE receipt_id = ?`,
-      [receiptId]
-    );
+    const receipt = await prisma.receipt.findUnique({
+      where: { receipt_id: Number(receiptId) },
+      select: {
+        pdf_file_id: true,
+        xml_file_id: true,
+      },
+    });
 
     if (!receipt) {
       throw new Error('Receipt not found');
@@ -193,7 +174,5 @@ export async function deleteReceiptFiles(receiptId) {
   } catch (error) {
     console.error('Error deleting receipt files:', error);
     throw error;
-  } finally {
-    conn.release();
   }
 }

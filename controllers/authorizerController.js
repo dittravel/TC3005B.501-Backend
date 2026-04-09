@@ -11,7 +11,6 @@
 import Authorizer from "../models/authorizerModel.js";
 import authorizerServices from "../services/authorizerService.js";
 import AuditLogService from "../services/auditLogService.js";
-import pool from "../database/config/db.js";
 import { sendEmails } from "../services/email/emailService.js";
 
 // Get pending requests assigned to user
@@ -48,13 +47,10 @@ const getAlerts = async (req, res) => {
 const authorizeTravelRequest = async (req, res) => {
   const requestId = Number(req.params.request_id);
   const actorUserId = Number(req.user.user_id);
-  let connection;
 
   try {
     // Authorize request through service layer
-    connection = await pool.getConnection();
-    await connection.beginTransaction();
-    const result = await authorizerServices.authorizeRequest(requestId, actorUserId, { connection });
+    const result = await authorizerServices.authorizeRequest(requestId, actorUserId);
     await AuditLogService.recordAuditLogFromRequest(req, {
       actionType: 'REQUEST_AUTHORIZED',
       entityType: 'Request',
@@ -65,8 +61,7 @@ const authorizeTravelRequest = async (req, res) => {
         new_status: result.new_status,
         completed_all_authorizations: result.completed_all_authorizations,
       },
-    }, { connection });
-    await connection.commit();
+    });
     try {
       // Send email notifications
       await sendEmails(requestId);
@@ -78,14 +73,11 @@ const authorizeTravelRequest = async (req, res) => {
       new_status: result.new_status
     });
   } catch (err) {
-    if (connection) await connection.rollback();
     if (err.status) {
       return res.status(err.status).json({ error: err.message });
     }
     console.error("Unexpected error in authorizeTravelRequest controller:", err);
     return res.status(500).json({ error: "Internal server error" });
-  } finally {
-    if (connection) connection.release();
   }
 };
 
@@ -93,13 +85,10 @@ const authorizeTravelRequest = async (req, res) => {
 const declineTravelRequest = async (req, res) => {
   const requestId = Number(req.params.request_id);
   const actorUserId = Number(req.user.user_id);
-  let connection;
 
   try {
     // Decline request through service layer
-    connection = await pool.getConnection();
-    await connection.beginTransaction();
-    const result = await authorizerServices.declineRequest(requestId, actorUserId, { connection });
+    const result = await authorizerServices.declineRequest(requestId, actorUserId);
     await AuditLogService.recordAuditLogFromRequest(req, {
       actionType: 'REQUEST_DECLINED',
       entityType: 'Request',
@@ -107,8 +96,7 @@ const declineTravelRequest = async (req, res) => {
       metadata: {
         new_status: result.new_status,
       },
-    }, { connection });
-    await connection.commit();
+    });
     try {
       // Send email notifications
       await sendEmails(requestId);
@@ -117,14 +105,11 @@ const declineTravelRequest = async (req, res) => {
     }
     return res.status(200).json(result); 
   } catch (err) {
-    if (connection) await connection.rollback();
     if (err.status) {
       return res.status(err.status).json({ error: err.message });
     }
     console.error("Unexpected error in declineTravelRequest controller:", err);
     return res.status(500).json({ error: "Internal server error" });
-  } finally {
-    if (connection) connection.release();
   }
 };
 

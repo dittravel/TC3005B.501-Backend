@@ -6,75 +6,137 @@
  * and handling draft travel requests.
  */
 
-import pool from "../database/config/db.js";
+import { prisma } from "../lib/prisma.js";
 import User from "./userModel.js";
 import AuthorizationRuleService from "../services/authorizationRuleService.js";
 import { formatRoutes, getRequestDays, getCountryId, getCityId } from "../services/applicantService.js";
 import { uploadReceiptFiles } from "../services/receiptFileService.js";
 
+const toDateValue = (value) => {
+  if (!value || value === "0000-01-01") return null;
+  const date = value instanceof Date ? value : new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
+};
+
+const toTimeValue = (value) => {
+  if (!value || value === "00:00:00") return null;
+  if (value instanceof Date) return value;
+  const date = new Date(`1970-01-01T${value}`);
+  return Number.isNaN(date.getTime()) ? null : date;
+};
+
+const formatDateOnly = (value) => {
+  if (!value) return null;
+  const date = value instanceof Date ? value : new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date.toISOString().split("T")[0];
+};
+
+const sortRoutesByIndex = (routes) =>
+  [...routes].sort((a, b) => (a.router_index ?? 0) - (b.router_index ?? 0));
+
+const formatRouteTrip = (routes, selector) => {
+  const values = sortRoutesByIndex(routes)
+    .map((route) => selector(route))
+    .filter(Boolean);
+
+  return values.join(", ");
+};
+
+async function createRoutesForRequest(tx, requestId, allRoutes) {
+  for (const route of allRoutes) {
+    try {
+      const id_origin_country = await getCountryId(tx, route.origin_country_name);
+      const id_destination_country = await getCountryId(tx, route.destination_country_name);
+      const id_origin_city = await getCityId(tx, route.origin_city_name);
+      const id_destination_city = await getCityId(tx, route.destination_city_name);
+
+      const createdRoute = await tx.route.create({
+        data: {
+          id_origin_country,
+          id_origin_city,
+          id_destination_country,
+          id_destination_city,
+          router_index: route.router_index ?? null,
+          plane_needed: Boolean(route.plane_needed),
+          hotel_needed: Boolean(route.hotel_needed),
+          beginning_date: toDateValue(route.beginning_date),
+          beginning_time: toTimeValue(route.beginning_time),
+          ending_date: toDateValue(route.ending_date),
+          ending_time: toTimeValue(route.ending_time),
+        },
+      });
+
+      await tx.route_Request.create({
+        data: {
+          request_id: Number(requestId),
+          route_id: createdRoute.route_id,
+        },
+      });
+    } catch (error) {
+      console.error("Error processing route:", error);
+      throw new Error("Database Error: Unable to process route");
+    }
+  }
+}
+
 const Applicant = {
   // Find applicant by ID
   async findById(id) {
-    let conn;
     console.log(`Searching for user with id: ${id}`);
     try {
-      conn = await pool.getConnection();
-      const rows = await conn.query(
-        "SELECT * FROM User WHERE user_id = ?", 
-        [id]
-      );
-      console.log(`User found: ${rows[0].name}`);
-      return rows[0];
+      const user = await prisma.user.findUnique({
+        where: { user_id: Number(id) },
+      });
+      if (user) {
+        console.log(`User found: ${user.user_name}`);
+      }
+      return user;
 
     } catch (error) {
       console.error("Error finding applicant by ID:", error);
       throw error;
-
-    } finally {
-      if (conn) {
-        conn.release();
-      }
     }
   },
   
   // Find cost center by user ID
   async findCostCenterByUserId(user_id) {
-    let conn;
-
     try {
-      conn = await pool.getConnection();
-      const rows = await conn.query(`
-        SELECT
-          d.department_name,
-          d.cost_center_id,
-          cc.cost_center_name AS costs_center
-        FROM User u
-        JOIN Department d ON u.department_id = d.department_id
-        JOIN CostCenter cc ON d.cost_center_id = cc.cost_center_id
-        WHERE u.user_id = ?;`,
-        [user_id],
-      );
-      console.log(rows[0]);
-      return rows[0];
+      const user = await prisma.user.findUnique({
+        where: { user_id: Number(user_id) },
+        select: {
+          department: {
+            select: {
+              department_name: true,
+              cost_center_id: true,
+              CostCenter: {
+                select: {
+                  cost_center_name: true,
+                },
+              },
+            },
+          },
+        },
+      });
+
+      if (!user?.department) {
+        return null;
+      }
+
+      return {
+        department_name: user.department.department_name,
+        cost_center_id: user.department.cost_center_id,
+        costs_center: user.department.CostCenter?.cost_center_name ?? null,
+      };
       
     } catch (error) {
       console.error("Error finding cost center by ID:", error);
       throw error;
-
-    } finally {
-      if (conn) {
-        conn.release();
-      }
     }
   },
   
   // Create travel request
   async createTravelRequest(user_id, travelDetails) {
-    let conn;
     try {
-      conn = await pool.getConnection();
-      await conn.beginTransaction();
-      
       // Destructure travel details from request body
       const {
         router_index,
@@ -94,8 +156,7 @@ const Applicant = {
         additionalRoutes = [],
         travel_type,
       } = travelDetails;
-      
-      // Format the routes into a single array
+
       const allRoutes = formatRoutes(
         {
           router_index,
@@ -112,196 +173,114 @@ const Applicant = {
         },
         additionalRoutes,
       );
-      
-      // Step 1: Insert into Request table
-      const request_days = getRequestDays(allRoutes);
-      
-      // Get user role, boss_id, and department_id
-      const userResult = await conn.query(
-        `SELECT role_id, boss_id, department_id FROM User WHERE user_id = ?`,
-        [user_id],
-      );
 
-      const role = userResult[0];
+      const request_days = getRequestDays(allRoutes);
+
+      const role = await prisma.user.findUnique({
+        where: { user_id: Number(user_id) },
+        select: {
+          role_id: true,
+          boss_id: true,
+          department_id: true,
+        },
+      });
+
       if (!role) {
         throw new Error("User not found");
       }
 
       const departmentId = role.department_id;
 
-      if (role.role_id !== 1 && role.role_id !== 4) { // Solicitant or Authorizer
+      if (role.role_id !== 1 && role.role_id !== 4) {
         throw new Error("User role is not allowed to create a travel request");
       }
 
-      // Select applicable authorization rule
       let authorizationRuleId = null;
       let applicableRule = null;
       try {
         applicableRule = await AuthorizationRuleService.selectApplicableRule(
           travel_type,
           request_days,
-          requested_fee
+          requested_fee,
         );
 
         if (applicableRule) {
           authorizationRuleId = applicableRule.rule_id;
           console.log(`Authorization rule selected: ${applicableRule.rule_name} (ID: ${authorizationRuleId})`);
         } else {
-          console.warn('No applicable authorization rule found, proceeding without rule assignment');
+          console.warn("No applicable authorization rule found, proceeding without rule assignment");
         }
       } catch (error) {
-        console.error('Error selecting authorization rule:', error);
+        console.error("Error selecting authorization rule:", error);
       }
 
-      // Determine assignment based on rule or fallback logic
-      let request_status = 2; // Default: Revision
+      let request_status = 2;
       let assignedTo = null;
 
       if (applicableRule && applicableRule.levels && applicableRule.levels.length > 0) {
-        // Use the first level of the rule to determine initial approver
         const firstRuleLevel = applicableRule.levels[0];
-        
+
         try {
           assignedTo = await AuthorizationRuleService.getNextApproverForRuleLevel(
             firstRuleLevel,
-            user_id,
-            departmentId
+            Number(user_id),
+            departmentId,
           );
-          
+
           if (!assignedTo) {
-            console.warn('Could not determine approver from rule level, using fallback logic');
-            // Fallback: If rule didn't work, try direct boss
-            const bossId = await User.getBossId(user_id);
-            assignedTo = bossId;
+            console.warn("Could not determine approver from rule level, using fallback logic");
+            assignedTo = await User.getBossId(user_id);
           }
           console.log(`Assigned to user ${assignedTo} based on authorization rule level 1`);
         } catch (error) {
-          console.error('Error assigning based on rule level:', error);
-          // Fallback to boss
-          const bossId = await User.getBossId(user_id);
-          assignedTo = bossId;
+          console.error("Error assigning based on rule level:", error);
+          assignedTo = await User.getBossId(user_id);
         }
       } else if (applicableRule && applicableRule.automatic) {
-        // Automatic rule without specific levels, use direct boss
-        const bossId = await User.getBossId(user_id);
-        assignedTo = bossId;
-        if (bossId) {
-          console.log(`Assigned to boss (user_id: ${bossId}) using automatic rule`);
+        assignedTo = await User.getBossId(user_id);
+        if (assignedTo) {
+          console.log(`Assigned to boss (user_id: ${assignedTo}) using automatic rule`);
         } else {
-          console.warn('Automatic rule selected but user has no boss, will route directly to Travel Agent/Accounts Payable');
+          console.warn("Automatic rule selected but user has no boss, will route directly to Travel Agent/Accounts Payable");
         }
       } else {
-        // No rule or no levels in rule, use fallback logic
         const bossId = await User.getBossId(user_id);
-        
+
         if (!bossId) {
-          // User has no boss: assign to Travel Agent or Accounts Payable based on trip needs
           if (plane_needed || hotel_needed) {
-            request_status = 4; // Agent Travel
-            const travelAgent = await User.getRandomUserByRole(2, departmentId); // Travel Agent role_id = 2
+            request_status = 4;
+            const travelAgent = await User.getRandomUserByRole(2, departmentId);
             assignedTo = travelAgent ? travelAgent.user_id : null;
           } else {
-            request_status = 3; // Travel Quote
-            const accountsPayable = await User.getRandomUserByRole(3, departmentId); // Accounts Payable role_id = 3
+            request_status = 3;
+            const accountsPayable = await User.getRandomUserByRole(3, departmentId);
             assignedTo = accountsPayable ? accountsPayable.user_id : null;
           }
         } else {
-          // Has boss, assign to him (will go through authorization levels)
           assignedTo = bossId;
         }
       }
-      
-      const insertIntoRequestTable = `
-        INSERT INTO Request (
-          user_id,
-          request_status_id,
-          assigned_to,
-          authorization_level,
-          authorization_rule_id,
-          notes,
-          requested_fee,
-          imposed_fee,
-          request_days
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `;
-      
-      const requestTableResult = await conn.execute(insertIntoRequestTable, [
-        user_id,
-        request_status,
-        assignedTo,            // assigned_to = boss_id, travel agent, or accounts payable
-        0,                     // authorization_level = 0 (starting level)
-        authorizationRuleId,   // authorization_rule_id = selected rule or null
-        notes,
-        requested_fee,
-        imposed_fee,
-        request_days,
-      ]);
-      
-      const requestId = requestTableResult.insertId;
-      
-      // Step 2: Insert into Country & City table
-      for (const route of allRoutes) {
-        try {
-          console.log("Processing route:", route);
-          
-          let
-          id_origin_country,
-          id_destination_country,
-          id_origin_city,
-          id_destination_city;
-          
-          // Search if the country exists in the database
-          id_origin_country = await getCountryId(conn, route.origin_country_name);
-          id_destination_country = await getCountryId(conn, route.destination_country_name);
-          
-          console.log("Country IDs:", id_origin_country, id_destination_country);
-          
-          // Search if the city exists in the database
-          id_origin_city = await getCityId(conn, route.origin_city_name);
-          id_destination_city = await getCityId(conn, route.destination_city_name);
-          
-          console.log("City IDs:", id_origin_city, id_destination_city);
 
-          // Insert into Route table
-          const insertRouteTable = `
-            INSERT INTO Route (
-              id_origin_country, id_origin_city,
-              id_destination_country, id_destination_city,
-              router_index, plane_needed, hotel_needed,
-              beginning_date, beginning_time,
-              ending_date, ending_time
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-          `;
-          
-          let routeTableResult = await conn.query(insertRouteTable, [
-            id_origin_country,
-            id_origin_city,
-            id_destination_country,
-            id_destination_city,
-            route.router_index,
-            route.plane_needed,
-            route.hotel_needed,
-            route.beginning_date,
-            route.beginning_time,
-            route.ending_date,
-            route.ending_time,
-          ]);
-          
-          const routeId = routeTableResult.insertId;
-          
-          // Step 3: Insert into Route_Request table
-          const insertIntoRouteRequestTable = 
-            `INSERT INTO Route_Request (request_id, route_id) VALUES (?, ?)`;
-          await conn.query(insertIntoRouteRequestTable, [requestId, routeId]);
+      const requestId = await prisma.$transaction(async (tx) => {
+        const createdRequest = await tx.request.create({
+          data: {
+            user_id: Number(user_id),
+            request_status_id: request_status,
+            assigned_to: assignedTo,
+            authorization_level: 0,
+            authorization_rule_id: authorizationRuleId,
+            notes,
+            requested_fee,
+            imposed_fee,
+            request_days,
+          },
+        });
 
-        } catch (error) {
-          console.error("Error processing route:", error);
-          throw new Error("Database Error: Unable to process route");
-        }
-      }
-      
-      await conn.commit();
-      
+        await createRoutesForRequest(tx, createdRequest.request_id, allRoutes);
+
+        return createdRequest.request_id;
+      });
+
       console.log(`Travel request created with ID: ${requestId}`);
       return {
         requestId: Number(requestId),
@@ -309,21 +288,14 @@ const Applicant = {
       };
 
     } catch (error) {
-      if (conn) await conn.rollback();
       console.error("Error creating travel request:", error);
       throw new Error("Database Error: Unable to fill Request table");
-
-    } finally {
-      if (conn) conn.release();
     }
   },
   
   // Edit travel request
   async editTravelRequest(requestId, travelChanges) {
-    let conn;
     try {
-      conn = await pool.getConnection();
-      await conn.beginTransaction();
       console.log("Editing travel request with ID:", requestId);
       
       // Destructure travel details from request body
@@ -365,121 +337,54 @@ const Applicant = {
       
       // Step 1: Update Request table
       const request_days = getRequestDays(allRoutes);
-      
-      // Log old data
-      const [oldData] = await conn.query(
-        `SELECT * FROM Request WHERE request_id = ?`,
-        [requestId]
-      );
-      console.log("Old data:", oldData);
-      
-      const updateRequestTable = `
-        UPDATE Request SET
-        notes = ?,
-        requested_fee = ?,
-        imposed_fee = ?,
-        request_days = ?,
-        last_mod_date = CURRENT_TIMESTAMP
-        WHERE request_id = ?
-      `;
-      
-      await conn.execute(updateRequestTable, [
-        notes,
-        requested_fee, // Allow null values for requested_fee
-        imposed_fee, // Allow null values for imposed_fee
-        request_days, // Allow null values for request_days
-        requestId, // Use the provided requestId to update the correct record
-      ]);
-      
-      // Log new data
-      const [newData] = await conn.query(
-        `SELECT * FROM Request WHERE request_id = ?`,
-        [requestId]
-      );
-      console.log("New data:", newData);
-      
-      // Step 2: Delete old routes
-      const oldRoutesIds = await conn.query(
-        `SELECT route_id FROM Route_Request WHERE request_id = ?`,
-        [requestId]
-      );
-      
-      // Delete old route request table data related to the request
-      const deleteRouteRequest = `
-        DELETE FROM Route_Request WHERE request_id = ?
-      `;
-      await conn.execute(deleteRouteRequest, [requestId]);
-      
-      // Delete old routes from Route_Request table
-      for (const route_id of oldRoutesIds) {
-        const deleteRoute = `
-          DELETE FROM Route WHERE route_id = ?
-        `;
-        await conn.execute(deleteRoute, [route_id.route_id]);
-      }
-      
-      // Step 3: Edit Route & Route_Request table
-      for (const route of allRoutes) {
-        try {
-          
-          console.log("Processing route:", route);
-          
-          let
-          id_origin_country,
-          id_destination_country,
-          id_origin_city,
-          id_destination_city;
-          
-          // Search if the country exists in the database
-          id_origin_country = await getCountryId(conn, route.origin_country_name);
-          id_destination_country = await getCountryId(conn, route.destination_country_name);
-          
-          // Search if the city exists in the database
-          id_origin_city = await getCityId(conn, route.origin_city_name);
-          id_destination_city = await getCityId(conn, route.destination_city_name);
-          
-          
-          // Insert into Route table
-          const insertRouteTable = `
-            INSERT INTO Route (
-              id_origin_country, id_origin_city,
-              id_destination_country, id_destination_city,
-              router_index, plane_needed, hotel_needed,
-              beginning_date, beginning_time,
-              ending_date, ending_time
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-          `;
-          
-          let routeTableResult = await conn.query(insertRouteTable, [
-            id_origin_country,
-            id_origin_city,
-            id_destination_country,
-            id_destination_city,
-            route.router_index,
-            route.plane_needed,
-            route.hotel_needed,
-            route.beginning_date,
-            route.beginning_time,
-            route.ending_date,
-            route.ending_time,
-          ]);
-          
-          const routeId = routeTableResult.insertId;
-          
-          // Step 3: Insert into Route_Request table
-          const insertIntoRouteRequestTable = `
-            INSERT INTO Route_Request (request_id, route_id) VALUES (?, ?)
-          `;
-          await conn.query(insertIntoRouteRequestTable, [requestId, routeId]);
+      await prisma.$transaction(async (tx) => {
+        const oldData = await tx.request.findUnique({
+          where: { request_id: Number(requestId) },
+        });
+        console.log("Old data:", oldData);
 
-        } catch (error) {
-          console.error("Error processing route:", error);
-          throw new Error("Database Error: Unable to process route");
+        await tx.request.update({
+          where: { request_id: Number(requestId) },
+          data: {
+            notes,
+            requested_fee,
+            imposed_fee,
+            request_days,
+            last_mod_date: new Date(),
+          },
+        });
+
+        const newData = await tx.request.findUnique({
+          where: { request_id: Number(requestId) },
+        });
+        console.log("New data:", newData);
+
+        const oldRoutesIds = await tx.route_Request.findMany({
+          where: { request_id: Number(requestId) },
+          select: { route_id: true },
+        });
+
+        await tx.route_Request.deleteMany({
+          where: { request_id: Number(requestId) },
+        });
+
+        const routeIdsToDelete = oldRoutesIds
+          .map((row) => row.route_id)
+          .filter((id) => id !== null);
+
+        if (routeIdsToDelete.length > 0) {
+          await tx.route.deleteMany({
+            where: {
+              route_id: {
+                in: routeIdsToDelete,
+              },
+            },
+          });
         }
-      }
-      
-      // Commit the transaction
-      await conn.commit();
+
+        await createRoutesForRequest(tx, requestId, allRoutes);
+      });
+
       console.log(`Travel request ${requestId} updated successfully.`);
 
       return {
@@ -488,208 +393,279 @@ const Applicant = {
       };
       
     } catch (error) {
-      // Rollback the transaction if something fails
-      if (conn) await conn.rollback();
       console.error("Error editing travel request:", error);
       throw new Error("Database Error: Unable to edit travel request");
-
-    } finally {
-      if (conn) conn.release();
     }
   },
   
   // Get request status
-  async getRequestStatus(request_id) {
-    let conn;
-    const query = `
-      SELECT request_status_id FROM Request WHERE request_id = ?
-    `;
-
+  async getRequestStatus(requestId) {
     try {
-      conn = await pool.getConnection();
-      const rows = await conn.query(query, [request_id]);
-      return rows.length > 0 ? rows[0].request_status_id : null;
+      const request = await prisma.request.findUnique({
+        where: { request_id: Number(requestId) },
+        select: { request_status_id: true },
+      });
+      return request?.request_status_id || null;
 
     } catch (error) {
-      console.error('Error getting request status:', error);
+      console.error("Error getting request status:", error);
       throw error;
-
-    } finally {
-      if (conn) conn.release();
     }
   },
 
   // Get request department
   async getRequestDepartment(request_id) {
-    let conn;
-    const query = `
-      SELECT d.department_id FROM Request r
-      JOIN User u ON r.user_id = u.user_id
-      JOIN Department d ON u.department_id = d.department_id
-      WHERE r.request_id = ?
-    `;
-
     try {
-      conn = await pool.getConnection();
-      const rows = await conn.query(query, [request_id]);
-      return rows.length > 0 ? rows[0].department_id : null;
+      const request = await prisma.request.findUnique({
+        where: { request_id: Number(request_id) },
+        select: {
+          user_id: true,
+        },
+      });
+
+      if (!request?.user_id) {
+        return null;
+      }
+
+      const user = await prisma.user.findUnique({
+        where: { user_id: request.user_id },
+        select: { department_id: true },
+      });
+
+      return user?.department_id || null;
 
     } catch (error) {
-      console.error('Error getting request department:', error);
+      console.error("Error getting request department:", error);
       throw error;
-
-    } finally {
-      if (conn) conn.release();
     }
   },
   
   // Cancel travel request
   async cancelTravelRequest(request_id) {
-    let conn;
-    const query = `
-      UPDATE Request
-      SET request_status_id = 8
-      WHERE request_id = ?
-    `;
-
     try {
-      conn = await pool.getConnection();
-      await conn.query(query, [request_id]);
+      await prisma.request.updateMany({
+        where: { request_id: Number(request_id) },
+        data: { request_status_id: 8 },
+      });
       return true;
 
     } catch (error) {
-      console.error('Error cancelling request:', error);
+      console.error("Error cancelling request:", error);
       throw error;
-
-    } finally {
-      if (conn) conn.release();
     }
   },
   
   // Get completed requests for an applicant
   async getCompletedRequests(userId) {
-    let conn;
-    const query = `
-      SELECT request_id,
-      origin_countries,
-      destination_countries,
-      beginning_dates,
-      ending_dates,
-      creation_date,
-      status
-      FROM RequestWithRouteDetails
-      WHERE user_id = ?
-      AND status IN ('Finalizado', 'Cancelado', 'Rechazado')
-    `;
-
     try {
-      conn = await pool.getConnection();
-      const rows = await conn.query(query, [userId]);
-      return rows;
+      const requests = await prisma.request.findMany({
+        where: { user_id: Number(userId) },
+        select: {
+          request_id: true,
+          creation_date: true,
+          Request_status: {
+            select: { status: true },
+          },
+          Route_Request: {
+            include: {
+              Route: {
+                include: {
+                  Country_Route_id_origin_countryToCountry: {
+                    select: { country_name: true },
+                  },
+                  Country_Route_id_destination_countryToCountry: {
+                    select: { country_name: true },
+                  },
+                  City_Route_id_origin_cityToCity: {
+                    select: { city_name: true },
+                  },
+                  City_Route_id_destination_cityToCity: {
+                    select: { city_name: true },
+                  },
+                },
+              },
+            },
+          },
+        },
+      });
+
+      return requests
+        .filter((request) => ['Finalizado', 'Cancelado', 'Rechazado'].includes(request.Request_status?.status ?? ''))
+        .map((request) => {
+          const routes = request.Route_Request
+            .map((row) => row.Route)
+            .filter(Boolean);
+
+          return {
+            request_id: request.request_id,
+            origin_countries: formatRouteTrip(routes, (route) => route.Country_Route_id_origin_countryToCountry?.country_name),
+            destination_countries: formatRouteTrip(routes, (route) => route.Country_Route_id_destination_countryToCountry?.country_name),
+            beginning_dates: formatRouteTrip(routes, (route) => formatDateOnly(route.beginning_date)),
+            ending_dates: formatRouteTrip(routes, (route) => formatDateOnly(route.ending_date)),
+            creation_date: request.creation_date,
+            status: request.Request_status?.status ?? null,
+          };
+        });
 
     } catch (error) {
-      console.error('Error getting completed requests:', error);
+      console.error("Error getting completed requests:", error);
       throw error;
-
-    } finally {
-      if (conn) {
-        conn.release();
-      }
     }
   },
   
   // Get applicant requests
   async getApplicantRequests(userId) {
-    let conn;
-    const query = `
-      SELECT
-        r.request_id,
-        rs.status AS status,
-        c.country_name AS destination_country,
-        ro.beginning_date,
-        ro.ending_date,
-        r.assigned_to,
-        u.user_name AS assigned_to_name
-      FROM Request r
-      JOIN Route_Request rr ON r.request_id = rr.request_id
-      JOIN Route ro ON rr.route_id = ro.route_id
-      JOIN Country c ON ro.id_destination_country = c.country_id
-      JOIN Request_status rs ON r.request_status_id = rs.request_status_id
-      LEFT JOIN User u ON r.assigned_to = u.user_id
-      WHERE r.user_id = ?
-        AND r.request_status_id NOT IN (7, 8, 9)
-      GROUP BY r.request_id
-    `;
-
     try {
-      conn = await pool.getConnection();
-      const rows = await conn.query(query, [userId]);
-      return rows;
+      const requests = await prisma.request.findMany({
+        where: {
+          user_id: Number(userId),
+          request_status_id: {
+            notIn: [7, 8, 9],
+          },
+        },
+        select: {
+          request_id: true,
+          assigned_to: true,
+          Request_status: {
+            select: { status: true },
+          },
+          User_Request_assigned_toToUser: {
+            select: { user_name: true },
+          },
+          Route_Request: {
+            include: {
+              Route: {
+                include: {
+                  Country_Route_id_destination_countryToCountry: {
+                    select: { country_name: true },
+                  },
+                },
+              },
+            },
+          },
+        },
+      });
+
+      return requests.map((request) => {
+        const firstRoute = sortRoutesByIndex(
+          request.Route_Request.map((row) => row.Route).filter(Boolean),
+        )[0] ?? null;
+
+        return {
+          request_id: request.request_id,
+          status: request.Request_status?.status ?? null,
+          destination_country: firstRoute?.Country_Route_id_destination_countryToCountry?.country_name ?? null,
+          beginning_date: firstRoute?.beginning_date ?? null,
+          ending_date: firstRoute?.ending_date ?? null,
+          assigned_to: request.assigned_to,
+          assigned_to_name: request.User_Request_assigned_toToUser?.user_name ?? null,
+        };
+      });
 
     } catch (error) {
       console.error("Error in getApplicantRequests:", error);
       throw error;
-
-    } finally {
-      if (conn) conn.release();
     }
   },
   
   async getApplicantRequest(userId) {
-    let conn;
-    const query = `
-      SELECT
-        r.request_id,
-        rs.status AS request_status,
-        r.notes,
-        r.requested_fee,
-        r.imposed_fee,
-        r.request_days,
-        r.creation_date,
-        r.last_mod_date,
-        u.user_name,
-        u.email AS user_email,
-        u.phone_number AS user_phone_number,
-    
-        co1.country_name AS origin_country,
-        ci1.city_name AS origin_city,
-        co2.country_name AS destination_country,
-        ci2.city_name AS destination_city,
-
-        ro.route_id,
-        ro.router_index,
-        ro.beginning_date,
-        ro.beginning_time,
-        ro.ending_date,
-        ro.ending_time,
-        ro.hotel_needed,
-        ro.plane_needed
-    
-      FROM Request r
-      JOIN User u ON r.user_id = u.user_id
-      JOIN Request_status rs ON r.request_status_id = rs.request_status_id
-      LEFT JOIN Route_Request rr ON r.request_id = rr.request_id
-      LEFT JOIN Route ro ON rr.route_id = ro.route_id
-      LEFT JOIN Country co1 ON ro.id_origin_country = co1.country_id
-      LEFT JOIN City ci1 ON ro.id_origin_city = ci1.city_id
-      LEFT JOIN Country co2 ON ro.id_destination_country = co2.country_id
-      LEFT JOIN City ci2 ON ro.id_destination_city = ci2.city_id
-    
-      WHERE r.request_id = ?
-      ORDER BY ro.router_index ASC
-    `;
-
     try {
-      conn = await pool.getConnection();
-      const rows = await conn.query(query, [userId]);
-      return rows;
+      const request = await prisma.request.findUnique({
+        where: { request_id: Number(userId) },
+        include: {
+          Request_status: true,
+          User_Request_user_idToUser: {
+            select: {
+              user_name: true,
+              email: true,
+              phone_number: true,
+            },
+          },
+          Route_Request: {
+            include: {
+              Route: {
+                include: {
+                  Country_Route_id_origin_countryToCountry: {
+                    select: { country_name: true },
+                  },
+                  City_Route_id_origin_cityToCity: {
+                    select: { city_name: true },
+                  },
+                  Country_Route_id_destination_countryToCountry: {
+                    select: { country_name: true },
+                  },
+                  City_Route_id_destination_cityToCity: {
+                    select: { city_name: true },
+                  },
+                },
+              },
+            },
+          },
+        },
+      });
+
+      if (!request) {
+        return [];
+      }
+
+      const base = {
+        request_id: request.request_id,
+        request_status: request.Request_status?.status ?? null,
+        notes: request.notes,
+        requested_fee: request.requested_fee,
+        imposed_fee: request.imposed_fee,
+        request_days: request.request_days,
+        creation_date: request.creation_date,
+        last_mod_date: request.last_mod_date,
+        user_name: request.User_Request_user_idToUser?.user_name ?? null,
+        user_email: request.User_Request_user_idToUser?.email ?? null,
+        user_phone_number: request.User_Request_user_idToUser?.phone_number ?? null,
+      };
+
+      const routeRows = request.Route_Request
+        .map((row) => row.Route)
+        .filter(Boolean)
+        .sort((a, b) => (a.router_index ?? 0) - (b.router_index ?? 0));
+
+      if (routeRows.length === 0) {
+        return [
+          {
+            ...base,
+            route_id: null,
+            router_index: null,
+            origin_country: null,
+            origin_city: null,
+            destination_country: null,
+            destination_city: null,
+            beginning_date: null,
+            beginning_time: null,
+            ending_date: null,
+            ending_time: null,
+            hotel_needed: null,
+            plane_needed: null,
+          },
+        ];
+      }
+
+      return routeRows.map((route) => ({
+        ...base,
+        route_id: route.route_id,
+        router_index: route.router_index,
+        origin_country: route.Country_Route_id_origin_countryToCountry?.country_name ?? null,
+        origin_city: route.City_Route_id_origin_cityToCity?.city_name ?? null,
+        destination_country: route.Country_Route_id_destination_countryToCountry?.country_name ?? null,
+        destination_city: route.City_Route_id_destination_cityToCity?.city_name ?? null,
+        beginning_date: route.beginning_date,
+        beginning_time: route.beginning_time,
+        ending_date: route.ending_date,
+        ending_time: route.ending_time,
+        hotel_needed: route.hotel_needed,
+        plane_needed: route.plane_needed,
+      }));
 
     } catch (error) {
       console.error("Error in getApplicantRequest:", error);
       throw error;
-
-    } finally {
-      if (conn) conn.release();
     }
   },
   
@@ -699,41 +675,26 @@ const Applicant = {
   * @returns {number} number of inserted rows
   */
   async createExpenseBatch(receipts) {
-    const conn = await pool.getConnection();
-    try {
-      await conn.beginTransaction();
-      
-      const insertedRows = [];
-      
-      for (const r of receipts) {
-        const result = await conn.query(`
-          INSERT INTO Receipt (receipt_type_id, request_id, route_id, amount, currency)
-          VALUES (?, ?, ?, ?, ?)
-          `,
-          [r.receipt_type_id, r.request_id, r.route_id, r.amount, r.currency || 'MXN']
-        );
-        insertedRows.push(result);
-      }
-      
-      await conn.commit();
-      return insertedRows.length;
+    const created = await prisma.$transaction(
+      receipts.map((r) =>
+        prisma.receipt.create({
+          data: {
+            receipt_type_id: Number(r.receipt_type_id),
+            request_id: Number(r.request_id),
+            route_id: Number(r.route_id),
+            amount: Number(r.amount),
+            currency: r.currency || "MXN",
+          },
+        }),
+      ),
+    );
 
-    } catch (err) {
-      await conn.rollback();
-      throw err;
-
-    } finally {
-      conn.release();
-    }
+    return created.length;
   },
   
   // Create draft travel request
   async createDraftTravelRequest(user_id, savedDetails) {
-    let conn;
     try {
-      conn = await pool.getConnection();
-      await conn.beginTransaction();
-      
       // Destructure travel details from request body
       // adding default values
       const {
@@ -777,97 +738,25 @@ const Applicant = {
       // Get the boss (checking if they're out of office)
       const bossId = await User.getBossId(user_id);
 
-      // Set query to insert into Request table
-      const insertIntoRequestTable = `
-        INSERT INTO Request (
-          user_id,
-          request_status_id,
-          assigned_to,
-          authorization_level,
-          notes,
-          requested_fee,
-          imposed_fee,
-          request_days
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-      `;
-      
-      // Set status to 1 ('Abierto')
-      const requestTableResult = await conn.execute(insertIntoRequestTable, [
-        user_id,
-        1, // Set status to 1 ('Abierto')
-        bossId,  // assigned_to = boss_id (or null if no boss or boss out of office with no substitute)
-        0,                     // authorization_level = 0 (starting level)
-        0,                     // authorization_level = 0 (starting level)
-        notes,
-        requested_fee,
-        imposed_fee,
-        request_days,
-      ]);
-      
-      const requestId = requestTableResult.insertId;
-      
-      // Step 2: Insert into Country & City table
-      for (const route of allRoutes) {
-        try {
-          
-          console.log("Processing route:", route);
-          let
-          id_origin_country,
-          id_destination_country,
-          id_origin_city,
-          id_destination_city;
-          
-          // Search if the country exists in the database
-          id_origin_country = await getCountryId(conn, route.origin_country_name);
-          id_destination_country = await getCountryId(conn, route.destination_country_name);
-          console.log("Country IDs:", id_origin_country, id_destination_country);
-          
-          // Search if the city exists in the database
-          id_origin_city = await getCityId(conn, route.origin_city_name);
-          id_destination_city = await getCityId(conn, route.destination_city_name);
-          console.log("City IDs:", id_origin_city, id_destination_city);
-          
-          // Insert into Route table query
-          const insertRouteTable = `
-            INSERT INTO Route (
-              id_origin_country, id_origin_city,
-              id_destination_country, id_destination_city,
-              router_index, plane_needed, hotel_needed,
-              beginning_date, beginning_time,
-              ending_date, ending_time
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-          `;
-          
-          // Execute the query to insert into Route table
-          let routeTableResult = await conn.query(insertRouteTable, [
-            id_origin_country,
-            id_origin_city,
-            id_destination_country,
-            id_destination_city,
-            route.router_index,
-            route.plane_needed,
-            route.hotel_needed,
-            route.beginning_date,
-            route.beginning_time,
-            route.ending_date,
-            route.ending_time,
-          ]);
-          
-          const routeId = routeTableResult.insertId;
-          
-          // Step 3: Insert into Route_Request table
-          const insertIntoRouteRequestTable = `
-            INSERT INTO Route_Request (request_id, route_id) VALUES (?, ?)
-          `;
-          await conn.query(insertIntoRouteRequestTable, [requestId, routeId]);
-          
-        } catch (error) {
-          console.error("Error processing route:", error);
-          throw new Error("Database Error: Unable to process route");
-        }
-      }
-      // Commit the transaction
-      await conn.commit();
+      const requestId = await prisma.$transaction(async (tx) => {
+        const createdRequest = await tx.request.create({
+          data: {
+            user_id: Number(user_id),
+            request_status_id: 1,
+            assigned_to: bossId,
+            authorization_level: 0,
+            notes,
+            requested_fee,
+            imposed_fee,
+            request_days,
+          },
+        });
+
+        await createRoutesForRequest(tx, createdRequest.request_id, allRoutes);
+
+        return createdRequest.request_id;
+      });
+
       console.log(`Draft travel request created with ID: ${requestId}`);
 
       return {
@@ -883,39 +772,30 @@ const Applicant = {
   
   // Confirm draft travel request
   async confirmDraftTravelRequest(userId, requestId) {
-    let conn;
     try {
-      conn = await pool.getConnection();
-      await conn.beginTransaction();
-      
-      // Get the role from the userId
-      const role = await conn.query(
-        `SELECT role_id FROM User WHERE user_id = ?`,
-        [userId],
-      );
+      await prisma.$transaction(async (tx) => {
+        const role = await tx.user.findUnique({
+          where: { user_id: Number(userId) },
+          select: { role_id: true },
+        });
 
-      let request_status;
-      if (role[0].role_id == 1 || role[0].role_id == 4) { // Solicitant or Authorizer
-        console.log("Role ID:", role[0].role_id);
-        request_status = 2; // Revision
-      } else {
-        throw new Error("User role in not allowed to create a travel request");
-      }
-      
-      // Update the request status
-      const updateRequestStatus = `
-        UPDATE Request
-        SET request_status_id = ?, last_mod_date = CURRENT_TIMESTAMP
-        WHERE request_id = ?
-      `;
-      
-      await conn.execute(updateRequestStatus, [
-        request_status,
-        requestId,
-      ]);
-      
-      // Commit the transaction
-      await conn.commit();
+        let request_status;
+        if (role?.role_id === 1 || role?.role_id === 4) {
+          console.log("Role ID:", role.role_id);
+          request_status = 2;
+        } else {
+          throw new Error("User role in not allowed to create a travel request");
+        }
+
+        await tx.request.update({
+          where: { request_id: Number(requestId) },
+          data: {
+            request_status_id: request_status,
+            last_mod_date: new Date(),
+          },
+        });
+      });
+
       console.log(`Draft travel request ${requestId} confirmed successfully.`);
 
       return {
@@ -929,78 +809,33 @@ const Applicant = {
     }
   },
   
-  // Get request status
-  async getRequestStatus(requestId) {
-    let conn;
-    try {
-      conn = await pool.getConnection();
-      const rows = await conn.query(
-        `SELECT request_status_id FROM Request WHERE request_id = ?`,
-        [requestId]
-      );
-      return rows[0]?.request_status_id || null;
-
-    } finally {
-      if (conn) conn.release();
-    }
-  },
-  
   // Update request status to validation stage
   async updateRequestStatusToValidationStage(requestId) {
-    let conn;
-    try {
-      conn = await pool.getConnection();
-      await conn.query(
-        `UPDATE Request SET request_status_id = 6 WHERE request_id = ?`,
-        [requestId]
-      );
-
-    } finally {
-      if (conn) conn.release();
-    }
+    await prisma.request.updateMany({
+      where: { request_id: Number(requestId) },
+      data: { request_status_id: 6 },
+    });
   },
 
   // Update request status to a specific status ID
   async updateRequestStatus(requestId, statusId) {
-    let conn;
-    try {
-      conn = await pool.getConnection();
-      await conn.query(
-        `UPDATE Request SET request_status_id = ? WHERE request_id = ?`,
-        [statusId, requestId]
-      );
-
-    } finally {
-      if (conn) conn.release();
-    }
+    await prisma.request.updateMany({
+      where: { request_id: Number(requestId) },
+      data: { request_status_id: Number(statusId) },
+    });
   },
   
   // Get a specific receipt by ID
   async getReceipt(receiptId) {
-    let conn;
     try {
-      conn = await pool.getConnection();
-      
-      const query = `
-        SELECT
-          r.receipt_id,
-          r.request_id,
-          r.route_id,
-          r.validation,
-          r.amount,
-          r.currency,
-          r.submission_date,
-          rt.receipt_type_name,
-          r.pdf_file_id,
-          r.pdf_file_name,
-          r.xml_file_id,
-          r.xml_file_name
-        FROM Receipt r
-        JOIN Receipt_Type rt ON r.receipt_type_id = rt.receipt_type_id
-        WHERE r.receipt_id = ?
-      `;
-      
-      const [receipt] = await conn.query(query, [receiptId]);
+      const receipt = await prisma.receipt.findUnique({
+        where: { receipt_id: Number(receiptId) },
+        include: {
+          receipt_Type: {
+            select: { receipt_type_name: true },
+          },
+        },
+      });
       
       return receipt ? {
         receipt_id: receipt.receipt_id,
@@ -1010,7 +845,7 @@ const Applicant = {
         amount: receipt.amount,
         currency: receipt.currency,
         submission_date: receipt.submission_date,
-        receipt_type_name: receipt.receipt_type_name,
+        receipt_type_name: receipt.receipt_Type?.receipt_type_name ?? null,
         pdf_id: receipt.pdf_file_id,
         pdf_name: receipt.pdf_file_name,
         xml_id: receipt.xml_file_id,
@@ -1020,112 +855,74 @@ const Applicant = {
     } catch (error) {
       console.error('Error getting receipt:', error);
       throw error;
-    } finally {
-      if (conn) conn.release();
     }
   },
 
   // Update receipt details
   async updateReceipt(receiptId, data) {
-    let conn;
     try {
-      conn = await pool.getConnection();
-      await conn.beginTransaction();
-      
-      // First check if the receipt exists
-      const [receipt] = await conn.query(
-        `SELECT receipt_type_id FROM Receipt WHERE receipt_id = ?`,
-        [receiptId]
-      );
-      
-      if (!receipt) {
-        throw new Error('Receipt not found');
-      }
-      
-      // Get the receipt_type_id from the receipt_type_name
-      const [receiptType] = await conn.query(
-        `SELECT receipt_type_id FROM Receipt_Type WHERE receipt_type_name = ?`,
-        [data.receipt_type_name]
-      );
-      
-      if (!receiptType) {
-        throw new Error('Invalid receipt type');
-      }
-      
-      // Update the receipt
-      const query = `
-        UPDATE Receipt 
-        SET 
-          route_id = ?,
-          receipt_type_id = ?,
-          amount = ?,
-          currency = ?
-        WHERE receipt_id = ?
-      `;
-      
-      const result = await conn.query(query, [
-        data.route_id,
-        receiptType.receipt_type_id,
-        data.amount,
-        data.currency,
-        receiptId
-      ]);
-      
-      if (result.affectedRows === 0) {
-        throw new Error('Failed to update receipt');
-      }
-      
-      await conn.commit();
+      await prisma.$transaction(async (tx) => {
+        const receipt = await tx.receipt.findUnique({
+          where: { receipt_id: Number(receiptId) },
+          select: { receipt_id: true },
+        });
+
+        if (!receipt) {
+          throw new Error("Receipt not found");
+        }
+
+        const receiptType = await tx.receipt_Type.findUnique({
+          where: { receipt_type_name: data.receipt_type_name },
+          select: { receipt_type_id: true },
+        });
+
+        if (!receiptType) {
+          throw new Error("Invalid receipt type");
+        }
+
+        await tx.receipt.update({
+          where: { receipt_id: Number(receiptId) },
+          data: {
+            route_id: Number(data.route_id),
+            receipt_type_id: receiptType.receipt_type_id,
+            amount: Number(data.amount),
+            currency: data.currency,
+          },
+        });
+      });
       
       // Return the updated receipt
       return this.getReceipt(receiptId);
       
     } catch (error) {
-      if (conn) await conn.rollback();
       console.error('Error updating receipt:', error);
       throw error;
-    } finally {
-      if (conn) conn.release();
     }
   },
   
   // Delete a recepit by ID
   async deleteReceipt(receiptId) {
-    let conn;
     try {
-      conn = await pool.getConnection();
-      await conn.beginTransaction();
-      
-      // First check if the receipt exists
-      const [receipt] = await conn.query(
-        `SELECT * FROM Receipt WHERE receipt_id = ?`,
-        [receiptId]
-      );
-      
-      if (!receipt) {
-        throw new Error('Receipt not found');
-      }
-      
-      // Delete the receipt
-      const result = await conn.query(
-        `DELETE FROM Receipt WHERE receipt_id = ?`,
-        [receiptId]
-      );
-      
-      if (result.affectedRows === 0) {
-        throw new Error('Failed to delete receipt');
-      }
-      
-      await conn.commit();
+      await prisma.$transaction(async (tx) => {
+        const receipt = await tx.receipt.findUnique({
+          where: { receipt_id: Number(receiptId) },
+          select: { receipt_id: true },
+        });
+
+        if (!receipt) {
+          throw new Error("Receipt not found");
+        }
+
+        await tx.receipt.delete({
+          where: { receipt_id: Number(receiptId) },
+        });
+      });
+
       return true;
 
     } catch (error) {
-      if (conn) await conn.rollback();
       console.error('Error deleting receipt:', error);
       throw error;
-      
-    } finally {
-      if (conn) conn.release();
     }
   },
 
@@ -1144,49 +941,29 @@ const Applicant = {
       xmlFile
     } = data;
 
-    let conn;
+    const result = await prisma.$transaction(async (tx) => {
+      const receipt = await tx.receipt.create({
+        data: {
+          receipt_type_id: Number(receipt_type_id),
+          request_id: Number(request_id),
+          route_id: Number(route_id),
+          amount: Number(amount),
+          currency,
+        },
+        select: { receipt_id: true },
+      });
 
-    try {
-      // Start transaction
-      conn = await pool.getConnection();
-      await conn.beginTransaction();
-
-      // 1. Create receipt record
-      const receiptResult = await conn.query(`
-        INSERT INTO Receipt (receipt_type_id, request_id, route_id, amount, currency)
-        VALUES (?, ?, ?, ?, ?)
-      `, [receipt_type_id, request_id, route_id, amount, currency]);
-      
-      // Convert BigInt to number if needed
-      let receiptId = receiptResult.insertId;
-      if (typeof receiptId === 'bigint') {
-        receiptId = Number(receiptId);
-      }
-
-      // 2. Upload files
-      const fileResult = await uploadReceiptFiles(receiptId, pdfFile, xmlFile, conn);
-      
-      await conn.commit();
+      const fileResult = await uploadReceiptFiles(receipt.receipt_id, pdfFile, xmlFile, tx);
 
       return {
-        receipt_id: receiptId,
+        receipt_id: receipt.receipt_id,
         pdf: fileResult.pdf,
         xml: fileResult.xml,
-        cfdiData: fileResult.cfdiData
+        cfdiData: fileResult.cfdiData,
       };
+    });
 
-    } catch (err) {
-      if (conn) {
-        try {
-          await conn.rollback();
-        } catch (rollbackErr) {
-          // Ignore rollback errors
-        }
-      }
-      throw err;
-    } finally {
-      if (conn) conn.release();
-    }
+    return result;
   }
 };
 
