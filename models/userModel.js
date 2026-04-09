@@ -332,6 +332,14 @@ const User = {
       return { success: false, message: 'No fields to update' };
     }
 
+    if (typeof data.out_of_office_start_date === 'string') {
+      data.out_of_office_start_date = new Date(data.out_of_office_start_date);
+    }
+
+    if (typeof data.out_of_office_end_date === 'string') {
+      data.out_of_office_end_date = new Date(data.out_of_office_end_date);
+    }
+
     await prisma.user.update({
       where: { user_id: Number(userId) },
       data,

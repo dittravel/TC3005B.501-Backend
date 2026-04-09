@@ -76,6 +76,20 @@ const CITIES = [
   'Bogotá',
   'Madrid',
   'Barcelona',
+  'Paris',
+  'Lyon',
+  'Londres',
+  'Manchester',
+  'Berlín',
+  'Munich',
+  'Roma',
+  'Venecia',
+  'Tokyo',
+  'Kyoto',
+  'Pekín',
+  'Hong Kong',
+  'Bombay',
+  'Nueva Delhi',
 ];
 
 async function seedDummyCostCenters() {
