@@ -36,6 +36,7 @@ export const getUserList = async (req, res) => {
       email: user.email,
       role_name: user.role_name,
       department_name: user.department_name,
+      cost_center_name: user.cost_center_name,
       phone_number: user.phone_number,
     }));
     res.status(200).json(formattedUsers);

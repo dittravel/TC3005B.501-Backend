@@ -10,6 +10,7 @@
  */
 import Applicant from "../models/applicantModel.js";
 import { cancelTravelRequestValidation, createExpenseValidationBatch, sendReceiptsForValidation } from '../services/applicantService.js';
+import ReimbursementPolicyService from '../services/reimbursementPolicyService.js';
 import { decrypt } from '../middleware/decryption.js';
 import { sendEmails } from "../services/email/emailService.js";
 
@@ -423,6 +424,28 @@ export async function createExpenseWithFilesHandler(req, res) {
       return res.status(400).json({ error: "Missing required fields" });
     }
 
+    // Check submission deadline against active reimbursement policy before saving
+    try {
+      const deadlineStatus = await ReimbursementPolicyService.getRequestDeadlineStatus(Number(request_id));
+      if (deadlineStatus.policy_configured) {
+        const ruleDeadline = deadlineStatus.per_rule_deadlines.find(
+          r => r.receipt_type_id === Number(receipt_type_id)
+        );
+        if (ruleDeadline && !ruleDeadline.is_within_deadline) {
+          return res.status(422).json({
+            error: 'Submission deadline exceeded for this receipt type',
+            deadline_date: ruleDeadline.deadline_date,
+            days_overdue: Math.abs(ruleDeadline.days_remaining),
+          });
+        }
+      }
+    } catch (deadlineError) {
+      // 404 = no active policy configured — allow submission
+      if (!deadlineError.status || deadlineError.status !== 404) {
+        throw deadlineError;
+      }
+    }
+
     // Create the expense and upload files
     const result = await Applicant.createExpenseWithFiles({
       receipt_type_id: Number(receipt_type_id),
@@ -457,6 +480,21 @@ export async function createExpenseWithFilesHandler(req, res) {
   }
 }
 
+// Get deadline status for a request — tells frontend if the submission window is still open
+export const getDeadlineStatus = async (req, res) => {
+  const requestId = Number(req.params.request_id);
+  try {
+    const status = await ReimbursementPolicyService.getRequestDeadlineStatus(requestId);
+    return res.status(200).json(status);
+  } catch (err) {
+    if (err.status === 404) {
+      return res.status(404).json({ error: err.message });
+    }
+    console.error('Error in getDeadlineStatus controller:', err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
 export default {
   getApplicantById,
   getApplicantRequests,
@@ -474,5 +512,6 @@ export default {
   getReceipt,
   updateReceipt,
   updateRequestStatus,
-  createExpenseWithFilesHandler
+  createExpenseWithFilesHandler,
+  getDeadlineStatus,
 };

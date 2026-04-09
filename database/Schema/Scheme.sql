@@ -344,8 +344,8 @@ CREATE TABLE IF NOT EXISTS Receipt (
 -- Permission: Catalogue of all actions available in the system
 CREATE TABLE IF NOT EXISTS Permission (
     permission_id   INT          PRIMARY KEY AUTO_INCREMENT,
-    permission_key  VARCHAR(50)  UNIQUE NOT NULL,  -- Unique key, format module:action (e.g. travel:approve)
-    permission_name VARCHAR(100) NOT NULL,          -- Human-readable label shown in config UI
+    permission_key  VARCHAR(50)  UNIQUE NOT NULL,   -- Unique key, format module:action (e.g. travel:approve)
+    permission_name VARCHAR(100) NOT NULL,          -- Label shown in config UI
     module          VARCHAR(50)  NOT NULL,          -- Groups permissions by section (users, travel_requests, etc.)
     action          VARCHAR(50)  NOT NULL,          -- Verb category (view, create, approve_reject, etc.)
     description     VARCHAR(100) DEFAULT NULL       -- Optional detail about the permission
@@ -368,3 +368,31 @@ CREATE TABLE IF NOT EXISTS Role_Permission (
         ON DELETE CASCADE ON UPDATE CASCADE
 );
 
+-- ============================================================================
+-- Accountability Tables
+-- ============================================================================
+
+-- Accounting Account table
+CREATE TABLE IF NOT EXISTS Account (
+    account_id INT PRIMARY KEY AUTO_INCREMENT,
+    account_code VARCHAR(20) NOT NULL,      -- Account code (e.g. 1001, 1111, 1000, etc.)
+    account_name VARCHAR(100) NOT NULL,     -- Account name (e.g. Gasto de Viaje)
+    account_type VARCHAR(100) NOT NULL      -- Account type (e.g. Gasto, Recurso, etc.)
+);
+
+-- Tax table
+CREATE TABLE IF NOT EXISTS Tax (
+    tax_id INT PRIMARY KEY AUTO_INCREMENT,
+    tax_code VARCHAR(20) NOT NULL,      -- Tax code (e.g VAT16 (16% de IVA), Excento, etc.)
+    tax_rate DECIMAL(15,2) NOT NULL     -- Tax rate
+);
+
+-- Receipt Type Account table: Link table between Receipt_Type table and Account table
+CREATE TABLE IF NOT EXISTS ReceiptType_Account (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    receipt_type_id INT NOT NULL,   -- Receipt type linked to the account
+    account_id INT NOT NULL,         -- Account linked to the receipt type
+
+    FOREIGN KEY (receipt_type_id) REFERENCES Receipt_Type(receipt_type_id),
+    FOREIGN KEY (account_id) REFERENCES Account(account_id)
+);

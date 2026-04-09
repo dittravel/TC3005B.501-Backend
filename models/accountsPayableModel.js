@@ -142,6 +142,24 @@ const AccountsPayable = {
       where: { request_id: requestId },
       include: {
         Receipt_Type: { select: { receipt_type_name: true } },
+        Request: {
+          select: {
+            requester: {
+              select: {
+                department: {
+                  select: {
+                    department_name: true,
+                    CostCenter: {
+                      select: {
+                        cost_center_name: true,
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
       },
     });
     if (receipts.length === 0) {
@@ -160,10 +178,13 @@ const AccountsPayable = {
     return {
       request_id: requestId,
       status: expense_status,
+      department_name: receipts[0].Request?.requester?.department?.department_name ?? null,
+      cost_center_name:
+        receipts[0].Request?.requester?.department?.CostCenter?.cost_center_name ?? null,
       Expenses: receipts.map(row => ({
         receipt_id: row.receipt_id,
         route_id: row.route_id,
-        receipt_type_name: row.receipt_type?.receipt_type_name ?? null,
+        receipt_type_name: row.Receipt_Type?.receipt_type_name ?? null,
         amount: row.amount,
         currency: row.currency,
         validation: row.validation,
@@ -171,7 +192,9 @@ const AccountsPayable = {
         pdf_id: row.pdf_file_id,
         pdf_name: row.pdf_file_name,
         xml_id: row.xml_file_id,
-        xml_name: row.xml_file_name
+        xml_name: row.xml_file_name,
+        department_name: row.Request?.requester?.department?.department_name ?? null,
+        cost_center_name: row.Request?.requester?.department?.CostCenter?.cost_center_name ?? null,
       }))
     };
   },
