@@ -8,13 +8,11 @@
 import { pathToFileURL } from 'node:url';
 import bcrypt from 'bcrypt';
 import { prisma } from '../lib/prisma.js';
+import { seedEmptyDatabase } from './seed.js';
 import {
   ADMIN_COST_CENTER_NAME,
   ADMIN_DEPARTMENT_NAME,
   encryptSeedValue,
-  loadDummyUsersFromCsvV2,
-  seedAdminAccount,
-  seedReferenceData,
 } from './seedShared.js';
 
 const COST_CENTER_NAMES = [
@@ -92,6 +90,69 @@ const CITIES = [
   'Nueva Delhi',
 ];
 
+const DUMMY_USERS = [
+  {
+    role_name: 'Autorizador',
+    department_name: 'Finanzas',
+    user_name: 'laura.flores',
+    password: '123',
+    workstation: 'WS104',
+    email: 'laura.flores@empresa.com',
+    phone_number: '555-1004',
+    boss_user_name: null,
+  },
+  {
+    role_name: 'Autorizador',
+    department_name: 'Finanzas',
+    user_name: 'diego.hernandez',
+    password: '123',
+    workstation: 'WS105',
+    email: 'diego.hernandez@empresa.com',
+    phone_number: '555-1005',
+    boss_user_name: 'laura.flores',
+  },
+  {
+    role_name: 'Solicitante',
+    department_name: 'Finanzas',
+    user_name: 'andres.gomez',
+    password: '123',
+    workstation: 'WS101',
+    email: 'andres.gomez@empresa.com',
+    phone_number: '555-1001',
+    boss_user_name: 'diego.hernandez',
+  },
+  {
+    role_name: 'Agencia de viajes',
+    department_name: 'Finanzas',
+    user_name: 'paula.martinez',
+    password: '123',
+    workstation: 'WS102',
+    email: 'paula.martinez@empresa.com',
+    phone_number: '555-1002',
+    boss_user_name: null,
+  },
+  {
+    role_name: 'Cuentas por pagar',
+    department_name: 'Finanzas',
+    user_name: 'carlos.ramos',
+    password: '123',
+    workstation: 'WS103',
+    email: 'carlos.ramos@empresa.com',
+    phone_number: '555-1003',
+    boss_user_name: null,
+  },
+  {
+    role_name: 'Administrador',
+    department_name: 'Admin',
+    user_name: 'admin',
+    password: '123',
+    workstation: 'WS000',
+    email: 'admin@empresa.com',
+    phone_number: '555-0000',
+    boss_user_name: null,
+  },
+];
+
 async function seedDummyCostCenters() {
   console.log('Creating dummy cost centers...');
   for (const cost_center_name of COST_CENTER_NAMES) {
@@ -153,11 +214,9 @@ async function seedDummyCities() {
 }
 
 async function seedDummyUsers() {
-  console.log('Creating dummy users from dummy_usersV2.csv...');
-  const usersData = loadDummyUsersFromCsvV2();
-  const rowToUserId = new Map();
+  console.log('Creating hardcoded dummy users...');
 
-  for (const [index, userData] of usersData.entries()) {
+  for (const userData of DUMMY_USERS) {
 
     const role = await prisma.role.findUnique({
       where: { role_name: userData.role_name },
@@ -176,7 +235,7 @@ async function seedDummyUsers() {
     const encryptedEmail = encryptSeedValue(userData.email);
     const encryptedPhoneNumber = userData.phone_number ? encryptSeedValue(userData.phone_number) : null;
 
-    const user = await prisma.user.upsert({
+    await prisma.user.upsert({
       where: { user_name: userData.user_name },
       create: {
         user_name: userData.user_name,
@@ -198,31 +257,30 @@ async function seedDummyUsers() {
         department_id: department.department_id,
         active: true,
       },
-      select: {
-        user_id: true,
-      },
     });
-
-    rowToUserId.set(index + 1, user.user_id);
   }
 
-  for (const userData of usersData) {
-    if (!userData.boss_id) {
+  for (const userData of DUMMY_USERS) {
+    if (!userData.boss_user_name) {
       continue;
     }
 
-    const bossUserId = rowToUserId.get(userData.boss_id);
-    if (!bossUserId) {
-      throw new Error(`Missing boss reference ${userData.boss_id} for user ${userData.user_name}`);
+    const boss = await prisma.user.findUnique({
+      where: { user_name: userData.boss_user_name },
+      select: { user_id: true },
+    });
+
+    if (!boss) {
+      throw new Error(`Missing boss reference ${userData.boss_user_name} for user ${userData.user_name}`);
     }
 
     await prisma.user.update({
       where: { user_name: userData.user_name },
-      data: { boss_id: bossUserId },
+      data: { boss_id: boss.user_id },
     });
   }
 
-  console.log(`Created or updated ${usersData.length} dummy users`);
+  console.log(`Created or updated ${DUMMY_USERS.length} dummy users`);
 }
 
 async function seedDummyTravelFixtures() {
@@ -431,8 +489,7 @@ async function main() {
   console.log('Starting dummy Prisma seed...');
 
   try {
-    await seedReferenceData(prisma);
-    await seedAdminAccount(prisma);
+    await seedEmptyDatabase();
     await seedDummyLocationsAndUsers();
 
     console.log('\nSeed with dummy data completed successfully!');

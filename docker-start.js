@@ -65,15 +65,6 @@ function ensureMigrationsApplied() {
   }
 }
 
-function runSeed() {
-  const seedMode = String(process.env.SEED_MODE || 'dummy').toLowerCase();
-  const seedScript = seedMode === 'empty' ? 'prisma/seed.js' : 'prisma/seedDummy.js';
-  const seedResult = run('node', [seedScript]);
-  if (seedResult.status !== 0) {
-    exitWithResult(seedResult);
-  }
-}
-
 function main() {
   const generateResult = run('pnpm', ['prisma:generate']);
   if (generateResult.status !== 0) {
@@ -81,7 +72,6 @@ function main() {
   }
 
   ensureMigrationsApplied();
-  runSeed();
 
   const serverResult = run('node', ['index.js']);
   exitWithResult(serverResult);

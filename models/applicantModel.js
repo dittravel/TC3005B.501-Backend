@@ -470,16 +470,16 @@ const Applicant = {
             include: {
               Route: {
                 include: {
-                  Country_Route_id_origin_countryToCountry: {
+                  originCountry: {
                     select: { country_name: true },
                   },
-                  Country_Route_id_destination_countryToCountry: {
+                  destinationCountry: {
                     select: { country_name: true },
                   },
-                  City_Route_id_origin_cityToCity: {
+                  originCity: {
                     select: { city_name: true },
                   },
-                  City_Route_id_destination_cityToCity: {
+                  destinationCity: {
                     select: { city_name: true },
                   },
                 },
@@ -498,8 +498,8 @@ const Applicant = {
 
           return {
             request_id: request.request_id,
-            origin_countries: formatRouteTrip(routes, (route) => route.Country_Route_id_origin_countryToCountry?.country_name),
-            destination_countries: formatRouteTrip(routes, (route) => route.Country_Route_id_destination_countryToCountry?.country_name),
+            origin_countries: formatRouteTrip(routes, (route) => route.originCountry?.country_name),
+            destination_countries: formatRouteTrip(routes, (route) => route.destinationCountry?.country_name),
             beginning_dates: formatRouteTrip(routes, (route) => formatDateOnly(route.beginning_date)),
             ending_dates: formatRouteTrip(routes, (route) => formatDateOnly(route.ending_date)),
             creation_date: request.creation_date,
@@ -529,14 +529,14 @@ const Applicant = {
           Request_status: {
             select: { status: true },
           },
-          User_Request_assigned_toToUser: {
+          assignedUser: {
             select: { user_name: true },
           },
           Route_Request: {
             include: {
               Route: {
                 include: {
-                  Country_Route_id_destination_countryToCountry: {
+                  destinationCountry: {
                     select: { country_name: true },
                   },
                 },
@@ -554,11 +554,11 @@ const Applicant = {
         return {
           request_id: request.request_id,
           status: request.Request_status?.status ?? null,
-          destination_country: firstRoute?.Country_Route_id_destination_countryToCountry?.country_name ?? null,
+          destination_country: firstRoute?.destinationCountry?.country_name ?? null,
           beginning_date: firstRoute?.beginning_date ?? null,
           ending_date: firstRoute?.ending_date ?? null,
           assigned_to: request.assigned_to,
-          assigned_to_name: request.User_Request_assigned_toToUser?.user_name ?? null,
+          assigned_to_name: request.assignedUser?.user_name ?? null,
         };
       });
 
@@ -574,7 +574,7 @@ const Applicant = {
         where: { request_id: Number(userId) },
         include: {
           Request_status: true,
-          User_Request_user_idToUser: {
+          requester: {
             select: {
               user_name: true,
               email: true,
@@ -585,16 +585,16 @@ const Applicant = {
             include: {
               Route: {
                 include: {
-                  Country_Route_id_origin_countryToCountry: {
+                  originCountry: {
                     select: { country_name: true },
                   },
-                  City_Route_id_origin_cityToCity: {
+                  originCity: {
                     select: { city_name: true },
                   },
-                  Country_Route_id_destination_countryToCountry: {
+                  destinationCountry: {
                     select: { country_name: true },
                   },
-                  City_Route_id_destination_cityToCity: {
+                  destinationCity: {
                     select: { city_name: true },
                   },
                 },
@@ -617,9 +617,9 @@ const Applicant = {
         request_days: request.request_days,
         creation_date: request.creation_date,
         last_mod_date: request.last_mod_date,
-        user_name: request.User_Request_user_idToUser?.user_name ?? null,
-        user_email: request.User_Request_user_idToUser?.email ?? null,
-        user_phone_number: request.User_Request_user_idToUser?.phone_number ?? null,
+        user_name: request.requester?.user_name ?? null,
+        user_email: request.requester?.email ?? null,
+        user_phone_number: request.requester?.phone_number ?? null,
       };
 
       const routeRows = request.Route_Request
@@ -651,10 +651,10 @@ const Applicant = {
         ...base,
         route_id: route.route_id,
         router_index: route.router_index,
-        origin_country: route.Country_Route_id_origin_countryToCountry?.country_name ?? null,
-        origin_city: route.City_Route_id_origin_cityToCity?.city_name ?? null,
-        destination_country: route.Country_Route_id_destination_countryToCountry?.country_name ?? null,
-        destination_city: route.City_Route_id_destination_cityToCity?.city_name ?? null,
+        origin_country: route.originCountry?.country_name ?? null,
+        origin_city: route.originCity?.city_name ?? null,
+        destination_country: route.destinationCountry?.country_name ?? null,
+        destination_city: route.destinationCity?.city_name ?? null,
         beginning_date: route.beginning_date,
         beginning_time: route.beginning_time,
         ending_date: route.ending_date,
@@ -831,7 +831,7 @@ const Applicant = {
       const receipt = await prisma.receipt.findUnique({
         where: { receipt_id: Number(receiptId) },
         include: {
-          receipt_Type: {
+          Receipt_Type: {
             select: { receipt_type_name: true },
           },
         },
@@ -845,7 +845,7 @@ const Applicant = {
         amount: receipt.amount,
         currency: receipt.currency,
         submission_date: receipt.submission_date,
-        receipt_type_name: receipt.receipt_Type?.receipt_type_name ?? null,
+        receipt_type_name: receipt.Receipt_Type?.receipt_type_name ?? null,
         pdf_id: receipt.pdf_file_id,
         pdf_name: receipt.pdf_file_name,
         xml_id: receipt.xml_file_id,

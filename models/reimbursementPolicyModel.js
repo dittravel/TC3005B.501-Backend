@@ -29,33 +29,6 @@ function normalizePolicyRow(row) {
   };
 }
 
-function normalizeAssignmentRow(row) {
-  return {
-    assignment_id: row.assignment_id,
-    department_id: row.department_id,
-    department_name: row.department_name,
-    active: Boolean(row.active),
-    creation_date: row.creation_date,
-  };
-}
-
-function normalizeRuleRow(row) {
-  return {
-    rule_id: row.rule_id,
-    receipt_type_id: row.receipt_type_id,
-    receipt_type_name: row.receipt_type_name,
-    trip_scope: row.trip_scope,
-    max_amount_mxn: Number(row.max_amount_mxn),
-    submission_deadline_days: row.submission_deadline_days,
-    requires_xml: Boolean(row.requires_xml),
-    allow_foreign_without_xml: Boolean(row.allow_foreign_without_xml),
-    refundable: Boolean(row.refundable),
-    active: Boolean(row.active),
-    creation_date: row.creation_date,
-    last_mod_date: row.last_mod_date,
-  };
-}
-
 async function insertAssignments(tx, policyId, assignments) {
   if (!assignments?.length) {
     return;
@@ -92,7 +65,6 @@ async function insertRules(tx, policyId, rules) {
 
 const ReimbursementPolicyModel = {
   async getPolicyList() {
-    // Get all policies with assignment and rule counts
     const policies = await prisma.reimbursement_Policy.findMany({
       orderBy: [
         { active: 'desc' },
@@ -104,6 +76,7 @@ const ReimbursementPolicyModel = {
         Reimbursement_Policy_Rule: true,
       },
     });
+
     return policies.map((row) => ({
       policy_id: row.policy_id,
       policy_code: row.policy_code,
@@ -112,27 +85,24 @@ const ReimbursementPolicyModel = {
       effective_from: row.effective_from,
       effective_to: row.effective_to,
       active: Boolean(row.active),
-      assignment_count: row.Reimbursement_Policy_Assignment.filter(a => a.active).length,
-      rule_count: row.Reimbursement_Policy_Rule.filter(r => r.active).length,
+      assignment_count: row.Reimbursement_Policy_Assignment.filter((a) => a.active).length,
+      rule_count: row.Reimbursement_Policy_Rule.filter((r) => r.active).length,
     }));
   },
 
   async getPolicyById(policyId) {
-    // Get a policy by ID with assignments and rules
     const policy = await prisma.reimbursement_Policy.findUnique({
       where: { policy_id: policyId },
       include: {
         Reimbursement_Policy_Assignment: {
           include: {
-            department: true,
+            Department: true,
           },
-          orderBy: [
-            { department_id: 'asc' },
-          ],
+          orderBy: [{ department_id: 'asc' }],
         },
         Reimbursement_Policy_Rule: {
           include: {
-            receipt_type: true,
+            Receipt_Type: true,
           },
           orderBy: [
             { receipt_type_id: 'asc' },
@@ -141,20 +111,22 @@ const ReimbursementPolicyModel = {
         },
       },
     });
+
     if (!policy) return null;
+
     return {
       ...normalizePolicyRow(policy),
-      assignments: policy.Reimbursement_Policy_Assignment.map(a => ({
+      assignments: policy.Reimbursement_Policy_Assignment.map((a) => ({
         assignment_id: a.assignment_id,
         department_id: a.department_id,
-        department_name: a.department?.department_name ?? null,
+        department_name: a.Department?.department_name ?? null,
         active: Boolean(a.active),
         creation_date: a.creation_date,
       })),
-      rules: policy.Reimbursement_Policy_Rule.map(r => ({
+      rules: policy.Reimbursement_Policy_Rule.map((r) => ({
         rule_id: r.rule_id,
         receipt_type_id: r.receipt_type_id,
-        receipt_type_name: r.receipt_type?.receipt_type_name ?? null,
+        receipt_type_name: r.Receipt_Type?.receipt_type_name ?? null,
         trip_scope: r.trip_scope,
         max_amount_mxn: Number(r.max_amount_mxn),
         submission_deadline_days: r.submission_deadline_days,
@@ -352,78 +324,72 @@ const ReimbursementPolicyModel = {
         request_id: true,
         user_id: true,
         creation_date: true,
-        User_Request_user_idToUser: {
-          select: {
-            department_id: true,
-          },
+        requester: {
+          select: { department_id: true },
         },
       },
     });
+    if (!request) return null;
 
-    if (!request) {
-      return null;
-    }
-
-    const routeRows = await prisma.route_Request.findMany({
+    const routeRequests = await prisma.route_Request.findMany({
       where: { request_id: requestId },
-      include: {
-        Route: {
-          include: {
-            Country_Route_id_origin_countryToCountry: {
-              select: { country_name: true },
-            },
-            Country_Route_id_destination_countryToCountry: {
-              select: { country_name: true },
-            },
-          },
-        },
-      },
-      orderBy: [{ Route: { router_index: 'asc' } }, { route_id: 'asc' }],
-    });
-
-    const routes = routeRows
-      .map((row) => row.Route)
-      .filter(Boolean)
-      .map((route) => ({
-        route_id: route.route_id,
-        origin_country: route.Country_Route_id_origin_countryToCountry?.country_name ?? null,
-        destination_country: route.Country_Route_id_destination_countryToCountry?.country_name ?? null,
-        ending_date: route.ending_date,
-      }));
-
-    const maxEndingDate = routes
-      .map((route) => route.ending_date)
-      .filter(Boolean)
-      .sort((a, b) => new Date(b) - new Date(a))[0] || null;
-
-    const receiptRows = await prisma.receipt.findMany({
-      where: { request_id: requestId },
-      include: {
-        Receipt_Type: {
-          select: {
-            receipt_type_name: true,
-          },
-        },
+      orderBy: [
+        { Route: { router_index: 'asc' } },
+        { Route: { route_id: 'asc' } },
+      ],
+      select: {
         Route: {
           select: {
+            route_id: true,
             ending_date: true,
+            originCountry: { select: { country_name: true } },
+            destinationCountry: { select: { country_name: true } },
           },
         },
       },
-      orderBy: {
-        receipt_id: 'asc',
+    });
+
+    const routes = routeRequests.map((row) => ({
+      route_id: row.Route?.route_id,
+      origin_country: row.Route?.originCountry?.country_name,
+      destination_country: row.Route?.destinationCountry?.country_name,
+      ending_date: row.Route?.ending_date,
+    }));
+
+    const receipts = await prisma.receipt.findMany({
+      where: { request_id: requestId },
+      orderBy: { receipt_id: 'asc' },
+      select: {
+        receipt_id: true,
+        receipt_type_id: true,
+        Receipt_Type: { select: { receipt_type_name: true } },
+        route_id: true,
+        validation: true,
+        amount: true,
+        currency: true,
+        refund: true,
+        submission_date: true,
+        xml_file_id: true,
+        xml_file_name: true,
+        xml_uuid: true,
+        Route: { select: { ending_date: true } },
       },
     });
+
+    const maxEnding = routes.reduce((max, route) => {
+      if (route.ending_date && (!max || route.ending_date > max)) return route.ending_date;
+      return max;
+    }, null);
 
     return {
       request: {
         request_id: request.request_id,
         user_id: request.user_id,
         creation_date: request.creation_date,
-        department_id: request.User_Request_user_idToUser?.department_id ?? null,
+        department_id: request.requester?.department_id,
       },
       routes,
-      receipts: receiptRows.map((receipt) => ({
+      receipts: receipts.map((receipt) => ({
         receipt_id: receipt.receipt_id,
         receipt_type_id: receipt.receipt_type_id,
         receipt_type_name: receipt.Receipt_Type?.receipt_type_name ?? null,
@@ -436,7 +402,7 @@ const ReimbursementPolicyModel = {
         xml_file_id: receipt.xml_file_id,
         xml_file_name: receipt.xml_file_name,
         xml_uuid: receipt.xml_uuid,
-        reference_end_date: receipt.Route?.ending_date || maxEndingDate,
+        reference_end_date: receipt.Route?.ending_date || maxEnding,
       })),
     };
   },

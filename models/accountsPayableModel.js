@@ -73,10 +73,15 @@ const AccountsPayable = {
   
   // Accept or Reject a Travel Request
   async validateReceipt(receiptId, approval, connection = null) {
-    // Note: fixed param order to match receipt_id
+    // Map approval (number or string) to Receipt_validation enum string
+    const validationMap = ["Pendiente", "Aprobado", "Rechazado"];
+    let validationValue = approval;
+    if (typeof approval === "number") {
+      validationValue = validationMap[approval] || "Pendiente";
+    }
     const result = await prisma.receipt.updateMany({
       where: { receipt_id: receiptId },
-      data: { validation: approval },
+      data: { validation: validationValue },
     });
     return result.count > 0;
   },
@@ -88,7 +93,7 @@ const AccountsPayable = {
     if (startDate || endDate || validation || userId) {
       where.AND = [];
       if (userId) {
-        where.AND.push({ request: { user_id: userId } });
+        where.AND.push({ Request: { user_id: userId } });
       }
       if (startDate) {
         where.AND.push({ submission_date: { gte: startDate } });
@@ -104,8 +109,14 @@ const AccountsPayable = {
       prisma.receipt.findMany({
         where,
         include: {
-          receipt_type: { select: { receipt_type_name: true } },
-          request: { include: { user: { select: { user_id: true, user_name: true } } } },
+          Receipt_Type: { select: { receipt_type_name: true } },
+          Request: {
+            include: {
+              requester: {
+                select: { user_id: true, user_name: true },
+              },
+            },
+          },
         },
         orderBy: { submission_date: 'asc' },
         skip: offset,
@@ -121,13 +132,13 @@ const AccountsPayable = {
         receipt_id: row.receipt_id,
         request_id: row.request_id,
         route_id: row.route_id,
-        receipt_type_name: row.receipt_type?.receipt_type_name ?? null,
+        receipt_type_name: row.Receipt_Type?.receipt_type_name ?? null,
         amount: row.amount,
         currency: row.currency,
         validation: row.validation,
         submission_date: row.submission_date,
-        applicant_user_id: row.request?.user?.user_id ?? null,
-        applicant_user_name: row.request?.user?.user_name ?? null,
+        applicant_user_id: row.Request?.requester?.user_id ?? null,
+        applicant_user_name: row.Request?.requester?.user_name ?? null,
         pdf_id: row.pdf_file_id,
         pdf_name: row.pdf_file_name,
         xml_id: row.xml_file_id,

@@ -55,7 +55,7 @@ const User = {
       where: { request_id: Number(requestId) },
       include: {
         Request_status: true,
-        User_Request_user_idToUser: {
+        requester: {
           select: {
             user_name: true,
             email: true,
@@ -66,10 +66,10 @@ const User = {
           include: {
             Route: {
               include: {
-                Country_Route_id_origin_countryToCountry: true,
-                City_Route_id_origin_cityToCity: true,
-                Country_Route_id_destination_countryToCountry: true,
-                City_Route_id_destination_cityToCity: true,
+                originCountry: true,
+                originCity: true,
+                destinationCountry: true,
+                destinationCity: true,
               },
             },
           },
@@ -87,9 +87,9 @@ const User = {
       imposed_fee: request.imposed_fee,
       request_days: request.request_days,
       creation_date: request.creation_date,
-      user_name: request.User_Request_user_idToUser?.user_name ?? null,
-      user_email: request.User_Request_user_idToUser?.email ?? null,
-      user_phone_number: request.User_Request_user_idToUser?.phone_number ?? null,
+      user_name: request.requester?.user_name ?? null,
+      user_email: request.requester?.email ?? null,
+      user_phone_number: request.requester?.phone_number ?? null,
     };
 
     const routeRows = request.Route_Request
@@ -119,10 +119,10 @@ const User = {
     return routeRows.map((route) => ({
       ...base,
       router_index: route.router_index,
-      origin_country: route.Country_Route_id_origin_countryToCountry?.country_name ?? null,
-      origin_city: route.City_Route_id_origin_cityToCity?.city_name ?? null,
-      destination_country: route.Country_Route_id_destination_countryToCountry?.country_name ?? null,
-      destination_city: route.City_Route_id_destination_cityToCity?.city_name ?? null,
+      origin_country: route.originCountry?.country_name ?? null,
+      origin_city: route.originCity?.city_name ?? null,
+      destination_country: route.destinationCountry?.country_name ?? null,
+      destination_city: route.destinationCity?.city_name ?? null,
       beginning_date: route.beginning_date,
       beginning_time: route.beginning_time,
       ending_date: route.ending_date,
@@ -143,13 +143,13 @@ const User = {
       },
       take: n ? Number(n) : undefined,
       include: {
-        User_Request_user_idToUser: {
+        requester: {
           select: {
             user_id: true,
             user_name: true,
           },
         },
-        User_Request_assigned_toToUser: {
+        assignedUser: {
           select: {
             user_name: true,
           },
@@ -163,7 +163,7 @@ const User = {
           include: {
             Route: {
               include: {
-                Country_Route_id_destination_countryToCountry: {
+                destinationCountry: {
                   select: {
                     country_name: true,
                   },
@@ -183,14 +183,13 @@ const User = {
 
       return {
         request_id: req.request_id,
-        user_id: req.User_Request_user_idToUser?.user_id ?? null,
-        requester_name: req.User_Request_user_idToUser?.user_name ?? null,
-        destination_country:
-          route?.Country_Route_id_destination_countryToCountry?.country_name ?? null,
+        user_id: req.requester?.user_id ?? null,
+        requester_name: req.requester?.user_name ?? null,
+        destination_country: route?.destinationCountry?.country_name ?? null,
         beginning_date: route?.beginning_date ?? null,
         ending_date: route?.ending_date ?? null,
         request_status: req.Request_status?.status ?? null,
-        assigned_to_name: req.User_Request_assigned_toToUser?.user_name ?? null,
+        assigned_to_name: req.assignedUser?.user_name ?? null,
       };
     });
   },

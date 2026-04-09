@@ -112,10 +112,10 @@ const validateReceiptsHandler = async (req, res) => {
 const validateReceipt = async (req, res) => {
   const receiptId = req.params.receipt_id;
   const approval = req.body.approval;
-  
-  if (approval !== 0 && approval !== 1) {
+  // Only accept 'Aprobado' or 'Rechazado' as valid values
+  if (approval !== "Aprobado" && approval !== "Rechazado") {
     return res.status(400).json({
-      error: "Invalid input (only values 0 or 1 accepted for approval)"
+      error: "Invalid input (only values 'Aprobado' or 'Rechazado' accepted for approval)"
     });
   }
   
@@ -133,7 +133,7 @@ const validateReceipt = async (req, res) => {
 
     // Enforce reimbursement policy before approving
     let policyWarnings = null;
-    if (approval === 1) {
+    if (approval === "Aprobado") {
       try {
         const evaluation = await ReimbursementPolicyService.evaluateRequest(
           receipt.request_id,
@@ -159,21 +159,15 @@ const validateReceipt = async (req, res) => {
       }
     }
 
-    /**
-     * Since the "rejected" state is 3 and the "approved" state
-     * is 2, by subtracting the approval value (1 or 0) we can send
-     * the desired value for the validation (3 for rejected or 2 for
-     * approved
-     */
-    const updated = await AccountsPayable.validateReceipt(receiptId, 3 - approval);
-    
+  const updated = await AccountsPayable.validateReceipt(receiptId, approval);
+
     if(!updated){
       return res
-      .status(400)
-      .json({ error: "Failed to update travel request status" });
+        .status(400)
+        .json({ error: "Failed to update travel request status" });
     }
-    
-    if (approval == 0){
+
+    if (approval === "Rechazado"){
       await AuditLogService.recordAuditLogFromRequest(req, {
         actionType: 'RECEIPT_REJECTED',
         entityType: 'Receipt',
@@ -191,7 +185,7 @@ const validateReceipt = async (req, res) => {
         }
       });
     }
-    else if (approval == 1){
+    else if (approval === "Aprobado"){
       await AuditLogService.recordAuditLogFromRequest(req, {
         actionType: 'RECEIPT_APPROVED',
         entityType: 'Receipt',
