@@ -69,10 +69,10 @@ model AuthorizationRuleLevel {
 }
 
 model City {
-  city_id                               Int     @id @default(autoincrement())
-  city_name                             String  @unique(map: "city_name") @db.VarChar(200)
-  Route_Route_id_destination_cityToCity Route[] @relation("Route_id_destination_cityToCity")
-  Route_Route_id_origin_cityToCity      Route[] @relation("Route_id_origin_cityToCity")
+  city_id     Int     @id @default(autoincrement())
+  city_name   String  @unique(map: "city_name") @db.VarChar(200)
+  routesTo    Route[] @relation("DestinationCity")
+  routesFrom  Route[] @relation("OriginCity")
 }
 
 model CostCenter {
@@ -82,10 +82,10 @@ model CostCenter {
 }
 
 model Country {
-  country_id                                  Int     @id @default(autoincrement())
-  country_name                                String  @unique(map: "country_name") @db.VarChar(60)
-  Route_Route_id_destination_countryToCountry Route[] @relation("Route_id_destination_countryToCountry")
-  Route_Route_id_origin_countryToCountry      Route[] @relation("Route_id_origin_countryToCountry")
+  country_id    Int     @id @default(autoincrement())
+  country_name  String  @unique(map: "country_name") @db.VarChar(60)
+  routesTo      Route[] @relation("DestinationCountry")
+  routesFrom    Route[] @relation("OriginCountry")
 }
 
 model Currency {
@@ -228,10 +228,10 @@ model Request {
   active                         Boolean            @default(true)
   Alert                          Alert[]
   Receipt                        Receipt[]
-  User_Request_assigned_toToUser User?              @relation("Request_assigned_toToUser", fields: [assigned_to], references: [user_id], onDelete: Restrict, onUpdate: Restrict, map: "fk_request_assigned_user")
   AuthorizationRule              AuthorizationRule? @relation(fields: [authorization_rule_id], references: [rule_id], onDelete: Restrict, onUpdate: Restrict, map: "fk_request_auth_rule")
   Request_status                 Request_status?    @relation(fields: [request_status_id], references: [request_status_id], onDelete: Restrict, onUpdate: Restrict, map: "fk_request_status")
-  User_Request_user_idToUser     User?              @relation("Request_user_idToUser", fields: [user_id], references: [user_id], onDelete: Restrict, onUpdate: Restrict, map: "fk_request_user")
+  assignedUser                   User?              @relation("AssignedUser", fields: [assigned_to], references: [user_id], onDelete: Restrict, onUpdate: Restrict, map: "fk_request_assigned_user")
+  requester                      User?              @relation("RequesterUser", fields: [user_id], references: [user_id], onDelete: Restrict, onUpdate: Restrict, map: "fk_request_user")
   Route_Request                  Route_Request[]
 
   @@index([assigned_to], map: "fk_request_assigned_user")
@@ -284,10 +284,10 @@ model Route {
   ending_date                                   DateTime?       @db.Date
   ending_time                                   DateTime?       @db.Time(0)
   Receipt                                       Receipt[]
-  City_Route_id_destination_cityToCity          City?           @relation("Route_id_destination_cityToCity", fields: [id_destination_city], references: [city_id], onDelete: Restrict, onUpdate: Restrict, map: "fk_route_destination_city")
-  Country_Route_id_destination_countryToCountry Country?        @relation("Route_id_destination_countryToCountry", fields: [id_destination_country], references: [country_id], onDelete: Restrict, onUpdate: Restrict, map: "fk_route_destination_country")
-  City_Route_id_origin_cityToCity               City?           @relation("Route_id_origin_cityToCity", fields: [id_origin_city], references: [city_id], onDelete: Restrict, onUpdate: Restrict, map: "fk_route_origin_city")
-  Country_Route_id_origin_countryToCountry      Country?        @relation("Route_id_origin_countryToCountry", fields: [id_origin_country], references: [country_id], onDelete: Restrict, onUpdate: Restrict, map: "fk_route_origin_country")
+  destinationCity       City?   @relation("DestinationCity", fields: [id_destination_city], references: [city_id], onDelete: Restrict, onUpdate: Restrict, map: "fk_route_destination_city")
+  originCity            City?   @relation("OriginCity", fields: [id_origin_city], references: [city_id], onDelete: Restrict, onUpdate: Restrict, map: "fk_route_origin_city")
+  destinationCountry    Country? @relation("DestinationCountry", fields: [id_destination_country], references: [country_id], onDelete: Restrict, onUpdate: Restrict, map: "fk_route_destination_country")
+  originCountry         Country? @relation("OriginCountry", fields: [id_origin_country], references: [country_id], onDelete: Restrict, onUpdate: Restrict, map: "fk_route_origin_country")
   Route_Request                                 Route_Request[]
 
   @@index([id_destination_city], map: "fk_route_destination_city")
@@ -328,8 +328,8 @@ model User {
   password_reset_expires              DateTime?              @db.DateTime(0)
   Audit_Log                           Audit_Log[]
   Reimbursement_Policy                Reimbursement_Policy[]
-  Request_Request_assigned_toToUser   Request[]              @relation("Request_assigned_toToUser")
-  Request_Request_user_idToUser       Request[]              @relation("Request_user_idToUser")
+  requestsAssigned                    Request[]              @relation("AssignedUser")
+  requestsCreated                     Request[]              @relation("RequesterUser")
   boss                                User?                  @relation("UserBoss", fields: [boss_id], references: [user_id], onDelete: Restrict, onUpdate: Restrict, map: "fk_user_boss")
   subordinates                        User[]                 @relation("UserBoss")
   department                          Department?            @relation(fields: [department_id], references: [department_id], onDelete: Restrict, onUpdate: Restrict, map: "fk_user_department")

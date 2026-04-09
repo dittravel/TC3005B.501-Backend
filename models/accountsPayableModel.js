@@ -141,7 +141,7 @@ const AccountsPayable = {
     const receipts = await prisma.receipt.findMany({
       where: { request_id: requestId },
       include: {
-        receipt_type: { select: { receipt_type_name: true } },
+        Receipt_Type: { select: { receipt_type_name: true } },
       },
     });
     if (receipts.length === 0) {

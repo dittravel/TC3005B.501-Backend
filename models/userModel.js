@@ -5,7 +5,6 @@
  * including fetching user data, travel requests, and wallet information.
  */
 
-import pool from '../database/config/db.js';
 import { prisma } from '../lib/prisma.js';
 
 const User = {
@@ -43,280 +42,235 @@ const User = {
 
   // Get travel request details by request ID
   async getTravelRequestById(request_id) {
-    let conn;
-    const query = `
-      SELECT 
-        r.request_id,
-        rs.status AS request_status,
-        r.notes,
-        r.requested_fee,
-        r.imposed_fee,
-        r.request_days,
-        r.creation_date,
-        u.user_name,
-        u.email AS user_email,
-        u.phone_number AS user_phone_number,
-
-        ro.router_index,
-        co1.country_name AS origin_country,
-        ci1.city_name AS origin_city,
-        co2.country_name AS destination_country,
-        ci2.city_name AS destination_city,
-
-        ro.beginning_date,
-        ro.beginning_time,
-        ro.ending_date,
-        ro.ending_time,
-        ro.hotel_needed,
-        ro.plane_needed
-
-      FROM Request r
-      JOIN User u ON r.user_id = u.user_id
-      JOIN Request_status rs ON r.request_status_id = rs.request_status_id
-      LEFT JOIN Route_Request rr ON r.request_id = rr.request_id
-      LEFT JOIN Route ro ON rr.route_id = ro.route_id
-      LEFT JOIN Country co1 ON ro.id_origin_country = co1.country_id
-      LEFT JOIN City ci1 ON ro.id_origin_city = ci1.city_id
-      LEFT JOIN Country co2 ON ro.id_destination_country = co2.country_id
-      LEFT JOIN City ci2 ON ro.id_destination_city = ci2.city_id
-      WHERE r.request_id = ?
-      ORDER BY ro.router_index ASC
-    `;
-
     try {
-      conn = await pool.getConnection();
-      const rows = await conn.query(query, [request_id]);
-      return rows;
+      const request = await prisma.request.findUnique({
+        where: { request_id: Number(request_id) },
+        include: {
+          requester: {
+            select: {
+              user_name: true,
+              email: true,
+              phone_number: true,
+            },
+          },
+          Request_status: { select: { status: true } },
+          Route_Request: {
+            include: {
+              Route: {
+                include: {
+                  originCountry: { select: { country_name: true } },
+                  originCity: { select: { city_name: true } },
+                  destinationCountry: { select: { country_name: true } },
+                  destinationCity: { select: { city_name: true } },
+                },
+              },
+            },
+          },
+        },
+      });
+      if (!request) return null;
 
+      // Order routes by router_index ascending
+      const routes = (request.Route_Request || [])
+        .map(rr => rr.Route)
+        .filter(r => !!r)
+        .sort((a, b) => (a.router_index ?? 0) - (b.router_index ?? 0));
+
+      // Return request details with routes
+      return routes.map(ro => ({
+        request_id: request.request_id,
+        request_status: request.Request_status?.status ?? null,
+        notes: request.notes,
+        requested_fee: request.requested_fee,
+        imposed_fee: request.imposed_fee,
+        request_days: request.request_days,
+        creation_date: request.creation_date,
+        user_name: request.requester?.user_name ?? null,
+        user_email: request.requester?.email ?? null,
+        user_phone_number: request.requester?.phone_number ?? null,
+        router_index: ro.router_index,
+        origin_country: ro.originCountry?.country_name ?? null,
+        origin_city: ro.originCity?.city_name ?? null,
+        destination_country: ro.destinationCountry?.country_name ?? null,
+        destination_city: ro.destinationCity?.city_name ?? null,
+        beginning_date: ro.beginning_date,
+        beginning_time: ro.beginning_time,
+        ending_date: ro.ending_date,
+        ending_time: ro.ending_time,
+        hotel_needed: ro.hotel_needed,
+        plane_needed: ro.plane_needed,
+      }));
     } catch (error) {
       console.error('Error in getTravelRequestById:', error);
       throw error;
-
-    } finally {
-      if (conn) conn.release();
     }
   },
 
   // Get travel requests by department and status, with optional limit
   async getTravelRequestsByUserStatus(userId, statusId, n) {
-    const conn = await pool.getConnection();
-    try {
-      const baseQuery = `
-        SELECT
-          r.request_id,
-          u.user_id,
-          u.user_name AS requester_name,
-          c.country_name AS destination_country,
-          ro.beginning_date,
-          ro.ending_date,
-          rs.status AS request_status,
-          assigned_user.user_name AS assigned_to_name
-        FROM Request r
-        JOIN User u ON r.user_id = u.user_id
-        JOIN Request_status rs ON r.request_status_id = rs.request_status_id
-        JOIN Route_Request rr ON r.request_id = rr.request_id
-        JOIN Route ro ON rr.route_id = ro.route_id
-        JOIN Country c ON ro.id_destination_country = c.country_id
-        LEFT JOIN User assigned_user ON r.assigned_to = assigned_user.user_id
-        WHERE r.assigned_to = ?
-          AND r.request_status_id = ?
-        GROUP BY r.request_id
-        ORDER BY r.creation_date DESC
-        ${n ? 'LIMIT ?' : ''}
-      `;
+    // Fetch requests assigned to a user with a specific status, including related info
+    const requests = await prisma.request.findMany({
+      where: {
+        assigned_to: Number(userId),
+        request_status_id: Number(statusId),
+      },
+      include: {
+        requester: { select: { user_id: true, user_name: true } },
+        Request_status: { select: { status: true } },
+        assignedUser: { select: { user_name: true } },
+        Route_Request: {
+          include: {
+            Route: {
+              include: {
+                destinationCountry: { select: { country_name: true } },
+              },
+            },
+          },
+        },
+      },
+      orderBy: { creation_date: 'desc' },
+      ...(n ? { take: Number(n) } : {}),
+    });
 
-      const params = n ? [userId, statusId, Number(n)] : [userId, statusId];
-      const rows = await conn.query(baseQuery, params);
-      return rows;
-
-    } finally {
-      conn.release();
-    }
+    // For each request, pick the first route (if any) for destination info
+    return requests.map(r => {
+      const firstRoute = (r.Route_Request || [])
+        .map(rr => rr.Route)
+        .find(route => !!route);
+      return {
+        request_id: r.request_id,
+        user_id: r.requester?.user_id ?? null,
+        requester_name: r.requester?.user_name ?? null,
+        destination_country: firstRoute?.destinationCountry?.country_name ?? null,
+        beginning_date: firstRoute?.beginning_date ?? null,
+        ending_date: firstRoute?.ending_date ?? null,
+        request_status: r.Request_status?.status ?? null,
+        assigned_to_name: r.assignedUser?.user_name ?? null,
+      };
+    });
   },
 
   // Get user data by username
   async getUserUsername(username) {
-    const connection = await pool.getConnection();
-    try {
-      const rows = await connection.query(
-        `SELECT 
-          u.user_name,
-          u.user_id,
-          u.department_id,
-          u.password,
-          u.active, 
-          r.role_name 
-        FROM User u
-        JOIN Role r ON u.role_id = r.role_id
-        WHERE u.user_name = ?`,
-        [username]
-      );
-
-      return rows[0];
-
-    } finally {
-      connection.release();
-    }
+    // Find user by username, including role
+    const user = await prisma.user.findUnique({
+      where: { user_name: username },
+      include: { role: { select: { role_name: true } } },
+    });
+    if (!user) return null;
+    return {
+      user_name: user.user_name,
+      user_id: user.user_id,
+      department_id: user.department_id,
+      password: user.password,
+      active: user.active,
+      role_name: user.role?.role_name ?? null,
+    };
   },
 
   // Get user wallet information by user ID
   async getUserWallet(user_id) {
-    let conn;
-    try {
-      conn = await pool.getConnection();
-      const rows = await conn.query(`
-        SELECT
-          user_id,
-          user_name,
-          wallet
-        FROM User
-        WHERE user_id = ?`,
-        [user_id]
-      );
-      return rows[0];
-
-    } finally {
-      if (conn) conn.release();
-    }
+    const user = await prisma.user.findUnique({
+      where: { user_id: Number(user_id) },
+      select: { user_id: true, user_name: true, wallet: true },
+    });
+    return user || null;
   },
 
   // Get all active users in the same department and with the same role for substitution purposes
   async getUserDepartmentMembers(userId) {
-    let conn;
-    try {
-      conn = await pool.getConnection();
-      const rows = await conn.query(`
-        SELECT
-          user_id,
-          user_name
-        FROM User
-        WHERE department_id = (SELECT department_id FROM User WHERE user_id = ?)
-          AND role_id = (SELECT role_id FROM User WHERE user_id = ?)
-          AND active = 1
-          AND user_id != ?`,
-        [userId, userId, userId]
-      );
-      return rows;
-
-    } finally {
-      if (conn) conn.release();
-    }
+    // Get department and role for the user first
+    const user = await prisma.user.findUnique({
+      where: { user_id: Number(userId) },
+      select: { department_id: true, role_id: true },
+    });
+    if (!user) return [];
+    // Find all active users in the same department and role, excluding the user
+    const members = await prisma.user.findMany({
+      where: {
+        department_id: user.department_id,
+        role_id: user.role_id,
+        active: true,
+        NOT: { user_id: Number(userId) },
+      },
+      select: { user_id: true, user_name: true },
+    });
+    return members;
   },
 
   // Find an active user by decrypted email.
   // Emails are AES-256-CBC encrypted with a random IV so we cannot query by value —
   // we decrypt all active users in the application layer and match there.
   async getUserByEmail(plaintextEmail) {
-    let conn;
-    try {
-      conn = await pool.getConnection();
-      const rows = await conn.query(
-        `SELECT user_id, user_name, email FROM User WHERE active = TRUE`
-      );
-      const { decrypt } = await import('../middleware/decryption.js');
-      return rows.find(u => decrypt(u.email) === plaintextEmail) || null;
-    } finally {
-      if (conn) conn.release();
-    }
+    const users = await prisma.user.findMany({
+      where: { active: true },
+      select: { user_id: true, user_name: true, email: true },
+    });
+    const { decrypt } = await import('../middleware/decryption.js');
+    return users.find(u => decrypt(u.email) === plaintextEmail) || null;
   },
 
   // Store a password reset token and its expiry for a user
   async setPasswordResetToken(userId, token, expires) {
-    let conn;
-    try {
-      conn = await pool.getConnection();
-      await conn.query(
-        `UPDATE User
-         SET password_reset_token = ?, password_reset_expires = ?
-         WHERE user_id = ?`,
-        [token, expires, userId]
-      );
-    } finally {
-      if (conn) conn.release();
-    }
+    await prisma.user.update({
+      where: { user_id: Number(userId) },
+      data: {
+        password_reset_token: token,
+        password_reset_expires: expires,
+      },
+    });
   },
 
   // Find a user whose reset token matches and has not expired
   async getUserByResetToken(token) {
-    let conn;
-    try {
-      conn = await pool.getConnection();
-      const rows = await conn.query(
-        `SELECT user_id, user_name
-         FROM User
-         WHERE password_reset_token = ?
-           AND password_reset_expires > NOW()
-           AND active = TRUE`,
-        [token]
-      );
-      return rows[0] || null;
-    } finally {
-      if (conn) conn.release();
-    }
+    const now = new Date();
+    const user = await prisma.user.findFirst({
+      where: {
+        password_reset_token: token,
+        password_reset_expires: { gt: now },
+        active: true,
+      },
+      select: { user_id: true, user_name: true },
+    });
+    return user || null;
   },
 
   // Update a user's hashed password
   async updatePassword(userId, hashedPassword) {
-    let conn;
-    try {
-      conn = await pool.getConnection();
-      await conn.query(
-        `UPDATE User SET password = ? WHERE user_id = ?`,
-        [hashedPassword, userId]
-      );
-    } finally {
-      if (conn) conn.release();
-    }
+    await prisma.user.update({
+      where: { user_id: Number(userId) },
+      data: { password: hashedPassword },
+    });
   },
 
   // Clear the reset token after use or expiry
   async clearPasswordResetToken(userId) {
-    let conn;
-    try {
-      conn = await pool.getConnection();
-      await conn.query(
-        `UPDATE User
-         SET password_reset_token = NULL, password_reset_expires = NULL
-         WHERE user_id = ?`,
-        [userId]
-      );
-    } finally {
-      if (conn) conn.release();
-    }
+    await prisma.user.update({
+      where: { user_id: Number(userId) },
+      data: {
+        password_reset_token: null,
+        password_reset_expires: null,
+      },
+    });
   },
 
   // Update out-of-office dates and substitute for a user
   async updateOutOfOffice(userId, fields) {
-    let conn;
-    try {
-      conn = await pool.getConnection();
-      const setClauses = [];
-      const values = [];
-
-      for (const field in fields) {
-        if (fields.hasOwnProperty(field)) {
-          setClauses.push(`${field} = ?`);
-          values.push(fields[field]);
-        }
-      }
-
-      if (setClauses.length === 0) {
-        return { success: false, message: 'No fields to update' };
-      }
-
-      values.push(userId);
-      const query = `
-        UPDATE User
-        SET ${setClauses.join(', ')}
-        WHERE user_id = ?
-      `;
-
-      await conn.query(query, values);
-      return { success: true, message: 'Out-of-office updated successfully' };
-
-    } finally {
-      if (conn) conn.release();
+    if (!fields || Object.keys(fields).length === 0) {
+      return { success: false, message: 'No fields to update' };
     }
+    // Convert date fields to Date objects if present and not already a Date
+    if (fields.out_of_office_start_date && typeof fields.out_of_office_start_date === 'string') {
+      fields.out_of_office_start_date = new Date(fields.out_of_office_start_date);
+    }
+    if (fields.out_of_office_end_date && typeof fields.out_of_office_end_date === 'string') {
+      fields.out_of_office_end_date = new Date(fields.out_of_office_end_date);
+    }
+    await prisma.user.update({
+      where: { user_id: Number(userId) },
+      data: fields,
+    });
+    return { success: true, message: 'Out-of-office updated successfully' };
   },
 
   // Helper function: Check if a user is out of office and return their effective ID (user_id or substitute_id)
@@ -355,86 +309,75 @@ const User = {
   // If boss is out of office today, returns their substitute_id if available, otherwise null
   // If boss is available, returns their user_id
   async getBossId(userId) {
-    try {
-      const rows = await pool.query(
-        `SELECT boss_id FROM User WHERE user_id = ?`,
-        [userId]
-      );
-      
-      if (rows.length === 0 || !rows[0].boss_id) {
-        return null; // User has no boss
-      }
-
-      const bossId = rows[0].boss_id;
-      
-      // Get boss details including out-of-office info
-      const bossRows = await pool.query(
-        `SELECT user_id, out_of_office_start_date, out_of_office_end_date, substitute_id 
-         FROM User 
-         WHERE user_id = ?`,
-        [bossId]
-      );
-      
-      if (bossRows.length === 0) {
-        return null; // Boss not found
-      }
-
-      // Use helper to check out-of-office status and return effective ID
-      return await this.getEffectiveUserId(bossRows[0]);
-    } catch (error) {
-      console.error(`Error getting boss ID for user ${userId}:`, error);
-      throw error;
+    // Get the boss of a user, checking if they're out of office
+    const user = await prisma.user.findUnique({
+      where: { user_id: Number(userId) },
+      select: { boss_id: true },
+    });
+    if (!user || !user.boss_id) {
+      return null; // User has no boss
     }
+    const boss = await prisma.user.findUnique({
+      where: { user_id: user.boss_id },
+      select: {
+        user_id: true,
+        out_of_office_start_date: true,
+        out_of_office_end_date: true,
+        substitute_id: true,
+      },
+    });
+    if (!boss) {
+      return null; // Boss not found
+    }
+    // Use helper to check out-of-office status and return effective ID
+    return await this.getEffectiveUserId(boss);
   },
 
   // Get a random user with a specific role from the same department
   // If the user is out of office today, returns their substitute with user_id and user_name if available, otherwise null
   async getRandomUserByRole(roleId, departmentId) {
-    try {
-      const rows = await pool.query(
-        `SELECT user_id, user_name, out_of_office_start_date, out_of_office_end_date, substitute_id 
-         FROM User 
-         WHERE role_id = ? AND department_id = ? 
-         ORDER BY RAND() LIMIT 1`,
-        [roleId, departmentId]
-      );
-      
-      if (rows.length === 0) {
-        return null;
-      }
-
-      const user = rows[0];
-      
-      // Use helper to get effective user ID (considering out-of-office)
-      const effectiveUserId = await this.getEffectiveUserId(user);
-      
-      if (!effectiveUserId) {
-        return null;
-      }
-
-      // If the effective ID is the original user, return their info
-      if (effectiveUserId === user.user_id) {
+    const users = await prisma.user.findMany({
+      where: {
+        role_id: Number(roleId),
+        department_id: Number(departmentId),
+      },
+      select: {
+        user_id: true,
+        user_name: true,
+        out_of_office_start_date: true,
+        out_of_office_end_date: true,
+        substitute_id: true,
+      },
+    });
+    if (!users || users.length === 0) {
+      return null;
+    }
+    // Pick a random user from the list
+    const user = users[Math.floor(Math.random() * users.length)];
+    // Use helper to get effective user ID (considering out-of-office)
+    const effectiveUserId = await this.getEffectiveUserId(user);
+    if (!effectiveUserId) {
+      return null;
+    }
+    // If the effective ID is the original user, return their info
+    if (effectiveUserId === user.user_id) {
+      return {
+        user_id: user.user_id,
+        user_name: user.user_name,
+      };
+    } else {
+      // Effective ID is the substitute, fetch their details
+      const substitute = await prisma.user.findUnique({
+        where: { user_id: effectiveUserId },
+        select: { user_id: true, user_name: true },
+      });
+      if (substitute) {
         return {
-          user_id: user.user_id,
-          user_name: user.user_name
+          user_id: substitute.user_id,
+          user_name: substitute.user_name,
         };
-      } else {
-        // Effective ID is the substitute, fetch their details
-        const substituteRows = await pool.query(
-          `SELECT user_id, user_name FROM User WHERE user_id = ?`,
-          [effectiveUserId]
-        );
-        if (substituteRows.length > 0) {
-          return {
-            user_id: substituteRows[0].user_id,
-            user_name: substituteRows[0].user_name
-          };
-        }
-        return null;
       }
-    } catch (error) {
-      console.error(`Error getting random user with role ${roleId} in department ${departmentId}:`, error);
-      throw error;
+      return null;
     }
   },
 };

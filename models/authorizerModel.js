@@ -23,17 +23,17 @@ const Authorizer = {
         active: true,
       },
       include: {
-        user: { select: { user_name: true } },
-        request_status: { select: { status: true } },
-        route_request: {
+        requester: { select: { user_name: true } },
+        Request_status: { select: { status: true } },
+        Route_Request: {
           include: {
-            route: {
+            Route: {
               include: {
-                country: { select: { country_name: true } },
+                destinationCountry: { select: { country_name: true } },
               },
             },
           },
-        },
+        }
       },
       orderBy: { creation_date: 'asc' },
       ...(limit > 0 ? { take: limit } : {}),
@@ -41,16 +41,16 @@ const Authorizer = {
 
     // Aggregate beginning/ending dates and destination_country
     return requests.map(r => {
-      const allRoutes = r.route_request.map(rr => rr.route);
+      const allRoutes = r.Route_Request?.map(rr => rr.Route).filter(route => !!route) || [];
       const beginning_date = allRoutes.length > 0 ? allRoutes.reduce((min, route) => route.beginning_date && (!min || route.beginning_date < min) ? route.beginning_date : min, null) : null;
       const ending_date = allRoutes.length > 0 ? allRoutes.reduce((max, route) => route.ending_date && (!max || route.ending_date > max) ? route.ending_date : max, null) : null;
-      const destination_country = allRoutes.length > 0 && allRoutes[0].country ? allRoutes[0].country.country_name : null;
+      const destination_country = allRoutes.length > 0 && allRoutes[0].destinationCountry ? allRoutes[0].destinationCountry.country_name : null;
       return {
         request_id: r.request_id,
         user_id: r.user_id,
-        requester_name: r.user?.user_name ?? null,
+        requester_name: r.requester?.user_name ?? null,
         request_status_id: r.request_status_id,
-        request_status: r.request_status?.status ?? null,
+        request_status: r.Request_status?.status ?? null,
         assigned_to: r.assigned_to,
         authorization_level: r.authorization_level,
         requested_fee: r.requested_fee,
