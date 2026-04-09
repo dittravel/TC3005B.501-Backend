@@ -15,8 +15,8 @@
         "test:audit": "node --test tests/auditLog*.test.js",
         "prisma:generate": "prisma generate",
         "prisma:migrate:deploy": "prisma migrate deploy",
-        "prisma:seed": "pnpm prisma:generate && node prisma/seed.js",
-        "prisma:seed:dummy": "pnpm prisma:generate && node prisma/seedDummy.js",
+        "prisma:seed": "npx prisma generate && node prisma/seed.js",
+        "prisma:seed:dummy": "npx prisma generate && node prisma/seedDummy.js",
         "docker:start:prisma": "node docker-start.js"
     },
     "repository": {

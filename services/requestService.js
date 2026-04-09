@@ -92,7 +92,7 @@ const RequestService = {
         tx.request.findUnique({
           where: { request_id: Number(requestId) },
           select: {
-            request_status: {
+            Request_status: {
               select: {
                 status: true,
               },

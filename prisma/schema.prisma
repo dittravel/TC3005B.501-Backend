@@ -52,7 +52,7 @@ model AuthorizationRule {
   max_duration           Int?
   min_amount             Float?                         @db.Float
   max_amount             Float?                         @db.Float
-  AuthorizationRuleLevel AuthorizationRuleLevel[]
+  levels                 AuthorizationRuleLevel[]
   Request                Request[]
 }
 

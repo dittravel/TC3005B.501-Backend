@@ -88,7 +88,7 @@ export async function uploadReceiptFiles(receiptId, pdfFile, xmlFile, existingCo
     } catch (dbError) {
       // Check for duplicate UUID error (MySQL error 1062)
       if (dbError.code === 'ER_DUP_ENTRY' || (dbError.message?.includes('Duplicate entry') && dbError.message?.includes('xml_uuid'))) {
-        const error = new Error('Este comprobante ya existe en el sistema');
+        const error = new Error('Este comprobante XML ya existe');
         error.code = 'DUPLICATE_UUID';
         throw error;
       }

@@ -84,9 +84,24 @@ const AuthorizationRuleService = {
         return boss;
       } else if (ruleLevel.level_type === 'Aleatorio') {
         // Random authorizer from the department
-        const randomAuthorizer = await User.getRandomUserByRole(4, departmentId); // role_id 4 = Authorizer
-        return randomAuthorizer ? randomAuthorizer.user_id : null;
-      } else if (ruleLevel.level_type === 'Nivel Superior') {
+        let randomAuthorizer = await User.getRandomUserByRole(4, departmentId);
+        
+        // If authorizer == requester, try again
+        if (randomAuthorizer && randomAuthorizer.user_id === requesterUserId) {
+          let attempts = 0;
+          while (attempts < 5 && randomAuthorizer && randomAuthorizer.user_id === requesterUserId) {
+            randomAuthorizer = await User.getRandomUserByRole(4, departmentId);
+            attempts++;
+          }
+        }
+        
+        if (randomAuthorizer) {
+          return randomAuthorizer.user_id;
+        } else {
+          // No authorizer found in department
+          return null;
+        }
+      } else if (ruleLevel.level_type === 'Nivel_Superior' || ruleLevel.level_type === 'Nivel_Superior') {
         // N levels up the hierarchy
         const levelsUp = ruleLevel.superior_level_number || 1;
         const superiorUserId = await this.getNLevelsUp(requesterUserId, levelsUp);
@@ -111,14 +126,16 @@ const AuthorizationRuleService = {
     try {
       let currentUserId = userId;
       let currentLevel = 0;
-
+      console.log(`[getNLevelsUp] Start: userId=${userId}, levels=${levels}`);
       while (currentLevel < levels) {
-        const nextBoss = await User.getBossId(currentUserId);
-        if (!nextBoss) {
+        const nextBossId = await User.getBossId(currentUserId);
+        console.log(`[getNLevelsUp] Level ${currentLevel + 1}: currentUserId=${currentUserId}, nextBossId=${nextBossId}`);
+        if (!nextBossId) {
           // No more bosses available, return the current highest boss
-          return currentUserId === userId ? null : currentUserId;
+          console.log(`[getNLevelsUp] No more bosses at level ${currentLevel + 1}, or boss is requester. Returning null.`);
+          return currentUserId === userId ? null : currentUserId; // If we never moved up, return null
         }
-        currentUserId = nextBoss;
+        currentUserId = nextBossId;
         currentLevel++;
       }
 

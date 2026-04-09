@@ -29,7 +29,7 @@ const AuthorizationRuleModel = {
       const rule = await prisma.authorizationRule.findUnique({
         where: { rule_id: ruleId },
         include: {
-          AuthorizationRuleLevel: {
+          levels: {
             orderBy: { level_number: 'asc' },
           },
         },
@@ -38,7 +38,7 @@ const AuthorizationRuleModel = {
       // For compatibility, return levels as 'levels' property
       return {
         ...rule,
-        levels: rule.AuthorizationRuleLevel,
+        levels: rule.levels,
       };
     } catch (error) {
       console.error('Error fetching authorization rule by ID:', error);
@@ -92,7 +92,7 @@ const AuthorizationRuleModel = {
           { rule_id: 'asc' },
         ],
         include: {
-          AuthorizationRuleLevel: {
+          levels: {
             orderBy: { level_number: 'asc' },
           },
         },
@@ -100,7 +100,7 @@ const AuthorizationRuleModel = {
       // For compatibility, return levels as 'levels' property
       return rules.map(rule => ({
         ...rule,
-        levels: rule.AuthorizationRuleLevel,
+        levels: rule.levels,
       }));
     } catch (error) {
       console.error('Error fetching authorization rules by criteria:', error);
@@ -115,7 +115,7 @@ const AuthorizationRuleModel = {
         where: { is_default: true },
         orderBy: { rule_id: 'asc' },
         include: {
-          AuthorizationRuleLevel: {
+          levels: {
             orderBy: { level_number: 'asc' },
           },
         },
@@ -123,7 +123,7 @@ const AuthorizationRuleModel = {
       if (!rule) return null;
       return {
         ...rule,
-        levels: rule.AuthorizationRuleLevel,
+        levels: rule.levels,
       };
     } catch (error) {
       console.error('Error fetching default authorization rule:', error);

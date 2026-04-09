@@ -195,7 +195,7 @@ const Admin = {
       const rule = await prisma.authorizationRule.findUnique({
         where: { rule_id: id },
         include: {
-          AuthorizationRuleLevel: {
+          levels: {
             orderBy: { level_number: 'asc' },
             select: {
               level_number: true,
@@ -217,7 +217,7 @@ const Admin = {
     try {
       const rules = await prisma.authorizationRule.findMany({
         include: {
-          AuthorizationRuleLevel: {
+          levels: {
             orderBy: { level_number: 'asc' },
             select: {
               level_number: true,
@@ -249,11 +249,11 @@ const Admin = {
           max_duration: ruleData.max_duration,
           min_amount: ruleData.min_amount,
           max_amount: ruleData.max_amount,
-          AuthorizationRuleLevel: {
-            create: (Array.isArray(ruleData.niveles) ? ruleData.niveles : []).map(level => ({
+          levels: {
+            create: (Array.isArray(ruleData.levels) ? ruleData.levels : []).map(level => ({
               level_number: level.level_number,
               level_type: level.level_type,
-              superior_level_number: level.superior_level_number ?? null
+              superior_level_number: Number(level.superior_level_number) ?? null
             }))
           }
         }
@@ -289,14 +289,14 @@ const Admin = {
       await prisma.authorizationRuleLevel.deleteMany({ where: { rule_id: id } });
 
       // Step 3: Create new levels if provided
-      const levels = Array.isArray(ruleData.niveles) ? ruleData.niveles : [];
+      const levels = Array.isArray(ruleData.levels) ? ruleData.levels : [];
       if (levels.length > 0) {
         await prisma.authorizationRuleLevel.createMany({
           data: levels.map(level => ({
             rule_id: id,
             level_number: level.level_number,
             level_type: level.level_type,
-            superior_level_number: level.superior_level_number ?? null
+            superior_level_number: Number(level.superior_level_number) ?? null
           }))
         });
       }

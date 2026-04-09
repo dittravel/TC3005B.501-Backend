@@ -228,8 +228,18 @@ const Applicant = {
           );
 
           if (!assignedTo) {
-            console.warn("Could not determine approver from rule level, using fallback logic");
-            assignedTo = await User.getBossId(user_id);
+            // If no approver found based on rule level, go to next step
+            if (plane_needed || hotel_needed) {
+              request_status = 4;
+              const travelAgent = await User.getRandomUserByRole(2, departmentId);
+              assignedTo = travelAgent ? travelAgent.user_id : null;
+              console.log('[createTravelRequest] No boss found, assigned to travel agent:', assignedTo);
+            } else {
+              request_status = 3;
+              const accountsPayable = await User.getRandomUserByRole(3, departmentId);
+              assignedTo = accountsPayable ? accountsPayable.user_id : null;
+              console.log('[createTravelRequest] No boss found, assigned to accounts payable:', assignedTo);
+            }
           }
           console.log(`Assigned to user ${assignedTo} based on authorization rule level 1`);
         } catch (error) {
@@ -445,7 +455,7 @@ const Applicant = {
     try {
       await prisma.request.updateMany({
         where: { request_id: Number(request_id) },
-        data: { request_status_id: 8 },
+        data: { request_status_id: 8, assigned_to: null },
       });
       return true;
 
