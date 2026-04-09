@@ -9,6 +9,9 @@
 import { prisma } from '../lib/prisma.js';
 import bcrypt from 'bcrypt';
 import crypto from 'crypto';
+import fs from 'fs';
+import path from 'path';
+import { parse } from 'csv-parse/sync';
 
 const AES_SECRET_KEY = process.env.AES_SECRET_KEY;
 
@@ -20,6 +23,27 @@ const encrypt = (data) => {
   encrypted += cipher.final('base64');
   return IV.toString('hex') + encrypted;
 };
+
+function loadDummyUsersFromCsv() {
+  const csvPath = path.resolve('./database/config/dummy_users.csv');
+  const content = fs.readFileSync(csvPath, 'utf8');
+  const rows = parse(content, {
+    columns: true,
+    skip_empty_lines: true,
+    trim: true,
+  });
+
+  return rows.map((row) => ({
+    role_name: row.role_name,
+    department_name: row.department_name,
+    user_name: row.user_name,
+    password: row.password,
+    workstation: row.workstation,
+    email: row.email,
+    phone_number: row.phone_number && row.phone_number !== 'NULL' ? row.phone_number : null,
+    boss_id: row.boss_id ? Number(row.boss_id) : null,
+  }));
+}
 
 async function seedDummyData() {
   console.log('\nAdding dummy data...');
@@ -98,14 +122,7 @@ async function seedDummyData() {
 
   // Users
   console.log('Creating Users with hashed passwords...');
-  const usersData = [
-    { role_name: 'Autorizador', department_name: 'Finanzas', user_name: 'laura.flores', password: '123', workstation: 'WS104', email: 'laura.flores@empresa.com', phone_number: '555-1004', boss_id: null },
-    { role_name: 'Autorizador', department_name: 'Finanzas', user_name: 'diego.hernandez', password: '123', workstation: 'WS105', email: 'diego.hernandez@empresa.com', phone_number: '555-1005', boss_id: 1 },
-    { role_name: 'Solicitante', department_name: 'Finanzas', user_name: 'andres.gomez', password: '123', workstation: 'WS101', email: 'andres.gomez@empresa.com', phone_number: '555-1001', boss_id: 2 },
-    { role_name: 'Agencia de viajes', department_name: 'Finanzas', user_name: 'paula.martinez', password: '123', workstation: 'WS102', email: 'paula.martinez@empresa.com', phone_number: '555-1002', boss_id: null },
-    { role_name: 'Cuentas por pagar', department_name: 'Finanzas', user_name: 'carlos.ramos', password: '123', workstation: 'WS103', email: 'carlos.ramos@empresa.com', phone_number: '555-1003', boss_id: null },
-    { role_name: 'Administrador', department_name: 'Admin', user_name: 'admin', password: '123', workstation: 'WS000', email: 'admin@empresa.com', phone_number: '555-0000', boss_id: null },
-  ];
+  const usersData = loadDummyUsersFromCsv();
 
   let usersCreated = 0;
   for (let i = 0; i < usersData.length; i++) {
@@ -122,14 +139,14 @@ async function seedDummyData() {
       // Create user with hashed password and encrypted email/phone
       const hashedPassword = await bcrypt.hash(userData.password, 10);
       const encryptedEmail = encrypt(userData.email);
-      const encryptedPhoneNumber = encrypt(userData.phone_number);
+      const encryptedPhoneNumber = userData.phone_number ? encrypt(userData.phone_number) : null;
       await prisma.user.create({
         data: {
           user_name: userData.user_name,
           email: encryptedEmail,
           password: hashedPassword,
           phone_number: encryptedPhoneNumber || null,
-          workstation: userData.workstation || null,
+          workstation: userData.workstation,
           role_id: role.role_id,
           department_id: department.department_id,
           boss_id: userData.boss_id ? userData.boss_id : null,

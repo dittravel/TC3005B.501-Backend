@@ -55,7 +55,11 @@ function buildIntegrationModel() {
           select: {
             department_id: true,
             department_name: true,
-            costs_center: true,
+            CostCenter: {
+              select: {
+                cost_center_name: true,
+              },
+            },
           },
         },
       };
@@ -88,7 +92,7 @@ function buildIntegrationModel() {
         role_name: row.role?.role_name ?? null,
         department_id: row.department?.department_id ?? null,
         department_name: row.department?.department_name ?? null,
-        costs_center: row.department?.costs_center ?? null,
+        costs_center: row.department?.CostCenter?.cost_center_name ?? null,
       }));
 
       return {

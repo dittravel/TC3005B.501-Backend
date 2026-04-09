@@ -4,12 +4,19 @@ RUN corepack enable
 
 FROM base AS deps
 COPY package.json pnpm-lock.yaml ./
-RUN pnpm install --frozen-lockfile --prod
+RUN pnpm install --frozen-lockfile
+
+FROM base AS build
+WORKDIR /app
+COPY --from=deps /app/node_modules ./node_modules
+COPY . .
+RUN pnpm prisma:generate
+RUN pnpm prune --prod
 
 FROM base AS runtime
 ENV NODE_ENV=production
 WORKDIR /app
-COPY --from=deps /app/node_modules ./node_modules
-COPY . .
+COPY --from=build /app/node_modules ./node_modules
+COPY --from=build /app .
 EXPOSE 3000
 CMD ["node", "index.js"]
