@@ -12,7 +12,7 @@ import {
   ADMIN_COST_CENTER_NAME,
   ADMIN_DEPARTMENT_NAME,
   encryptSeedValue,
-  loadDummyUsersFromCsv,
+  loadDummyUsersFromCsvV2,
   seedAdminAccount,
   seedReferenceData,
 } from './seedShared.js';
@@ -153,8 +153,8 @@ async function seedDummyCities() {
 }
 
 async function seedDummyUsers() {
-  console.log('Creating dummy users from CSV...');
-  const usersData = loadDummyUsersFromCsv();
+  console.log('Creating dummy users from dummy_usersV2.csv...');
+  const usersData = loadDummyUsersFromCsvV2();
   const rowToUserId = new Map();
 
   for (const [index, userData] of usersData.entries()) {
@@ -225,12 +225,206 @@ async function seedDummyUsers() {
   console.log(`Created or updated ${usersData.length} dummy users`);
 }
 
+async function seedDummyTravelFixtures() {
+  const hasRequests = await prisma.request.count();
+  if (hasRequests > 0) {
+    console.log('Skipping dummy travel fixtures because requests already exist');
+    return;
+  }
+
+  const requester = await prisma.user.findUnique({
+    where: { user_name: 'andres.gomez' },
+    select: { user_id: true },
+  });
+  const authorizer = await prisma.user.findUnique({
+    where: { user_name: 'diego.hernandez' },
+    select: { user_id: true },
+  });
+  const agency = await prisma.user.findUnique({
+    where: { user_name: 'paula.martinez' },
+    select: { user_id: true },
+  });
+  const accountsPayable = await prisma.user.findUnique({
+    where: { user_name: 'carlos.ramos' },
+    select: { user_id: true },
+  });
+
+  if (!requester || !authorizer || !agency || !accountsPayable) {
+    console.warn('Skipping dummy travel fixtures because required users are missing');
+    return;
+  }
+
+  const statusNames = [
+    'Borrador',
+    'Revision',
+    'Cotizacion del Viaje',
+    'Atencion Agencia de Viajes',
+    'Comprobacion gastos del viaje',
+    'Validacion de comprobantes',
+    'Finalizado',
+    'Cancelado',
+    'Rechazado',
+  ];
+
+  const statuses = await prisma.request_status.findMany({
+    select: { request_status_id: true, status: true },
+  });
+
+  const statusMap = new Map(statuses.map((s) => [s.status.normalize('NFD').replace(/[\u0300-\u036f]/g, ''), s.request_status_id]));
+
+  for (const requiredStatus of statusNames) {
+    if (!statusMap.has(requiredStatus)) {
+      console.warn(`Skipping dummy travel fixtures because status is missing: ${requiredStatus}`);
+      return;
+    }
+  }
+
+  const requestsData = [
+    { notes: 'Solicito viaticos para viaje a conferencia en Barcelona.', requested_fee: 1500.0, imposed_fee: null, request_days: 3.0, status: 'Borrador', assigned_to: null },
+    { notes: 'Reembolso por gastos medicos durante viaje.', requested_fee: 800.0, imposed_fee: null, request_days: 1.0, status: 'Revision', assigned_to: authorizer.user_id },
+    { notes: 'Solicitud de apoyo economico para capacitacion online.', requested_fee: 500.0, imposed_fee: null, request_days: 0.0, status: 'Cotizacion del Viaje', assigned_to: accountsPayable.user_id },
+    { notes: 'Viaticos para taller de liderazgo en Madrid.', requested_fee: 1200.0, imposed_fee: null, request_days: 2.0, status: 'Atencion Agencia de Viajes', assigned_to: agency.user_id },
+    { notes: 'Reembolso de transporte.', requested_fee: 300.0, imposed_fee: 250.0, request_days: 0.5, status: 'Comprobacion gastos del viaje', assigned_to: accountsPayable.user_id },
+    { notes: 'Apoyo para participacion en congreso internacional.', requested_fee: 2000.0, imposed_fee: 1800.0, request_days: 4.0, status: 'Validacion de comprobantes', assigned_to: accountsPayable.user_id },
+    { notes: 'Gastos operativos extraordinarios.', requested_fee: 650.0, imposed_fee: 600.0, request_days: 0.0, status: 'Finalizado', assigned_to: accountsPayable.user_id },
+    { notes: 'Viaje urgente por representacion institucional.', requested_fee: 1750.0, imposed_fee: 1500.0, request_days: 3.5, status: 'Cancelado', assigned_to: accountsPayable.user_id },
+    { notes: 'Solicito anticipo para mision tecnica en el extranjero.', requested_fee: 2200.0, imposed_fee: 2000.0, request_days: 5.0, status: 'Rechazado', assigned_to: accountsPayable.user_id },
+  ];
+
+  const createdRequests = [];
+  for (const requestData of requestsData) {
+    const request = await prisma.request.create({
+      data: {
+        user_id: requester.user_id,
+        request_status_id: statusMap.get(requestData.status),
+        assigned_to: requestData.assigned_to,
+        authorization_level: requestData.assigned_to ? 1 : 0,
+        notes: requestData.notes,
+        requested_fee: requestData.requested_fee,
+        imposed_fee: requestData.imposed_fee,
+        request_days: requestData.request_days,
+        active: true,
+      },
+      select: { request_id: true },
+    });
+    createdRequests.push(request.request_id);
+  }
+
+  const cityMap = new Map((await prisma.city.findMany({ select: { city_id: true, city_name: true } })).map((c) => [c.city_name, c.city_id]));
+  const countryMap = new Map((await prisma.country.findMany({ select: { country_id: true, country_name: true } })).map((c) => [c.country_name, c.country_id]));
+
+  const routesData = [
+    { fromCountry: 'Mexico', fromCity: 'CDMX', toCountry: 'Mexico', toCity: 'Guadalajara', date: '2025-05-01', begin: '08:00:00', end: '11:00:00', plane_needed: true, hotel_needed: false },
+    { fromCountry: 'Mexico', fromCity: 'Monterrey', toCountry: 'Mexico', toCity: 'Merida', date: '2025-05-02', begin: '10:30:00', end: '14:30:00', plane_needed: true, hotel_needed: true },
+    { fromCountry: 'Mexico', fromCity: 'Guadalajara', toCountry: 'Mexico', toCity: 'CDMX', date: '2025-05-03', begin: '12:00:00', end: '15:00:00', plane_needed: false, hotel_needed: true },
+    { fromCountry: 'Mexico', fromCity: 'Monterrey', toCountry: 'Mexico', toCity: 'Guadalajara', date: '2025-05-04', begin: '06:00:00', end: '09:00:00', plane_needed: true, hotel_needed: false },
+    { fromCountry: 'Mexico', fromCity: 'CDMX', toCountry: 'Estados Unidos', toCity: 'Nueva York', date: '2025-05-05', begin: '14:00:00', end: '18:00:00', plane_needed: true, hotel_needed: true },
+    { fromCountry: 'Estados Unidos', fromCity: 'Nueva York', toCountry: 'Mexico', toCity: 'CDMX', date: '2025-05-06', begin: '11:00:00', end: '13:00:00', plane_needed: false, hotel_needed: false },
+    { fromCountry: 'Mexico', fromCity: 'CDMX', toCountry: 'Espana', toCity: 'Madrid', date: '2025-05-07', begin: '09:30:00', end: '12:30:00', plane_needed: true, hotel_needed: false },
+    { fromCountry: 'Reino Unido', fromCity: 'Londres', toCountry: 'Estados Unidos', toCity: 'Los Angeles', date: '2025-05-08', begin: '15:00:00', end: '18:30:00', plane_needed: true, hotel_needed: true },
+    { fromCountry: 'Mexico', fromCity: 'CDMX', toCountry: 'Espana', toCity: 'Madrid', date: '2025-05-09', begin: '08:00:00', end: '11:15:00', plane_needed: true, hotel_needed: true },
+  ];
+
+  const normalize = (value) => value.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  const normalizedCityMap = new Map([...cityMap.entries()].map(([name, id]) => [normalize(name), id]));
+  const normalizedCountryMap = new Map([...countryMap.entries()].map(([name, id]) => [normalize(name), id]));
+
+  const routeIds = [];
+  for (let i = 0; i < routesData.length; i++) {
+    const routeData = routesData[i];
+    const originCountryId = normalizedCountryMap.get(normalize(routeData.fromCountry));
+    const destinationCountryId = normalizedCountryMap.get(normalize(routeData.toCountry));
+    const originCityId = normalizedCityMap.get(normalize(routeData.fromCity));
+    const destinationCityId = normalizedCityMap.get(normalize(routeData.toCity));
+
+    if (!originCountryId || !destinationCountryId || !originCityId || !destinationCityId) {
+      console.warn(`Skipping route fixture ${i + 1} because locations are missing`);
+      continue;
+    }
+
+    const route = await prisma.route.create({
+      data: {
+        id_origin_country: originCountryId,
+        id_origin_city: originCityId,
+        id_destination_country: destinationCountryId,
+        id_destination_city: destinationCityId,
+        router_index: 0,
+        plane_needed: routeData.plane_needed,
+        hotel_needed: routeData.hotel_needed,
+        beginning_date: new Date(routeData.date),
+        beginning_time: new Date(`1970-01-01T${routeData.begin}Z`),
+        ending_date: new Date(routeData.date),
+        ending_time: new Date(`1970-01-01T${routeData.end}Z`),
+      },
+      select: { route_id: true },
+    });
+
+    routeIds.push(route.route_id);
+  }
+
+  const pairCount = Math.min(createdRequests.length, routeIds.length);
+  for (let i = 0; i < pairCount; i++) {
+    await prisma.route_Request.create({
+      data: {
+        request_id: createdRequests[i],
+        route_id: routeIds[i],
+      },
+    });
+  }
+
+  const hospedajeType = await prisma.receipt_Type.findUnique({
+    where: { receipt_type_name: 'Hospedaje' },
+    select: { receipt_type_id: true },
+  });
+
+  if (hospedajeType && createdRequests.length > 0) {
+    await prisma.receipt.create({
+      data: {
+        receipt_type_id: hospedajeType.receipt_type_id,
+        request_id: createdRequests[0],
+        validation: 'Pendiente',
+        amount: 300.0,
+        validation_date: new Date('2025-04-19T09:00:00'),
+      },
+    });
+  }
+
+  const existingRule = await prisma.authorizationRule.findFirst({
+    where: { rule_name: 'Viajes internacionales cortos' },
+    select: { rule_id: true },
+  });
+
+  if (!existingRule) {
+    const rule = await prisma.authorizationRule.create({
+      data: {
+        rule_name: 'Viajes internacionales cortos',
+        is_default: false,
+        num_levels: 3,
+        automatic: true,
+        travel_type: 'Internacional',
+        min_duration: 0,
+        max_duration: 5,
+        min_amount: 0,
+        max_amount: 5000.0,
+      },
+    });
+
+    await prisma.authorizationRuleLevel.createMany({
+      data: [
+        { rule_id: rule.rule_id, level_number: 1, level_type: 'Jefe', superior_level_number: null },
+        { rule_id: rule.rule_id, level_number: 2, level_type: 'Aleatorio', superior_level_number: 1 },
+      ],
+    });
+  }
+}
+
 async function seedDummyLocationsAndUsers() {
   await seedDummyCostCenters();
   await seedDummyDepartments();
   await seedDummyCountries();
   await seedDummyCities();
   await seedDummyUsers();
+  await seedDummyTravelFixtures();
 }
 
 async function main() {

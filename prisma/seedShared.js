@@ -199,3 +199,24 @@ export function loadDummyUsersFromCsv() {
     boss_id: row.boss_id ? Number(row.boss_id) : null,
   }));
 }
+
+export function loadDummyUsersFromCsvV2() {
+  const csvPath = path.resolve(process.cwd(), 'database/config/dummy_usersV2.csv');
+  const content = fs.readFileSync(csvPath, 'utf8');
+  const rows = parse(content, {
+    columns: true,
+    skip_empty_lines: true,
+    trim: true,
+  });
+
+  return rows.map((row) => ({
+    role_name: row.role_name,
+    department_name: row.department_name,
+    user_name: row.user_name,
+    password: row.password,
+    workstation: row.workstation,
+    email: row.email,
+    phone_number: row.phone_number && row.phone_number !== 'NULL' ? row.phone_number : null,
+    boss_id: row.boss_id ? Number(row.boss_id) : null,
+  }));
+}
