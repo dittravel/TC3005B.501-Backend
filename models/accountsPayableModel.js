@@ -73,10 +73,15 @@ const AccountsPayable = {
   
   // Accept or Reject a Travel Request
   async validateReceipt(receiptId, approval, connection = null) {
-    // Note: fixed param order to match receipt_id
+    // Map approval (number or string) to Receipt_validation enum string
+    const validationMap = ["Pendiente", "Aprobado", "Rechazado"];
+    let validationValue = approval;
+    if (typeof approval === "number") {
+      validationValue = validationMap[approval] || "Pendiente";
+    }
     const result = await prisma.receipt.updateMany({
       where: { receipt_id: receiptId },
-      data: { validation: approval },
+      data: { validation: validationValue },
     });
     return result.count > 0;
   },

@@ -23,32 +23,28 @@ export async function seedPrepopulate() {
 
   // Alert messages
   console.log('Creating alert messages...');
-  await Promise.all([
-    prisma.alertMessage.create({ data: { message_text: 'Se ha abierto una solicitud.' } }),
-    prisma.alertMessage.create({ data: { message_text: 'Se requiere tu revisión.' } }),
-    prisma.alertMessage.create({ data: { message_text: 'La solicitud está lista para generar su cotización de viaje.' } }),
-    prisma.alertMessage.create({ data: { message_text: 'Se deben asignar los servicios del viaje para la solicitud.' } }),
-    prisma.alertMessage.create({ data: { message_text: 'Se requiere validar comprobantes de los gastos del viaje.' } }),
-    prisma.alertMessage.create({ data: { message_text: 'Los comprobantes están listos para validación.' } }),
-    prisma.alertMessage.create({ data: { message_text: 'La solicitud ha sido finalizada exitosamente.' } }),
-    prisma.alertMessage.create({ data: { message_text: 'La solicitud ha sido cancelada.' } }),
-    prisma.alertMessage.create({ data: { message_text: 'La solicitud ha sido rechazada.' } }),
-  ]);
+  await prisma.alertMessage.create({ data: { message_text: 'Se ha abierto una solicitud.' } });
+  await prisma.alertMessage.create({ data: { message_text: 'Se requiere tu revisión.' } });
+  await prisma.alertMessage.create({ data: { message_text: 'La solicitud está lista para generar su cotización de viaje.' } });
+  await prisma.alertMessage.create({ data: { message_text: 'Se deben asignar los servicios del viaje para la solicitud.' } });
+  await prisma.alertMessage.create({ data: { message_text: 'Se requiere validar comprobantes de los gastos del viaje.' } });
+  await prisma.alertMessage.create({ data: { message_text: 'Los comprobantes están listos para validación.' } });
+  await prisma.alertMessage.create({ data: { message_text: 'La solicitud ha sido finalizada exitosamente.' } });
+  await prisma.alertMessage.create({ data: { message_text: 'La solicitud ha sido cancelada.' } });
+  await prisma.alertMessage.create({ data: { message_text: 'La solicitud ha sido rechazada.' } });
   console.log('Alert messages created');
 
   // Request statuses
   console.log('Creating request statuses...');
-  await Promise.all([
-    prisma.request_status.create({ data: { status: 'Borrador' } }),
-    prisma.request_status.create({ data: { status: 'Revisión' } }),
-    prisma.request_status.create({ data: { status: 'Cotización del Viaje' } }),
-    prisma.request_status.create({ data: { status: 'Atención Agencia de Viajes' } }),
-    prisma.request_status.create({ data: { status: 'Comprobación gastos del viaje' } }),
-    prisma.request_status.create({ data: { status: 'Validación de comprobantes' } }),
-    prisma.request_status.create({ data: { status: 'Finalizado' } }),
-    prisma.request_status.create({ data: { status: 'Cancelado' } }),
-    prisma.request_status.create({ data: { status: 'Rechazado' } }),
-  ]);
+  await prisma.request_status.create({ data: { status: 'Borrador' } });
+  await prisma.request_status.create({ data: { status: 'Revisión' } });
+  await prisma.request_status.create({ data: { status: 'Cotización del Viaje' } });
+  await prisma.request_status.create({ data: { status: 'Atención Agencia de Viajes' } });
+  await prisma.request_status.create({ data: { status: 'Comprobación gastos del viaje' } });
+  await prisma.request_status.create({ data: { status: 'Validación de comprobantes' } });
+  await prisma.request_status.create({ data: { status: 'Finalizado' } });
+  await prisma.request_status.create({ data: { status: 'Cancelado' } });
+  await prisma.request_status.create({ data: { status: 'Rechazado' } });
   console.log('Request statuses created');
 
   // Receipt types

@@ -64,28 +64,37 @@ const Authorizer = {
     });
   },
 
-  // Legacy getAlerts method - kept for backward compatibility but uses new hierarchical logic
-  async getAlerts(user_id, status_id, n) {
-    // Get alerts for a user (legacy, but uses new logic)
-    const requests = await prisma.request.findMany({
+  // getAlerts: fetches alerts from the Alert table, including the real message and request info
+  async getAlerts(user_id, status_id = null, n = 0) {
+    // Fetch alerts related to requests assigned to the user
+    const alerts = await prisma.alert.findMany({
       where: {
-        assigned_to: user_id,
-        active: true,
+        Request: {
+          assigned_to: user_id,
+          active: true,
+          ...(status_id ? { request_status_id: status_id } : {}),
+        },
       },
       include: {
-        user: { select: { user_name: true } },
-        request_status: { select: { status: true } },
+        AlertMessage: true,
+        Request: {
+          select: {
+            request_id: true,
+            creation_date: true,
+            requester: { select: { user_name: true } },
+          },
+        },
       },
-      orderBy: { creation_date: 'desc' },
+      orderBy: { alert_date: 'desc' },
       ...(n > 0 ? { take: n } : {}),
     });
-    return requests.map(r => ({
-      request_id: r.request_id,
-      user_name: r.user?.user_name ?? null,
-      alert_id: r.request_id,
-      message_text: r.request_status?.status ?? null,
-      alert_date: r.creation_date ? r.creation_date.toISOString().slice(0, 10) : null,
-      alert_time: r.creation_date ? r.creation_date.toISOString().slice(11, 19) : null,
+    return alerts.map(a => ({
+      alert_id: a.alert_id,
+      request_id: a.request_id,
+      user_name: a.Request?.requester?.user_name ?? null,
+      message_text: a.AlertMessage?.message_text ?? null,
+      alert_date: a.alert_date ? a.alert_date.toISOString().slice(0, 10) : null,
+      alert_time: a.alert_date ? a.alert_date.toISOString().slice(11, 19) : null,
     }));
   },
   
@@ -173,7 +182,7 @@ const Authorizer = {
     const count = await prisma.route_Request.count({
       where: {
         request_id,
-        route: {
+        Route: {
           OR: [
             { plane_needed: true },
             { hotel_needed: true },

@@ -177,334 +177,275 @@ const ReimbursementPolicyModel = {
   },
 
   async createPolicyGraph(policyData, createdBy) {
-    let conn;
-
-    try {
-      conn = await pool.getConnection();
-      await conn.beginTransaction();
-
-      const result = await conn.query(
-        `INSERT INTO Reimbursement_Policy (
-           policy_code,
-           policy_name,
-           description,
-           base_currency,
-           effective_from,
-           effective_to,
-           active,
-           created_by
-         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-        [
-          policyData.policy_code,
-          policyData.policy_name,
-          policyData.description,
-          policyData.base_currency,
-          policyData.effective_from,
-          policyData.effective_to,
-          policyData.active,
-          createdBy,
-        ]
-      );
-
-      const policyId = typeof result.insertId === 'bigint'
-        ? Number(result.insertId)
-        : result.insertId;
-      await insertAssignments(conn, policyId, policyData.assignments);
-      await insertRules(conn, policyId, policyData.rules);
-
-      await conn.commit();
-      return this.getPolicyById(policyId);
-    } catch (error) {
-      if (conn) await conn.rollback();
-      throw error;
-    } finally {
-      if (conn) conn.release();
-    }
+    const createdPolicy = await prisma.reimbursement_Policy.create({
+      data: {
+        policy_code: policyData.policy_code,
+        policy_name: policyData.policy_name,
+        description: policyData.description,
+        base_currency: policyData.base_currency,
+        effective_from: policyData.effective_from,
+        effective_to: policyData.effective_to,
+        active: policyData.active,
+        created_by: createdBy,
+        Reimbursement_Policy_Assignment: {
+          create: (policyData.assignments || []).map(a => ({
+            department_id: a.department_id,
+            active: a.active,
+          }))
+        },
+        Reimbursement_Policy_Rule: {
+          create: (policyData.rules || []).map(r => ({
+            receipt_type_id: r.receipt_type_id,
+            trip_scope: r.trip_scope,
+            max_amount_mxn: r.max_amount_mxn,
+            submission_deadline_days: r.submission_deadline_days,
+            requires_xml: r.requires_xml,
+            allow_foreign_without_xml: r.allow_foreign_without_xml,
+            refundable: r.refundable,
+            active: r.active,
+          }))
+        }
+      },
+      include: {
+        Reimbursement_Policy_Assignment: true,
+        Reimbursement_Policy_Rule: true
+      }
+    });
+    return this.getPolicyById(createdPolicy.policy_id);
   },
 
   async updatePolicyGraph(policyId, policyData) {
-    let conn;
+    await prisma.reimbursement_Policy.update({
+      where: { policy_id: policyId },
+      data: {
+        policy_code: policyData.policy_code,
+        policy_name: policyData.policy_name,
+        description: policyData.description,
+        base_currency: policyData.base_currency,
+        effective_from: policyData.effective_from,
+        effective_to: policyData.effective_to,
+        active: policyData.active,
+      }
+    });
 
-    try {
-      conn = await pool.getConnection();
-      await conn.beginTransaction();
+    // Delete old assignments and rules
+    await prisma.reimbursement_Policy_Assignment.deleteMany({ where: { policy_id: policyId } });
+    await prisma.reimbursement_Policy_Rule.deleteMany({ where: { policy_id: policyId } });
 
-      await conn.query(
-        `UPDATE Reimbursement_Policy
-         SET
-           policy_code = ?,
-           policy_name = ?,
-           description = ?,
-           base_currency = ?,
-           effective_from = ?,
-           effective_to = ?,
-           active = ?
-         WHERE policy_id = ?`,
-        [
-          policyData.policy_code,
-          policyData.policy_name,
-          policyData.description,
-          policyData.base_currency,
-          policyData.effective_from,
-          policyData.effective_to,
-          policyData.active,
-          policyId,
-        ]
-      );
-
-      await conn.query(
-        `DELETE FROM Reimbursement_Policy_Assignment
-         WHERE policy_id = ?`,
-        [policyId]
-      );
-
-      await conn.query(
-        `DELETE FROM Reimbursement_Policy_Rule
-         WHERE policy_id = ?`,
-        [policyId]
-      );
-
-      await insertAssignments(conn, policyId, policyData.assignments);
-      await insertRules(conn, policyId, policyData.rules);
-
-      await conn.commit();
-      return this.getPolicyById(policyId);
-    } catch (error) {
-      if (conn) await conn.rollback();
-      throw error;
-    } finally {
-      if (conn) conn.release();
+    // Create new assignments and rules
+    if (policyData.assignments && policyData.assignments.length > 0) {
+      await prisma.reimbursement_Policy_Assignment.createMany({
+        data: policyData.assignments.map(a => ({
+          policy_id: policyId,
+          department_id: a.department_id,
+          active: a.active,
+        }))
+      });
     }
+    if (policyData.rules && policyData.rules.length > 0) {
+      await prisma.reimbursement_Policy_Rule.createMany({
+        data: policyData.rules.map(r => ({
+          policy_id: policyId,
+          receipt_type_id: r.receipt_type_id,
+          trip_scope: r.trip_scope,
+          max_amount_mxn: r.max_amount_mxn,
+          submission_deadline_days: r.submission_deadline_days,
+          requires_xml: r.requires_xml,
+          allow_foreign_without_xml: r.allow_foreign_without_xml,
+          refundable: r.refundable,
+          active: r.active,
+        }))
+      });
+    }
+    return this.getPolicyById(policyId);
   },
 
   async deactivatePolicy(policyId) {
-    let conn;
-
-    try {
-      conn = await pool.getConnection();
-      const result = await conn.query(
-        `UPDATE Reimbursement_Policy
-         SET active = FALSE
-         WHERE policy_id = ?`,
-        [policyId]
-      );
-
-      return result.affectedRows > 0;
-    } finally {
-      if (conn) conn.release();
-    }
+    const result = await prisma.reimbursement_Policy.update({
+      where: { policy_id: policyId },
+      data: { active: false }
+    });
+    return !!result;
   },
 
   async findAssignmentConflict(departmentId, effectiveFrom, effectiveTo, excludePolicyId = null) {
-    let conn;
-
-    try {
-      conn = await pool.getConnection();
-      const rows = await conn.query(
-        `SELECT
-           rp.policy_id,
-           rp.policy_code,
-           rp.policy_name,
-           rpa.department_id
-         FROM Reimbursement_Policy rp
-         INNER JOIN Reimbursement_Policy_Assignment rpa
-           ON rpa.policy_id = rp.policy_id
-         WHERE rp.active = TRUE
-           AND rpa.active = TRUE
-           AND rpa.department_id <=> ?
-           AND rp.policy_id <> ?
-           AND rp.effective_from <= ?
-           AND COALESCE(rp.effective_to, ?) >= ?
-         LIMIT 1`,
-        [
-          departmentId,
-          excludePolicyId || 0,
-          effectiveTo || OPEN_ENDED_DATE,
-          OPEN_ENDED_DATE,
-          effectiveFrom,
-        ]
-      );
-
-      return rows[0] || null;
-    } finally {
-      if (conn) conn.release();
-    }
+    const conflict = await prisma.reimbursement_Policy.findFirst({
+      where: {
+        active: true,
+        policy_id: { not: excludePolicyId || 0 },
+        effective_from: { lte: effectiveTo || OPEN_ENDED_DATE },
+        OR: [
+          { effective_to: null },
+          { effective_to: { gte: effectiveFrom } }
+        ],
+        Reimbursement_Policy_Assignment: {
+          some: {
+            active: true,
+            department_id: departmentId
+          }
+        }
+      },
+      select: {
+        policy_id: true,
+        policy_code: true,
+        policy_name: true,
+        Reimbursement_Policy_Assignment: {
+          where: { department_id: departmentId },
+          select: { department_id: true }
+        }
+      }
+    });
+    if (!conflict) return null;
+    return {
+      policy_id: conflict.policy_id,
+      policy_code: conflict.policy_code,
+      policy_name: conflict.policy_name,
+      department_id: conflict.Reimbursement_Policy_Assignment[0]?.department_id
+    };
   },
 
   async findReceiptTypeById(receiptTypeId) {
-    let conn;
-
-    try {
-      conn = await pool.getConnection();
-      const rows = await conn.query(
-        `SELECT receipt_type_id, receipt_type_name
-         FROM Receipt_Type
-         WHERE receipt_type_id = ?`,
-        [receiptTypeId]
-      );
-
-      return rows[0] || null;
-    } finally {
-      if (conn) conn.release();
-    }
+    return await prisma.receipt_Type.findUnique({
+      where: { receipt_type_id: receiptTypeId },
+      select: {
+        receipt_type_id: true,
+        receipt_type_name: true
+      }
+    });
   },
 
   async findDepartmentById(departmentId) {
-    let conn;
-
-    try {
-      conn = await pool.getConnection();
-      const rows = await conn.query(
-        `SELECT department_id, department_name
-         FROM Department
-         WHERE department_id = ?`,
-        [departmentId]
-      );
-
-      return rows[0] || null;
-    } finally {
-      if (conn) conn.release();
-    }
+    return await prisma.department.findUnique({
+      where: { department_id: departmentId },
+      select: {
+        department_id: true,
+        department_name: true
+      }
+    });
   },
 
   async getActivePolicyByDepartment(departmentId, referenceDate) {
-    let conn;
-
-    try {
-      conn = await pool.getConnection();
-      const rows = await conn.query(
-        `SELECT rp.policy_id
-         FROM Reimbursement_Policy rp
-         INNER JOIN Reimbursement_Policy_Assignment rpa
-           ON rpa.policy_id = rp.policy_id
-         WHERE rp.active = TRUE
-           AND rpa.active = TRUE
-           AND (rpa.department_id = ? OR rpa.department_id IS NULL)
-           AND rp.effective_from <= ?
-           AND COALESCE(rp.effective_to, ?) >= ?
-         ORDER BY
-           CASE WHEN rpa.department_id = ? THEN 0 ELSE 1 END,
-           rp.effective_from DESC,
-           rp.policy_id DESC
-         LIMIT 1`,
-        [
-          departmentId,
-          referenceDate,
-          OPEN_ENDED_DATE,
-          referenceDate,
-          departmentId,
-        ]
-      );
-
-      if (!rows[0]) {
-        return null;
-      }
-
-      return this.getPolicyById(rows[0].policy_id);
-    } finally {
-      if (conn) conn.release();
+    // Ensure referenceDate is a Date object
+    if (typeof referenceDate === 'string') {
+      referenceDate = new Date(referenceDate);
     }
+    const policy = await prisma.reimbursement_Policy.findFirst({
+      where: {
+        active: true,
+        effective_from: { lte: referenceDate },
+        OR: [
+          { effective_to: null },
+          { effective_to: { gte: referenceDate } }
+        ],
+        Reimbursement_Policy_Assignment: {
+          some: {
+            active: true,
+            OR: [
+              { department_id: departmentId },
+              { department_id: null }
+            ]
+          }
+        }
+      },
+      orderBy: [
+        { Reimbursement_Policy_Assignment: { _count: 'desc' } }, // Prefer exact match
+        { effective_from: 'desc' },
+        { policy_id: 'desc' }
+      ]
+    });
+    if (!policy) return null;
+    return this.getPolicyById(policy.policy_id);
   },
 
   async getRequestEvaluationContext(requestId) {
-    let conn;
-
-    try {
-      conn = await pool.getConnection();
-      const requestRows = await conn.query(
-        `SELECT
-           r.request_id,
-           r.user_id,
-           r.creation_date,
-           u.department_id
-         FROM Request r
-         INNER JOIN User u
-           ON u.user_id = r.user_id
-         WHERE r.request_id = ?`,
-        [requestId]
-      );
-
-      const request = requestRows[0];
-      if (!request) {
-        return null;
+    const request = await prisma.request.findUnique({
+      where: { request_id: requestId },
+      select: {
+        request_id: true,
+        user_id: true,
+        creation_date: true,
+        requester: {
+          select: { department_id: true }
+        }
       }
+    });
+    if (!request) return null;
 
-      const routeRows = await conn.query(
-        `SELECT
-           ro.route_id,
-           origin_country.country_name AS origin_country,
-           destination_country.country_name AS destination_country,
-           ro.ending_date
-         FROM Route_Request rr
-         INNER JOIN Route ro
-           ON ro.route_id = rr.route_id
-         LEFT JOIN Country origin_country
-           ON origin_country.country_id = ro.id_origin_country
-         LEFT JOIN Country destination_country
-           ON destination_country.country_id = ro.id_destination_country
-         WHERE rr.request_id = ?
-         ORDER BY ro.router_index ASC, ro.route_id ASC`,
-        [requestId]
-      );
+    // Get all routes for this request, with country names and ending_date
+    const routeRequests = await prisma.route_Request.findMany({
+      where: { request_id: requestId },
+      orderBy: [
+        { Route: { router_index: 'asc' } },
+        { Route: { route_id: 'asc' } }
+      ],
+      select: {
+        Route: {
+          select: {
+            route_id: true,
+            ending_date: true,
+            originCountry: { select: { country_name: true } },
+            destinationCountry: { select: { country_name: true } }
+          }
+        }
+      }
+    });
+    const routes = routeRequests.map(rr => ({
+      route_id: rr.Route?.route_id,
+      origin_country: rr.Route?.originCountry?.country_name,
+      destination_country: rr.Route?.destinationCountry?.country_name,
+      ending_date: rr.Route?.ending_date
+    }));
 
-      const receiptRows = await conn.query(
-        `SELECT
-           rec.receipt_id,
-           rec.receipt_type_id,
-           rt.receipt_type_name,
-           rec.route_id,
-           rec.validation,
-           rec.amount,
-           rec.currency,
-           rec.refund,
-           rec.submission_date,
-           rec.xml_file_id,
-           rec.xml_file_name,
-           rec.xml_uuid,
-           route.ending_date AS route_ending_date,
-           request_dates.max_ending_date
-         FROM Receipt rec
-         INNER JOIN Receipt_Type rt
-           ON rt.receipt_type_id = rec.receipt_type_id
-         LEFT JOIN Route route
-           ON route.route_id = rec.route_id
-         LEFT JOIN (
-           SELECT
-             rr.request_id,
-             MAX(ro.ending_date) AS max_ending_date
-           FROM Route_Request rr
-           INNER JOIN Route ro
-             ON ro.route_id = rr.route_id
-           GROUP BY rr.request_id
-         ) request_dates
-           ON request_dates.request_id = rec.request_id
-         WHERE rec.request_id = ?
-         ORDER BY rec.receipt_id ASC`,
-        [requestId]
-      );
+    // Get all receipts for this request, with type and route info
+    const receipts = await prisma.receipt.findMany({
+      where: { request_id: requestId },
+      orderBy: { receipt_id: 'asc' },
+      select: {
+        receipt_id: true,
+        receipt_type_id: true,
+        Receipt_Type: { select: { receipt_type_name: true } },
+        route_id: true,
+        validation: true,
+        amount: true,
+        currency: true,
+        refund: true,
+        submission_date: true,
+        xml_file_id: true,
+        xml_file_name: true,
+        xml_uuid: true,
+        Route: { select: { ending_date: true } },
+      }
+    });
+    // Get max ending_date for all routes in this request
+    const maxEnding = routes.reduce((max, r) => {
+      if (r.ending_date && (!max || r.ending_date > max)) return r.ending_date;
+      return max;
+    }, null);
 
-      return {
-        request,
-        routes: routeRows,
-        receipts: receiptRows.map((receipt) => ({
-          receipt_id: receipt.receipt_id,
-          receipt_type_id: receipt.receipt_type_id,
-          receipt_type_name: receipt.receipt_type_name,
-          route_id: receipt.route_id,
-          validation: receipt.validation,
-          amount: Number(receipt.amount),
-          currency: receipt.currency,
-          refund: Boolean(receipt.refund),
-          submission_date: receipt.submission_date,
-          xml_file_id: receipt.xml_file_id,
-          xml_file_name: receipt.xml_file_name,
-          xml_uuid: receipt.xml_uuid,
-          reference_end_date: receipt.route_ending_date || receipt.max_ending_date,
-        })),
-      };
-    } finally {
-      if (conn) conn.release();
-    }
+    return {
+      request: {
+        request_id: request.request_id,
+        user_id: request.user_id,
+        creation_date: request.creation_date,
+        department_id: request.requester?.department_id
+      },
+      routes,
+      receipts: receipts.map(receipt => ({
+        receipt_id: receipt.receipt_id,
+        receipt_type_id: receipt.receipt_type_id,
+        receipt_type_name: receipt.Receipt_Type?.receipt_type_name,
+        route_id: receipt.route_id,
+        validation: receipt.validation,
+        amount: Number(receipt.amount),
+        currency: receipt.currency,
+        refund: Boolean(receipt.refund),
+        submission_date: receipt.submission_date,
+        xml_file_id: receipt.xml_file_id,
+        xml_file_name: receipt.xml_file_name,
+        xml_uuid: receipt.xml_uuid,
+        reference_end_date: receipt.Route?.ending_date || maxEnding,
+      }))
+    };
   },
 };
 
