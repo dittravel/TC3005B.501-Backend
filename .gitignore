@@ -143,3 +143,9 @@ dist
 
 #MacOS Stuff
 .DS_Store
+
+/generated/prisma
+
+/generated/prisma
+
+/generated/prisma

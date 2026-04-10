@@ -4,7 +4,7 @@
  * Centralized business logic for travel request operations.
  */
 
-import pool from "../database/config/db.js";
+import { prisma } from "../lib/prisma.js";
 
 const RequestService = {
   /**
@@ -29,14 +29,12 @@ const RequestService = {
    * @throws {Error} If updates object is empty or database error occurs
    */
   async updateRequest(requestId, updates = {}, options = {}) {
-    const { connection } = options;
-    
     // Validate that at least one field is being updated
     if (!updates || Object.keys(updates).length === 0) {
       throw new Error("No fields to update provided");
     }
 
-    // Whitelist of allowed fields to prevent SQL injection
+    // Whitelist of allowed fields and map them to Prisma fields
     const allowedFields = {
       status_id: 'request_status_id',
       assigned_to: 'assigned_to',
@@ -46,34 +44,28 @@ const RequestService = {
       requested_fee: 'requested_fee',
     };
 
-    // Build the SET clause dynamically
-    const updateFields = [];
-    const values = [];
+    const data = {};
 
     for (const [key, value] of Object.entries(updates)) {
       if (!allowedFields[key]) {
         throw new Error(`Field "${key}" is not allowed for update`);
       }
 
-      updateFields.push(`${allowedFields[key]} = ?`);
-      values.push(value);
+      data[allowedFields[key]] = value;
     }
 
-    // Add last_mod_date to track updates
-    updateFields.push('last_mod_date = CURRENT_TIMESTAMP');
+    data.last_mod_date = new Date();
 
-    const query = `
-      UPDATE Request
-      SET ${updateFields.join(', ')}
-      WHERE request_id = ?
-    `;
-
-    values.push(requestId);
-
-    let conn = null;
     try {
-      conn = connection || (await pool.getConnection());
-      const result = await conn.query(query, values);
+      const runUpdate = (tx) =>
+        tx.request.updateMany({
+          where: { request_id: Number(requestId) },
+          data,
+        });
+
+      const result = options.connection
+        ? await runUpdate(options.connection)
+        : await runUpdate(prisma);
 
       return {
         affectedRows: result.affectedRows,
@@ -83,12 +75,6 @@ const RequestService = {
     } catch (error) {
       console.error('Error updating request:', error);
       throw error;
-
-    } finally {
-      // Only release connection if we created it (not provided in options)
-      if (!connection && conn) {
-        conn.release();
-      }
     }
   },
 
@@ -101,35 +87,32 @@ const RequestService = {
    * @throws {Error} If request not found or database error occurs
    */
   async getRequestStatusName(requestId, options = {}) {
-    const { connection } = options;
-
-    const query = `
-      SELECT rs.status
-      FROM Request r
-      JOIN Request_status rs ON r.request_status_id = rs.request_status_id
-      WHERE r.request_id = ?
-    `;
-
-    let conn = null;
     try {
-      conn = connection || (await pool.getConnection());
-      const rows = await conn.query(query, [requestId]);
+      const runQuery = (tx) =>
+        tx.request.findUnique({
+          where: { request_id: Number(requestId) },
+          select: {
+            Request_status: {
+              select: {
+                status: true,
+              },
+            },
+          },
+        });
 
-      if (!rows || rows.length === 0) {
+      const row = options.connection
+        ? await runQuery(options.connection)
+        : await runQuery(prisma);
+
+      if (!row) {
         throw new Error(`Request ${requestId} not found`);
       }
 
-      return rows[0].status;
+      return row.request_status?.status || null;
 
     } catch (error) {
       console.error('Error getting request status:', error);
       throw error;
-
-    } finally {
-      // Only release connection if we created it (not provided in options)
-      if (!connection && conn) {
-        conn.release();
-      }
     }
   },
 };

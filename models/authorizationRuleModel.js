@@ -5,149 +5,131 @@
  * based on various criteria such as travel type, duration, and amount.
  */
 
-import pool from '../database/config/db.js';
+import { prisma } from '../lib/prisma.js';
 
 const AuthorizationRuleModel = {
   // Get all authorization rules
   async getAllRules() {
-    let conn;
     try {
-      conn = await pool.getConnection();
-      const rows = await conn.query(`
-        SELECT * FROM AuthorizationRule 
-        ORDER BY is_default ASC, rule_id ASC
-      `);
-      return rows;
+      return await prisma.authorizationRule.findMany({
+        orderBy: [
+          { is_default: 'asc' },
+          { rule_id: 'asc' },
+        ],
+      });
     } catch (error) {
       console.error('Error fetching authorization rules:', error);
       throw error;
-    } finally {
-      if (conn) {
-        conn.release();
-      }
     }
   },
 
   // Get a single rule by ID with its levels
   async getRuleById(ruleId) {
-    let conn;
     try {
-      conn = await pool.getConnection();
-      const rule = await conn.query(`
-        SELECT * FROM AuthorizationRule 
-        WHERE rule_id = ?
-      `, [ruleId]);
-
-      if (rule.length === 0) {
-        return null;
-      }
-
-      const levels = await conn.query(`
-        SELECT * FROM AuthorizationRuleLevel 
-        WHERE rule_id = ?
-        ORDER BY level_number ASC
-      `, [ruleId]);
-
+      const rule = await prisma.authorizationRule.findUnique({
+        where: { rule_id: ruleId },
+        include: {
+          levels: {
+            orderBy: { level_number: 'asc' },
+          },
+        },
+      });
+      if (!rule) return null;
+      // For compatibility, return levels as 'levels' property
       return {
-        ...rule[0],
-        levels: levels
+        ...rule,
+        levels: rule.levels,
       };
     } catch (error) {
       console.error('Error fetching authorization rule by ID:', error);
       throw error;
-    } finally {
-      if (conn) {
-        conn.release();
-      }
     }
   },
 
   // Get rules that match travel type, duration, and amount criteria
   // Returns all rules that could potentially apply
   async getRulesByCriteria(travelType, duration, amount) {
-    let conn;
     try {
-      conn = await pool.getConnection();
-
-      // Build dynamic query based on travel type matching
-      // Travel type can be: 'Nacional', 'Internacional', 'Todos'
-      let whereConditions = [];
-      
-      if (travelType) {
-        whereConditions.push(`(travel_type = 'Todos' OR travel_type = '${travelType}')`);
-      }
-
-      const rows = await conn.query(`
-        SELECT * FROM AuthorizationRule 
-        WHERE ${whereConditions.join(' AND ')}
-          AND (min_duration IS NULL OR min_duration <= ?)
-          AND (max_duration IS NULL OR max_duration >= ?)
-          AND (min_amount IS NULL OR min_amount <= ?)
-          AND (max_amount IS NULL OR max_amount >= ?)
-        ORDER BY is_default ASC, rule_id ASC
-      `, [duration, duration, amount, amount]);
-
-      // Fetch levels for each rule
-      const rulesWithLevels = await Promise.all(
-        rows.map(async (rule) => {
-          const levels = await conn.query(`
-            SELECT * FROM AuthorizationRuleLevel 
-            WHERE rule_id = ?
-            ORDER BY level_number ASC
-          `, [rule.rule_id]);
-
-          return {
-            ...rule,
-            levels: levels
-          };
-        })
-      );
-
-      return rulesWithLevels;
+      // Build dynamic Prisma where clause
+      const where = {
+        AND: [
+          travelType ? {
+            OR: [
+              { travel_type: 'Todos' },
+              { travel_type: travelType },
+            ],
+          } : {},
+          {
+            OR: [
+              { min_duration: null },
+              { min_duration: { lte: duration } },
+            ],
+          },
+          {
+            OR: [
+              { max_duration: null },
+              { max_duration: { gte: duration } },
+            ],
+          },
+          {
+            OR: [
+              { min_amount: null },
+              { min_amount: { lte: amount } },
+            ],
+          },
+          {
+            OR: [
+              { max_amount: null },
+              { max_amount: { gte: amount } },
+            ],
+          },
+        ],
+      };
+      const rules = await prisma.authorizationRule.findMany({
+        where,
+        orderBy: [
+          { is_default: 'asc' },
+          { rule_id: 'asc' },
+        ],
+        include: {
+          levels: {
+            orderBy: { level_number: 'asc' },
+          },
+        },
+      });
+      // For compatibility, return levels as 'levels' property
+      return rules.map(rule => ({
+        ...rule,
+        levels: rule.levels,
+      }));
     } catch (error) {
       console.error('Error fetching authorization rules by criteria:', error);
       throw error;
-    } finally {
-      if (conn) {
-        conn.release();
-      }
     }
   },
 
   // Get default authorization rule
   async getDefaultRule() {
-    let conn;
     try {
-      conn = await pool.getConnection();
-      const rule = await conn.query(`
-        SELECT * FROM AuthorizationRule 
-        WHERE is_default = TRUE
-        LIMIT 1
-      `);
-
-      if (rule.length === 0) {
-        return null;
-      }
-
-      const levels = await conn.query(`
-        SELECT * FROM AuthorizationRuleLevel 
-        WHERE rule_id = ?
-        ORDER BY level_number ASC
-      `, [rule[0].rule_id]);
-
+      const rule = await prisma.authorizationRule.findFirst({
+        where: { is_default: true },
+        orderBy: { rule_id: 'asc' },
+        include: {
+          levels: {
+            orderBy: { level_number: 'asc' },
+          },
+        },
+      });
+      if (!rule) return null;
       return {
-        ...rule[0],
-        levels: levels
+        ...rule,
+        levels: rule.levels,
       };
     } catch (error) {
       console.error('Error fetching default authorization rule:', error);
       throw error;
-    } finally {
-      if (conn) {
-        conn.release();
-      }
     }
-  }
+  },
 };
 
 export default AuthorizationRuleModel;

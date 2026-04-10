@@ -168,13 +168,13 @@ export const editTravelRequest = async (req, res) => {
 
 // Cancel a travel request and send notification
 export const cancelTravelRequest = async (req, res) => {
-  const { requestId } = req.params;
+  const { request_id } = req.params;
 
   try {
-    const result = await cancelTravelRequestValidation(Number(requestId));
+    const result = await cancelTravelRequestValidation(Number(request_id));
     
     // Send email notifications
-    await sendEmails(requestId);
+    await sendEmails(request_id);
 
     return res.status(200).json(result);
   } catch (err) {
@@ -469,6 +469,10 @@ export async function createExpenseWithFilesHandler(req, res) {
   } catch (err) {
     if (err.code === "DUPLICATE_UUID") {
       return res.status(409).json({ error: err.message });
+    }
+    // Unique constraint violation if XML file already exists
+    if (err.code === "P2002" && err.meta?.modelName === 'Receipt') {
+      return res.status(409).json({ error: "Este comprobante XML ya existe" });
     }
     if (err.code === "BAD_REQUEST") {
       return res.status(400).json({ error: err.message });
