@@ -19,14 +19,15 @@ export async function sendEmails(requestId) {
   if (finalStates.includes(status)) {
     // Only send to applicant for final states
     await sendMail(applicantId, requestId);
-  } else if (applicantId === assignedToId) {
-    // Only send one email if applicant and assigned_to are the same person
-    // (e.g., during receipt submission stage)
+  } else if (applicantId === assignedToId || !assignedToId) {
+    // Only send one email if applicant and assigned_to are the same person or assigned_to is null
     await sendMail(applicantId, requestId);
   } else {
-    // Send to both applicant and assigned_to user
+    // Send to both applicant and assigned_to user (if assignedToId exists)
     await sendMail(applicantId, requestId);
-    await sendMail(assignedToId, requestId);
+    if (assignedToId) {
+      await sendMail(assignedToId, requestId);
+    }
   }
 }
 

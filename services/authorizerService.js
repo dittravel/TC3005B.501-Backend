@@ -145,12 +145,15 @@ const authorizeRequest = async (request_id, user_id, options = {}) => {
         }
       } else {
         // Rule has specific levels defined
-        const nextRuleLevel = authorizationRule.levels.find(level => level.level_number === new_authorization_level);
+        // new_authorization_level is 1-indexed (1, 2, 3...) but we need the NEXT level
+        // AuthorizationRuleLevel.level_number is also 1-indexed
+        const nextLevelNumber = new_authorization_level + 1;
+        const nextRuleLevel = authorizationRule.levels.find(level => level.level_number === nextLevelNumber);
         
         if (!nextRuleLevel) {
           throw {
             status: 500,
-            message: `Rule level ${new_authorization_level} not found in authorization rule`
+            message: `Rule level ${nextLevelNumber} not found in authorization rule`
           };
         }
 

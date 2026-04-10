@@ -10,6 +10,7 @@
 import Applicant from "../models/applicantModel.js";
 import Authorizer from "../models/authorizerModel.js";
 import User from "../models/userModel.js";
+import { prisma } from "../lib/prisma.js";
 
 /**
  * Formats the main route and additional routes into a consistent structure.
@@ -57,10 +58,10 @@ export const getRequestDays = (routes) => {
   if (!routes || routes.length === 0) return 0;
   
   // Sort routes by router_index
-  const sortedRoutes = routes.sort((a, b) => a.router_index - b.router_index);
+  const sortedRoutes = [...routes].sort((a, b) => a.router_index - b.router_index);
   
   const firstRoute = sortedRoutes[0];
-  const lastRoute = sortedRoutes[sortedRoutes.length - 1];
+  const lastRoute = sortedRoutes.at(-1);
   
   // Combine date and time strings to create full datetime objects
   const startDate = new Date(
@@ -93,20 +94,21 @@ export const cancelTravelRequestValidation = async (request_id) => {
   try {
     const status_id = await Applicant.getRequestStatus(request_id);
     if (status_id === null) {
-      throw { status: 404, message: "Travel request not found" };
+      const err = new Error("Travel request not found");
+      err.status = 404;
+      throw err;
     }
     
     if (![1, 2, 3, 5, 9].includes(status_id)) {
-      throw {
-        status: 400,
-        message:
-        "Request cannot be cancelled after reaching 'Atención Agencia de Viajes'",
-      };
+      const err = new Error(
+        "Request cannot be cancelled after reaching 'Atención Agencia de Viajes'"
+      );
+      err.status = 400;
+      throw err;
     } else if (status_id == 8) {
-      throw {
-        status: 400,
-        message: "Request has already been cancelled.",
-      };
+      const err = new Error("Request has already been cancelled.");
+      err.status = 400;
+      throw err;
     }
     
     await Applicant.cancelTravelRequest(request_id);
@@ -165,20 +167,22 @@ export async function createExpenseValidationBatch(receipts) {
  */
 export const getCountryId = async (conn, countryName) => {
   console.log("Checking country:", countryName);
-  const countryQuery = `SELECT country_id FROM Country WHERE country_name = ?`;
-  const [CountryRows] = await conn.query(countryQuery, [countryName]);
-  //If country does not exist, insert it
-  if (CountryRows === undefined) {
+  const tx = conn || prisma;
+  const existingCountry = await tx.country.findUnique({
+    where: { country_name: countryName },
+    select: { country_id: true },
+  });
+
+  if (!existingCountry) {
     console.log("Country not found, inserting:", countryName);
-    const insertCountryQuery = `INSERT INTO Country (country_name) VALUES (?)`;
-    const insertedCountry = await conn.execute(insertCountryQuery, [
-      countryName,
-    ]);
-    return insertedCountry.insertId;
-  } else {
-    //If country exists, return the id
-    return CountryRows.country_id;
+    const insertedCountry = await tx.country.create({
+      data: { country_name: countryName },
+      select: { country_id: true },
+    });
+    return insertedCountry.country_id;
   }
+
+  return existingCountry.country_id;
 };
 
 /**
@@ -191,17 +195,21 @@ export const getCountryId = async (conn, countryName) => {
  */
 export const getCityId = async (conn, cityName) => {
   console.log("Checking city:", cityName);
-  const cityQuery = `SELECT city_id FROM City WHERE city_name = ?`;
-  const [CityRows] = await conn.query(cityQuery, [cityName]);
-  //If city does not exist, insert it
-  if (CityRows === undefined) {
-    const insertCityQuery = `INSERT INTO City (city_name) VALUES (?)`;
-    const insertedCity = await conn.execute(insertCityQuery, [cityName]);
-    return insertedCity.insertId;
-  } else {
-    //If city exists, return the id
-    return CityRows.city_id;
+  const tx = conn || prisma;
+  const existingCity = await tx.city.findUnique({
+    where: { city_name: cityName },
+    select: { city_id: true },
+  });
+
+  if (!existingCity) {
+    const insertedCity = await tx.city.create({
+      data: { city_name: cityName },
+      select: { city_id: true },
+    });
+    return insertedCity.city_id;
   }
+
+  return existingCity.city_id;
 };
 
 /**

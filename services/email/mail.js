@@ -118,7 +118,7 @@ export async function sendMail(userId, requestId) {
   const email = userData.email;
 
   let templateName = "applicant.html"; // Default template
-  
+
   if (userRole === "Solicitante") {
     if (status === "Comprobación gastos del viaje") {
       templateName = "applicant-receipts.html";
@@ -126,7 +126,12 @@ export async function sendMail(userId, requestId) {
       templateName = "applicant.html";
     }
   } else if (userRole === "Autorizador") {
-    templateName = "authorizer.html";
+    // Si la solicitud fue cancelada, solo notificar cancelación, sin acciones
+    if (status === "Cancelado") {
+      templateName = "applicant.html";
+    } else {
+      templateName = "authorizer.html";
+    }
   } else if (userRole === "Cuentas por pagar") {
     if (status === "Cotización del Viaje") {
       templateName = "accounts-payable-fee.html";

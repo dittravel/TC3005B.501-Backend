@@ -147,6 +147,97 @@ In order to properly setup MariaDB, the following steps are required:
 4. Verify that mongo is running using ` systemctl status mongod `
 5. If the status appears as inactive, use the command ` systemctl start mongod `
 
+### Setup Prisma
+
+>[!Info]
+>Prisma is an Object-Relational Mapping (ORM) tool used to interact with the `mariadb` database.
+>
+>It makes it easier to perform database queries by providing a higher-level API, as well as managing the database schema and migrations.
+>
+>To check additional information, check the [Prisma documentation](https://www.prisma.io/docs/prisma-orm/quickstart/mysql).
+
+#### 1. Environment Variables
+
+Setup the `DATABASE_URL` environment variables in your `.env` file to allow Prisma to connect to your `mariadb` database.
+
+```
+DATABASE_URL="mysql://travel_user:supersecret@localhost:3306/CocoScheme"
+DATABASE_USER="travel_user"
+DATABASE_PASSWORD="supersecret"
+DATABASE_NAME="CocoScheme"
+DATABASE_HOST="localhost"
+DATABASE_PORT=3306
+```
+
+#### 2. Generate the Prisma Client
+
+```sh
+npx prisma generate
+```
+
+> [!Note]
+> This step is required after any changes to the schema, which is located at [`/database/prisma/schema.prisma`](/database/prisma/schema.prisma).
+
+#### 3. Run database migrations
+
+>[!Info]
+>**If you are running the project for the first time, you can skip this step.**
+>
+>Migrations are used to keep track of changes to the database schema over time. See it as a version control system for your database schema.
+
+To create the initial migration based on the current Prisma schema:
+
+```sh
+npx prisma migrate deploy
+```
+
+To apply any pending migrations to your database:
+
+```sh
+npx prisma migrate deploy
+```
+
+Or to create a new migration file if you've modified the schema:
+
+```sh
+npx prisma migrate dev --name description_of_changes
+```
+
+#### 4. Seed the Database
+
+To populate your database with only essential initial data, run the following:
+
+```sh
+npm run prisma:seed
+```
+
+To populate your database with dummy data for testing:
+
+```sh
+npm run prisma:seed:dummy
+```
+
+#### 5. Reset the Database
+
+If you need to reset your database (deletes all data and re-applies all migrations):
+
+```sh
+npx prisma migrate reset
+```
+
+> [!Warning]
+> This command will delete all data in your database. Use it only in development environments.
+
+#### Useful Prisma Commands
+
+| Command | Description |
+|---------|-------------|
+| `npm run prisma:seed` | Run the seed script with initial data |
+| `npm run prisma:seed:dummy` | Run the seed script with dummy data |
+| `npx prisma migrate dev --name <name>` | Create a new migration |
+| `npx prisma migrate deploy` | Apply pending migrations |
+| `npx prisma migrate reset` | Reset the database |
+
 ### Environment Variables
 
 Finally, it is crucial that a local `.env` file is created. Based off of the [`.env.example`](/.env.example) file provided, which includes all necessary environment variables to be set in order for the server to be able to connect to the `mariadb` database, as well as the required JSON Web Token(JWT) information required for verifying authorized requests and encryption.
@@ -161,13 +252,15 @@ Finally, it is crucial that a local `.env` file is created. Based off of the [`.
     # Server Configuration
     PORT=3000
     NODE_ENV=development
+    FRONTEND_URL=https://localhost:4321
+    BACKEND_URL=https://localhost:3000
 
-    # Database Configuration  
+    # Database Configuration
     DB_HOST=localhost
     DB_PORT=3306
-    DB_NAME=CocoScheme
-    DB_USER=travel_user
-    DB_PASSWORD=supersecret
+    DB_NAME=travel_management # Change this
+    DB_USER=username # Change this
+    DB_PASSWORD=password # Change this
 
     # API Keys (if needed)
     # API_KEY=your_api_key
@@ -178,14 +271,29 @@ Finally, it is crucial that a local `.env` file is created. Based off of the [`.
 
     # Keys to be replaced with the keys uploaded to the sharepoint
     # For the time-being feel free to add any string with that length
-    AES_SECRET_KEY=your_aes_secret_key_here_32_chars
-    AES_IV=your_aes_iv_here_16_chars
-    JWT_SECRET=your_jwt_secret_key_here
+    AES_SECRET_KEY=<32 character key>
+    AES_IV=<16 character key>
+    JWT_SECRET=<key>
 
     # Please check the sharepoint folder certificates
     # and environment files for the real user and password
     MAIL_USER=test.mail@outlook.com
     MAIL_PASSWORD=password
+
+    # This was inserted by `prisma init`:
+    # Environment variables declared in this file are NOT automatically loaded by Prisma.
+    # Please add `import "dotenv/config";` to your `prisma.config.ts` file, or use the Prisma CLI with Bun
+    # to load environment variables from .env files: https://pris.ly/prisma-config-env-vars.
+
+    # Prisma supports the native connection string format for PostgreSQL, MySQL, SQLite, SQL Server, MongoDB and CockroachDB.
+    # See the documentation for all the connection string options: https://pris.ly/d/connection-strings
+
+    DATABASE_URL="mysql://username:password@localhost:3306/mydb"
+    DATABASE_USER="username"
+    DATABASE_PASSWORD="password"
+    DATABASE_NAME="mydb"
+    DATABASE_HOST="localhost"
+    DATABASE_PORT=3306
     ```
 
 ## Email Configuration

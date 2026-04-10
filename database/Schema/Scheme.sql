@@ -38,7 +38,18 @@ CREATE TABLE IF NOT EXISTS Department (
     cost_center_id INT,
     active BOOL NOT NULL DEFAULT TRUE,
 
-    FOREIGN KEY (cost_center_id) REFERENCES CostCenter(cost_center_id)
+    CONSTRAINT fk_department_costcenter FOREIGN KEY (cost_center_id) REFERENCES CostCenter(cost_center_id)
+);
+
+-- Currency: Global currency catalog with Banxico integration
+CREATE TABLE IF NOT EXISTS Currency (
+    currency_id INT PRIMARY KEY AUTO_INCREMENT,
+    currency_code VARCHAR(6) UNIQUE NOT NULL,
+    currency_name VARCHAR(100) NOT NULL,
+    country VARCHAR(100),
+    banxico_series_id VARCHAR(20) NULL,
+    frequency ENUM('daily', 'monthly') DEFAULT 'monthly',
+    active BOOL NOT NULL DEFAULT TRUE
 );
 
 -- AlertMessage: Predefined alert messages for request status notifications
@@ -70,9 +81,10 @@ CREATE TABLE IF NOT EXISTS User (
     password_reset_token VARCHAR(64) NULL,   -- Token for password reset flow (64-char hex)
     password_reset_expires DATETIME NULL,    -- Expiry for password reset token (1 hour)
 
-    FOREIGN KEY (role_id) REFERENCES Role(role_id),
-    FOREIGN KEY (department_id) REFERENCES Department(department_id),
-    FOREIGN KEY (boss_id) REFERENCES User(user_id)
+    CONSTRAINT fk_user_role FOREIGN KEY (role_id) REFERENCES Role(role_id),
+    CONSTRAINT fk_user_department FOREIGN KEY (department_id) REFERENCES Department(department_id),
+    CONSTRAINT fk_user_boss FOREIGN KEY (boss_id) REFERENCES User(user_id),
+    CONSTRAINT fk_user_substitute FOREIGN KEY (substitute_id) REFERENCES User(user_id)
 );
 
 -- Audit_Log: Critical action trail for administrative and workflow events
@@ -86,7 +98,7 @@ CREATE TABLE IF NOT EXISTS Audit_Log (
     metadata LONGTEXT NULL,                  -- Sanitized contextual payload serialized as JSON
     event_timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 
-    FOREIGN KEY (actor_user_id) REFERENCES User(user_id),
+    CONSTRAINT fk_audit_actor_user FOREIGN KEY (actor_user_id) REFERENCES User(user_id),
     INDEX idx_audit_actor (actor_user_id),
     INDEX idx_audit_entity (entity_type, entity_id),
     INDEX idx_audit_action (action_type),
@@ -127,7 +139,7 @@ CREATE TABLE IF NOT EXISTS AuthorizationRuleLevel (
     level_type ENUM('Jefe', 'Aleatorio', 'Nivel Superior') NOT NULL,
     superior_level_number INT NULL,  -- For "Nivel Superior", indicates how many levels above the requester to go
 
-    FOREIGN KEY (rule_id) REFERENCES AuthorizationRule(rule_id)
+    CONSTRAINT fk_authorization_rule FOREIGN KEY (rule_id) REFERENCES AuthorizationRule(rule_id)
 );
 
 -- ============================================================================
@@ -157,10 +169,10 @@ CREATE TABLE IF NOT EXISTS Request (
     last_mod_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     active BOOL NOT NULL DEFAULT TRUE,       -- Deactivated when finalized/cancelled
 
-    FOREIGN KEY (user_id) REFERENCES User(user_id),
-    FOREIGN KEY (request_status_id) REFERENCES Request_status(request_status_id),
-    FOREIGN KEY (assigned_to) REFERENCES User(user_id),
-    FOREIGN KEY (authorization_rule_id) REFERENCES AuthorizationRule(rule_id)
+    CONSTRAINT fk_request_user FOREIGN KEY (user_id) REFERENCES User(user_id),
+    CONSTRAINT fk_request_status FOREIGN KEY (request_status_id) REFERENCES Request_status(request_status_id),
+    CONSTRAINT fk_request_assigned_user FOREIGN KEY (assigned_to) REFERENCES User(user_id),
+    CONSTRAINT fk_request_auth_rule FOREIGN KEY (authorization_rule_id) REFERENCES AuthorizationRule(rule_id)
 );
 
 -- Alert: Notifications for users based on request status changes
@@ -171,8 +183,8 @@ CREATE TABLE IF NOT EXISTS Alert (
 
     alert_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 
-    FOREIGN KEY (request_id) REFERENCES Request(request_id),
-    FOREIGN KEY (message_id) REFERENCES AlertMessage(message_id)
+    CONSTRAINT fk_alert_request FOREIGN KEY (request_id) REFERENCES Request(request_id),
+    CONSTRAINT fk_alert_message FOREIGN KEY (message_id) REFERENCES AlertMessage(message_id)
 );
 
 -- ============================================================================
@@ -211,10 +223,10 @@ CREATE TABLE IF NOT EXISTS Route (
     ending_date DATE,                        -- Arrival date
     ending_time TIME,                        -- Arrival time
 
-    FOREIGN KEY (id_origin_country) REFERENCES Country(country_id),
-    FOREIGN KEY (id_origin_city) REFERENCES City(city_id),
-    FOREIGN KEY (id_destination_country) REFERENCES Country(country_id),
-    FOREIGN KEY (id_destination_city) REFERENCES City(city_id)
+    CONSTRAINT fk_route_origin_country FOREIGN KEY (id_origin_country) REFERENCES Country(country_id),
+    CONSTRAINT fk_route_origin_city FOREIGN KEY (id_origin_city) REFERENCES City(city_id),
+    CONSTRAINT fk_route_destination_country FOREIGN KEY (id_destination_country) REFERENCES Country(country_id),
+    CONSTRAINT fk_route_destination_city FOREIGN KEY (id_destination_city) REFERENCES City(city_id)
 );
 
 -- Route_Request: Junction table linking requests to their route segments
@@ -223,8 +235,8 @@ CREATE TABLE IF NOT EXISTS Route_Request (
     request_id INT,                          -- Travel request
     route_id INT,                            -- Route segment
 
-    FOREIGN KEY (request_id) REFERENCES Request(request_id),
-    FOREIGN KEY (route_id) REFERENCES Route(route_id)
+    CONSTRAINT fk_route_request_request FOREIGN KEY (request_id) REFERENCES Request(request_id),
+    CONSTRAINT fk_route_request_route FOREIGN KEY (route_id) REFERENCES Route(route_id)
 );
 
 -- ============================================================================
@@ -255,7 +267,7 @@ CREATE TABLE IF NOT EXISTS Reimbursement_Policy (
     creation_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     last_mod_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 
-    FOREIGN KEY (created_by) REFERENCES User(user_id)
+    CONSTRAINT fk_reimbursement_policy_user FOREIGN KEY (created_by) REFERENCES User(user_id)
 );
 
 -- Reimbursement_Policy_Assignment: Policy assignment by department or global fallback
@@ -266,8 +278,8 @@ CREATE TABLE IF NOT EXISTS Reimbursement_Policy_Assignment (
     active BOOL NOT NULL DEFAULT TRUE,
     creation_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 
-    FOREIGN KEY (policy_id) REFERENCES Reimbursement_Policy(policy_id),
-    FOREIGN KEY (department_id) REFERENCES Department(department_id)
+    CONSTRAINT fk_policy_assignment_policy FOREIGN KEY (policy_id) REFERENCES Reimbursement_Policy(policy_id),
+    CONSTRAINT fk_policy_assignment_department FOREIGN KEY (department_id) REFERENCES Department(department_id)
 );
 
 -- Reimbursement_Policy_Rule: Rule matrix by expense type and trip scope
@@ -285,8 +297,8 @@ CREATE TABLE IF NOT EXISTS Reimbursement_Policy_Rule (
     creation_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     last_mod_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 
-    FOREIGN KEY (policy_id) REFERENCES Reimbursement_Policy(policy_id),
-    FOREIGN KEY (receipt_type_id) REFERENCES Receipt_Type(receipt_type_id)
+    CONSTRAINT fk_policy_rule_policy FOREIGN KEY (policy_id) REFERENCES Reimbursement_Policy(policy_id),
+    CONSTRAINT fk_policy_rule_receipt_type FOREIGN KEY (receipt_type_id) REFERENCES Receipt_Type(receipt_type_id)
 );
 
 -- Receipt: Expense receipts for validation and reimbursement
@@ -320,9 +332,9 @@ CREATE TABLE IF NOT EXISTS Receipt (
     xml_impuestos DECIMAL(15,2),
     xml_moneda VARCHAR(6),
 
-    FOREIGN KEY (receipt_type_id) REFERENCES Receipt_Type(receipt_type_id),
-    FOREIGN KEY (request_id) REFERENCES Request(request_id),
-    FOREIGN KEY (route_id) REFERENCES Route(route_id)
+    CONSTRAINT fk_receipt_type FOREIGN KEY (receipt_type_id) REFERENCES Receipt_Type(receipt_type_id),
+    CONSTRAINT fk_receipt_request FOREIGN KEY (request_id) REFERENCES Request(request_id),
+    CONSTRAINT fk_receipt_route FOREIGN KEY (route_id) REFERENCES Route(route_id)
 );
 
 -- ============================================================================
@@ -350,9 +362,9 @@ CREATE TABLE IF NOT EXISTS Role_Permission (
 
     UNIQUE KEY uq_role_permission (role_id, permission_id),  -- Prevents duplicate grants
 
-    FOREIGN KEY (role_id)       REFERENCES Role(role_id)
+    CONSTRAINT fk_role_permission_role FOREIGN KEY (role_id)       REFERENCES Role(role_id)
         ON DELETE CASCADE ON UPDATE CASCADE,
-    FOREIGN KEY (permission_id) REFERENCES Permission(permission_id)
+    CONSTRAINT fk_role_permission_permission FOREIGN KEY (permission_id) REFERENCES Permission(permission_id)
         ON DELETE CASCADE ON UPDATE CASCADE
 );
 

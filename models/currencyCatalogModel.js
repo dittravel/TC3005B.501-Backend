@@ -6,7 +6,8 @@
  * to the rest of the application without deleting them from the database.
  */
 
-import pool from '../database/config/db.js';
+import { prisma } from '../lib/prisma.js';
+
 
 const CurrencyCatalog = {
   /**
@@ -14,19 +15,17 @@ const CurrencyCatalog = {
    * @returns {Promise<Array>} Array of Currency rows.
    */
   async getAll() {
-    let conn;
-    try {
-      conn = await pool.getConnection();
-      const rows = await conn.query(
-        `SELECT currency_code, currency_name, country, banxico_series_id, frequency
-         FROM Currency
-         WHERE active = TRUE
-         ORDER BY currency_code ASC`
-      );
-      return rows;
-    } finally {
-      if (conn) conn.release();
-    }
+    return prisma.currency.findMany({
+      where: { active: true },
+      orderBy: { currency_code: 'asc' },
+      select: {
+        currency_code: true,
+        currency_name: true,
+        country: true,
+        banxico_series_id: true,
+        frequency: true,
+      },
+    });
   },
 
   /**
@@ -35,19 +34,19 @@ const CurrencyCatalog = {
    * @returns {Promise<Object|undefined>} Matching Currency row, or undefined.
    */
   async findBySeriesId(seriesId) {
-    let conn;
-    try {
-      conn = await pool.getConnection();
-      const rows = await conn.query(
-        `SELECT currency_code, currency_name, country, banxico_series_id, frequency
-         FROM Currency
-         WHERE banxico_series_id = ? AND active = TRUE`,
-        [seriesId]
-      );
-      return rows[0];
-    } finally {
-      if (conn) conn.release();
-    }
+    return prisma.currency.findFirst({
+      where: {
+        banxico_series_id: seriesId,
+        active: true,
+      },
+      select: {
+        currency_code: true,
+        currency_name: true,
+        country: true,
+        banxico_series_id: true,
+        frequency: true,
+      },
+    });
   },
 
   /**
@@ -56,19 +55,19 @@ const CurrencyCatalog = {
    * @returns {Promise<Object|undefined>} Matching Currency row, or undefined.
    */
   async findByCode(currencyCode) {
-    let conn;
-    try {
-      conn = await pool.getConnection();
-      const rows = await conn.query(
-        `SELECT currency_code, currency_name, country, banxico_series_id, frequency
-         FROM Currency
-         WHERE currency_code = ? AND active = TRUE`,
-        [currencyCode]
-      );
-      return rows[0];
-    } finally {
-      if (conn) conn.release();
-    }
+    return prisma.currency.findFirst({
+      where: {
+        currency_code: currencyCode,
+        active: true,
+      },
+      select: {
+        currency_code: true,
+        currency_name: true,
+        country: true,
+        banxico_series_id: true,
+        frequency: true,
+      },
+    });
   },
 
   /**
@@ -76,19 +75,21 @@ const CurrencyCatalog = {
    * @returns {Promise<Array>} Array of daily Currency rows.
    */
   async getDailySeries() {
-    let conn;
-    try {
-      conn = await pool.getConnection();
-      const rows = await conn.query(
-        `SELECT currency_code, currency_name, country, banxico_series_id, frequency
-         FROM Currency
-         WHERE frequency = 'daily' AND banxico_series_id IS NOT NULL AND active = TRUE
-         ORDER BY currency_code ASC`
-      );
-      return rows;
-    } finally {
-      if (conn) conn.release();
-    }
+    return prisma.currency.findMany({
+      where: {
+        frequency: 'daily',
+        banxico_series_id: { not: null },
+        active: true,
+      },
+      orderBy: { currency_code: 'asc' },
+      select: {
+        currency_code: true,
+        currency_name: true,
+        country: true,
+        banxico_series_id: true,
+        frequency: true,
+      },
+    });
   },
 };
 
