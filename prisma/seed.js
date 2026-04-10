@@ -41,18 +41,10 @@ async function seedDefaultAuthorizationRule() {
     data: {
       rule_name: 'Regla predeterminada',
       is_default: true,
-      num_levels: 3,
-      automatic: false,
+      num_levels: 2,
+      automatic: true,
       travel_type: 'Todos',
     },
-  });
-
-  await prisma.authorizationRuleLevel.createMany({
-    data: [
-      { rule_id: rule.rule_id, level_number: 1, level_type: 'Jefe', superior_level_number: null },
-      { rule_id: rule.rule_id, level_number: 2, level_type: 'Aleatorio', superior_level_number: null },
-      { rule_id: rule.rule_id, level_number: 3, level_type: 'Nivel_Superior', superior_level_number: 1 },
-    ],
   });
 }
 

@@ -325,7 +325,7 @@ CREATE TABLE `User` (
     `out_of_office_end_date` DATE NULL,
     `user_name` VARCHAR(60) NOT NULL,
     `password` VARCHAR(60) NOT NULL,
-    `workstation` VARCHAR(20) NOT NULL,
+    `workstation` VARCHAR(20) NULL,
     `email` VARCHAR(254) NOT NULL,
     `phone_number` VARCHAR(254) NULL,
     `wallet` FLOAT NULL DEFAULT 0,

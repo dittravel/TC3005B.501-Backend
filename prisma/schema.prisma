@@ -316,7 +316,7 @@ model User {
   out_of_office_end_date              DateTime?              @db.Date
   user_name                           String                 @unique(map: "user_name") @db.VarChar(60)
   password                            String                 @db.VarChar(60)
-  workstation                         String                 @db.VarChar(20)
+  workstation                         String?                @db.VarChar(20)
   email                               String                 @unique(map: "email") @db.VarChar(254)
   phone_number                        String?                @db.VarChar(254)
   wallet                              Float?                 @default(0) @db.Float

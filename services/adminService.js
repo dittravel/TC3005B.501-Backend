@@ -497,10 +497,10 @@ export const getBossList = async (departmentId) => {
   }
 };
 
-// Create data from XML import
-export const createDataFromXml = async (xmlObj) => {
+// Create data from JSON import
+export const createDataFromJson = async (jsonObj) => {
   try {
-    const { users, departments, costCenters, errors } = xmlObj;
+    const { users, departments, costCenters, errors } = jsonObj;
 
     if (errors.length > 0) {
       return { success: false, message: 'Data extracted with some errors', errors };
@@ -508,77 +508,118 @@ export const createDataFromXml = async (xmlObj) => {
 
     // Track created and updated records
     const summary = {
-      departments: { created: [], skipped: [] },
-      costCenters: { created: [], skipped: [] },
-      users: { created: [], updated: [] }
+      departments: { created: [], updated: [], skipped: [] },
+      costCenters: { created: [], updated: [], skipped: [] },
+      users: { created: [], updated: [], deactivated: [] }
     };
 
-    // 1. Create departments
-    for (const dept of departments) {
-      const deptData = {
-        department_name: dept.department_name,
-        cost_center_id: await Admin.findCostCenterID(dept.cost_center_name)
-      };
-
-      // Check if department already exists
-      const existingDept = await Admin.findDepartmentID(dept.department_name);
-      if (!existingDept) {
-        // If department doesn't exist, create it
-        await Admin.createDepartment(deptData);
-        summary.departments.created.push({ 
-          name: dept.department_name,
-          cost_center: dept.cost_center_name 
+    // 1. Create cost centers first
+    for (const cc of costCenters) {
+      const existingCC = await Admin.findCostCenterByID(cc.cost_center_id);
+      if (!existingCC) {
+        await Admin.createCostCenter({ 
+          cost_center_id: cc.cost_center_id,
+          cost_center_name: cc.cost_center_name
         });
+        summary.costCenters.created.push(cc.cost_center_id);
       } else {
-        summary.departments.skipped.push(dept.department_name);
+        // Check if name changed
+        if (existingCC.cost_center_name !== cc.cost_center_name) {
+          await Admin.updateCostCenter(cc.cost_center_id, {
+            cost_center_name: cc.cost_center_name
+          });
+          summary.costCenters.updated.push({
+            cost_center_id: cc.cost_center_id,
+            old_name: existingCC.cost_center_name,
+            new_name: cc.cost_center_name
+          });
+        } else {
+          summary.costCenters.skipped.push(cc.cost_center_id);
+        }
       }
     }
 
-    // 2. Create cost centers
-    for (const cc of costCenters) {
-      // Check if cost center already exists
-      const existingCC = await Admin.findCostCenterID(cc.cost_center_name);
-
-      // If cost center doesn't exist, create it
-      if (!existingCC) {
-        await Admin.createCostCenter(cc);
-        summary.costCenters.created.push(cc.cost_center_name);
+    // 2. Create departments
+    for (const dept of departments) {
+      const existingDeptId = await Admin.findDepartmentID(dept.department_name);
+      if (!existingDeptId) {
+        // Department doesn't exist, create it
+        await Admin.createDepartment({
+          department_name: dept.department_name,
+          cost_center_id: dept.cost_center_id || null
+        });
+        summary.departments.created.push({
+          name: dept.department_name,
+          cost_center_id: dept.cost_center_id
+        });
       } else {
-        summary.costCenters.skipped.push(cc.cost_center_name);
+        // Department exists, check if cost_center_id changed
+        const existingDept = await Admin.getDepartmentById(existingDeptId);
+        if (existingDept.cost_center_id !== dept.cost_center_id) {
+          // Cost center changed, update it
+          await Admin.updateDepartment(existingDeptId, {
+            department_name: dept.department_name,
+            cost_center_id: dept.cost_center_id || null
+          });
+          summary.departments.updated.push({
+            name: dept.department_name,
+            old_cost_center_id: existingDept.cost_center_id,
+            new_cost_center_id: dept.cost_center_id
+          });
+        } else {
+          summary.departments.skipped.push(dept.department_name);
+        }
       }
     }
 
     // 3. Create users
     for (const user of users) {
-      // Get boss_id by looking up the boss username
       let boss_id = null;
-      if (user.jefe_usuario) {
-        const boss = await User.getUserUsername(user.jefe_usuario);
+      if (user.boss_user) {
+        const boss = await User.getUserUsername(user.boss_user);
         if (boss) {
           boss_id = boss.user_id;
         }
       }
 
-      const hashedPassword = await hash(user.password);
       const encryptedEmail = encrypt(user.email);
       const encryptedPhone = user.phone_number ? encrypt(user.phone_number) : null;
 
+      console.log(`[DEBUG] Usuario: ${user.user_name}, Rol asignado: ${user.role}`);
+
+      let roleId = await Admin.findRoleID(user.role);
+      console.log(`[DEBUG] Rol ID encontrado: ${roleId}`);
+      
+      // If role not found, try to find 'Solicitante' as fallback
+      if (!roleId) {
+        console.warn(`[WARN] Rol '${user.role}' no encontrado. Usando 'Solicitante' como fallback.`);
+        roleId = await Admin.findRoleID('Solicitante');
+      }
+      
+      // If still not found, log all available roles for debugging
+      if (!roleId) {
+        console.error(`[ERROR] No se pudo encontrar ningún rol para '${user.role}' ni fallback 'Solicitante'`);
+      }
+
+      const existingUser = await User.getUserUsername(user.user_name);
+
+      // Build userData
       const userData = {
-        role_id: await Admin.findRoleID(user.role),
+        role_id: roleId,
         department_id: await Admin.findDepartmentID(user.department_name),
         user_name: user.user_name,
-        password: hashedPassword,
         workstation: user.workstation,
         email: encryptedEmail,
         phone_number: encryptedPhone,
-        boss_id: boss_id
+        boss_id: boss_id,
+        active: user.active || true
       };
 
-      // Check if user already exists by username
-      const existingUser = await User.getUserUsername(userData.user_name);
-
-      // If user doesn't exist, create it
       if (!existingUser) {
+        // New user: add password
+        const hashedPassword = await hash(user.password);
+        userData.password = hashedPassword;
+        
         await Admin.createUser(userData);
         summary.users.created.push({
           username: userData.user_name,
@@ -586,7 +627,7 @@ export const createDataFromXml = async (xmlObj) => {
           department: user.department_name
         });
       } else {
-        // If user exists, update info
+        // Existing user: update without password
         await Admin.updateUser(existingUser.user_id, userData);
         summary.users.updated.push({
           username: userData.user_name,
@@ -596,13 +637,31 @@ export const createDataFromXml = async (xmlObj) => {
       }
     }
 
+    // 4. Deactivate users NOT in the JSON
+    const processedUsernames = users.map(u => u.user_name);
+    const deptIds = [];
+    
+    for (const dept of departments) {
+      const deptId = await Admin.findDepartmentID(dept.department_name);
+      if (deptId) {
+        deptIds.push(deptId);
+      }
+    }
+
+    if (deptIds.length > 0) {
+      const deactivatedUsers = await Admin.deactivateUsersNotInList(deptIds, processedUsernames);
+      if (deactivatedUsers.length > 0) {
+        summary.users.deactivated = deactivatedUsers;
+      }
+    }
+
     return {
       success: true,
       message: 'Data imported successfully',
       summary: summary
     };
   } catch (error) {
-    throw new Error(`Error creating data from XML: ${error.message}`);
+    throw new Error(`Error creating data from JSON: ${error.message}`);
   }
 };
 
@@ -623,4 +682,6 @@ export default {
   deleteAuthRule,
   // Departments
   getBossList,
+  // Import data
+  createDataFromJson,
 };

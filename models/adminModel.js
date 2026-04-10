@@ -7,14 +7,38 @@
 import { prisma } from '../lib/prisma.js';
 
 const Admin = {
-  // Get all active users with full information from UserFullInfo view
+  // Get all active users with full information
   async getUserList() {
     try {
-      const users = await prisma.userFullInfo.findMany({
+      const users = await prisma.user.findMany({
         where: { active: true },
-        orderBy: { department_id: 'asc' }
+        orderBy: { department_id: 'asc' },
+        include: {
+          role: {
+            select: { role_name: true }
+          },
+          department: {
+            select: { 
+              department_name: true,
+              CostCenter: {
+                select: { cost_center_name: true }
+              }
+            }
+          }
+        }
       });
-      return users;
+
+      // Format the response to match the expected structure
+      return users.map(user => ({
+        user_id: user.user_id,
+        user_name: user.user_name,
+        email: user.email,
+        active: user.active,
+        role_name: user.role?.role_name || null,
+        department_name: user.department?.department_name || null,
+        department_id: user.department_id,
+        cost_center_name: user.department?.CostCenter?.cost_center_name || null
+      }));
     } catch (error) {
       console.error('Error finding user list:', error);
       throw error;
@@ -107,9 +131,9 @@ const Admin = {
           department_id: userData.department_id,
           user_name: userData.user_name,
           password: userData.password,
-          workstation: userData.workstation,
+          workstation: userData.workstation || null,
           email: userData.email,
-          phone_number: userData.phone_number,
+          phone_number: userData.phone_number || null,
           boss_id: userData.boss_id || null
         },
         select: { user_id: true }
@@ -136,12 +160,36 @@ const Admin = {
   // Update user information
   async updateUser(userId, fieldsToUpdate) {
     try {
-      const user = await prisma.user.update({
+      // Filter out null/undefined values first
+      // Prisma doesnt accept null values for updating fields
+      const data = {};
+      for (const [key, value] of Object.entries(fieldsToUpdate)) {
+        if (value !== null && value !== undefined) {
+          data[key] = value;
+        }
+      }
+      
+      // Convert IDs to connect format for Prisma relations
+      // updateUser controller receives role_id, department_id and boss_id as plain IDs,
+      // but Prisma expects a connect object for relations
+      if (data.role_id) {
+        data.role = { connect: { role_id: data.role_id } };
+        delete data.role_id;
+      }
+      if (data.department_id) {
+        data.department = { connect: { department_id: data.department_id } };
+        delete data.department_id;
+      }
+      if (data.boss_id) {
+        data.boss = { connect: { user_id: data.boss_id } };
+        delete data.boss_id;
+      }
+      
+      return await prisma.user.update({
         where: { user_id: Number(userId) },
-        data: fieldsToUpdate,
+        data,
         select: { user_id: true }
       });
-      return user;
     } catch (error) {
       throw error;
     }
@@ -374,6 +422,36 @@ const Admin = {
     }
   },
 
+  // Update department
+  async updateDepartment(departmentId, departmentData) {
+    try {
+      await prisma.department.update({
+        where: { department_id: departmentId },
+        data: {
+          department_name: departmentData.department_name,
+          cost_center_id: departmentData.cost_center_id ?? null
+        }
+      });
+    } catch (error) {
+      console.error('Error updating department:', error);
+      throw error;
+    }
+  },
+
+  // Get department by ID (including cost_center_id)
+  async getDepartmentById(departmentId) {
+    try {
+      const dept = await prisma.department.findUnique({
+        where: { department_id: departmentId },
+        select: { department_id: true, department_name: true, cost_center_id: true }
+      });
+      return dept;
+    } catch (error) {
+      console.error('Error getting department by ID:', error);
+      throw error;
+    }
+  },
+
   // Find cost center ID by cost center name
   async findCostCenterID(cost_center_name) {
     try {
@@ -388,16 +466,87 @@ const Admin = {
     }
   },
 
-  // Create cost center
-  async createCostCenter(costCenterData) {
+  // Find cost center by ID
+  async findCostCenterByID(cost_center_id) {
     try {
-      await prisma.costCenter.create({
+      if (!cost_center_id) return null;
+      const costCenter = await prisma.costCenter.findUnique({
+        where: { cost_center_id },
+        select: { cost_center_id: true, cost_center_name: true }
+      });
+      return costCenter || null;
+    } catch (error) {
+      console.error('Error finding cost center by ID %s:', cost_center_id, error);
+      throw error;
+    }
+  },
+
+  // Update cost center
+  async updateCostCenter(cost_center_id, costCenterData) {
+    try {
+      await prisma.costCenter.update({
+        where: { cost_center_id },
         data: {
           cost_center_name: costCenterData.cost_center_name
         }
       });
     } catch (error) {
+      console.error('Error updating cost center:', error);
+      throw error;
+    }
+  },
+
+  // Create cost center
+  async createCostCenter(costCenterData) {
+    try {
+      const data = {
+        cost_center_name: costCenterData.cost_center_name
+      };
+      
+      // If cost_center_id is provided, use it (manual ID).
+      // Otherwise autoincrement will handle it
+      if (costCenterData.cost_center_id) {
+        data.cost_center_id = costCenterData.cost_center_id;
+      }
+      
+      await prisma.costCenter.create({ data });
+    } catch (error) {
       console.error('Error creating cost center:', error);
+      throw error;
+    }
+  },
+
+  // Deactivate users in departments that are NOT in the provided username list
+  async deactivateUsersNotInList(departmentIds, usernameList) {
+    try {
+      if (!departmentIds || departmentIds.length === 0) {
+        return [];
+      }
+
+      // Get all active users in specified departments
+      const allDeptUsers = await prisma.user.findMany({
+        where: {
+          department_id: { in: departmentIds },
+          active: true
+        },
+        select: { user_id: true, user_name: true }
+      });
+
+      // Deactivate users not in the provided list
+      const deactivatedUsers = [];
+      for (const deptUser of allDeptUsers) {
+        if (!usernameList.includes(deptUser.user_name)) {
+          await this.deactivateUserById(deptUser.user_id);
+          deactivatedUsers.push({
+            user_id: deptUser.user_id,
+            user_name: deptUser.user_name
+          });
+        }
+      }
+
+      return deactivatedUsers;
+    } catch (error) {
+      console.error('Error deactivating users not in list:', error);
       throw error;
     }
   },
