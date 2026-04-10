@@ -174,12 +174,11 @@ const TAXES = [
   { tax_code: 'EXENTO', tax_name: 'Exento de Impuestos', tax_rate: 0.0000 },
 ];
 
-// Mapeo de Receipt Type → Account Code
 const RECEIPT_TYPE_TO_ACCOUNT = {
-  'Hotel':      '3000',   // Gastos de Viaje
-  'Alimentos':  '3001',   // Gastos de Alimentación
-  'Taxi':       '3002',   // Gastos de Transporte
-  'Hospedaje':  '3000',   // Gastos de Viaje
+  'Hotel':      '3000',
+  'Alimentos':  '3001',
+  'Taxi':       '3002',
+  'Hospedaje':  '3000',
 };
 
 

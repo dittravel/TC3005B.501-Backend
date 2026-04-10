@@ -161,18 +161,6 @@ model Receipt_Type {
   Reimbursement_Policy_Rule Reimbursement_Policy_Rule[]
 }
 
-model UserFullInfo {
-  user_id        Int       @id
-  user_name      String
-  email          String
-  active         Boolean
-  role_name      String?
-  department_name String?
-  department_id  Int?
-
-  @@map("UserFullInfo")
-}
-
 model Reimbursement_Policy {
   policy_id                       Int                               @id @default(autoincrement())
   policy_code                     String                            @unique(map: "policy_code") @db.VarChar(40)
