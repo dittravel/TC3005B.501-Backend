@@ -5,7 +5,7 @@
  * accounting export of policies
  */
 
-import pool from '../database/config/db.js';
+import { prisma } from "../lib/prisma.js";
 
 const Accountability = {
 
@@ -15,46 +15,50 @@ const Accountability = {
    * @returns {Promise<Object>}
    **/
   async getAnticipoById(request_id) {
-    let conn;
-    try {
-      conn = await pool.getConnection();
-      const rows = await conn.query(
-        `SELECT
-        r.request_id,
-        r.requested_fee        AS amount,
-        r.creation_date,
-        r.notes,
-    
-        -- 'Solicitante' data
-        u.user_id,
-        u.user_name            AS traveler_name,
-        u.email                AS traveler_email,
+  try {
+    const request = await prisma.request.findFirst({
+      where: {
+        request_id,
+        active: true,
+      },
+      include: {
+        requester: {
+          include: {
+            department: {
+              include: {
+                CostCenter: true,
+              },
+            },
+          },
+        },
+        Request_status: true,
+      },
+    });
 
-        -- 'Department' and 'Cost center' data
-        d.department_name,
-        cc.cost_center_id,
-        cc.cost_center_name,
+    if (!request) return null;
 
-        -- Request status data
-        rs.status              AS request_status
+    return {
+      request_id: request.request_id,
+      amount: request.requested_fee,
+      creation_date: request.creation_date,
+      notes: request.notes,
 
-        FROM Request r
-        INNER JOIN User u             ON u.user_id             = r.user_id
-        INNER JOIN Department d       ON d.department_id       = u.department_id
-        INNER JOIN CostCenter cc      ON cc.cost_center_id     = d.cost_center_id
-        INNER JOIN Request_status rs  ON rs.request_status_id  = r.request_status_id
+      user_id: request.requester.user_id,
+      traveler_name: request.requester.user_name,
+      traveler_email: request.requester.email,
 
-        WHERE r.request_id = ?
-        AND r.active = 1
-        `, [request_id]);
-      return rows[0] || null;
-    } catch (error) {
-      console.error('Error finding the advance payment data:', error);
-      throw error;
-    } finally {
-      if (conn) conn.release();
-    }
-  },
+      department_name: request.requester.department.department_name,
+      cost_center_id: request.requester.department.CostCenter.cost_center_id,
+      cost_center_name: request.requester.department.CostCenter.cost_center_name,
+
+      request_status: request.Request_status.status,
+    };
+
+  } catch (error) {
+    console.error('Error finding advance payment:', error);
+    throw error;
+  }
+},
 
   /**
    * Obtains the verified expenses (receipts) of a travel request filtering by ID.
@@ -62,53 +66,65 @@ const Accountability = {
    * @returns {Promise<Array>}
    **/
   async getGastosById(request_id) {
-    let conn;
-    try {
-      conn = await pool.getConnection();
-      const rows = await conn.query(
-        `SELECT
-        rec.receipt_id,
-        rec.amount,
-        rec.validation,
-        rec.submission_date,
-        rec.refund,
-    
-        -- Receipt type (hotel, alimento, taxi, etc.)
-        rt.receipt_type_id,
-        rt.receipt_type_name,
-    
-        -- Accounting account according to the expense type
-        a.account_id,
-        a.account_code,
-        a.account_name,
-        a.account_type,
-    
-        -- Tax
-        -- tax.tax_code,
-        -- tax.tax_rate,
-    
-        -- Dates
-        ro.beginning_date,
-        ro.ending_date
-    
-        FROM Receipt rec
-        INNER JOIN Receipt_Type rt          ON rt.receipt_type_id  = rec.receipt_type_id
-        INNER JOIN ReceiptType_Account rta  ON rta.receipt_type_id = rt.receipt_type_id
-        INNER JOIN Account a                ON a.account_id        = rta.account_id
-        INNER JOIN Route_Request rr         ON rr.request_id       = rec.request_id
-        INNER JOIN Route ro                 ON ro.route_id         = rr.route_id
-    
-        WHERE rec.request_id = ?
-        ORDER BY rec.receipt_id ASC
-        `, [request_id]);
-      return rows;
-    } catch (error) {
-      console.error('Error finding the advance payment data:', error);
-      throw error;
-    } finally {
-      if (conn) conn.release();
-    }
-  },
+  try {
+    const receipts = await prisma.receipt.findMany({
+      where: {
+        request_id,
+      },
+      include: {
+        Receipt_Type: {
+          include: {
+            ReceiptType_Account: {
+              include: {
+                Account: true,
+              },
+            },
+          },
+        },
+        Request: {
+          include: {
+            Route_Request: {
+              include: {
+                Route: true,
+              },
+            },
+          },
+        },
+      },
+      orderBy: {
+        receipt_id: 'asc',
+      },
+    });
+
+    return receipts.map((rec) => {
+      const accountRel = rec.receipt_Type.receiptType_Account[0]; // default
+      const route = rec.request.route_Request[0]?.route;
+
+      return {
+        receipt_id: rec.receipt_id,
+        amount: rec.amount,
+        validation: rec.validation,
+        submission_date: rec.submission_date,
+        refund: rec.refund,
+
+        receipt_type_id: rec.receipt_Type.receipt_type_id,
+        receipt_type_name: rec.receipt_Type.receipt_type_name,
+
+        account_id: accountRel?.account?.account_id,
+        account_code: accountRel?.account?.account_code,
+        account_name: accountRel?.account?.account_name,
+        account_type: accountRel?.account?.account_type,
+
+        beginning_date: route?.beginning_date,
+        ending_date: route?.ending_date,
+      };
+    });
+
+  } catch (error) {
+    console.error('Error finding expenses:', error);
+    throw error;
+  }
+},
 
   /**
    * Obtains the accounting account by type.
@@ -116,24 +132,21 @@ const Accountability = {
    * @returns {Promise<Object>}
    **/
   async getAccountByType(account_type) {
-    let conn;
-    try {
-      conn = await pool.getConnection();
-      const rows = await conn.query(
-        `SELECT account_id, account_code, account_name, account_type
-        FROM Account
-        WHERE account_type = ?
-        LIMIT 1`,
-        [account_type]
-      );
-      return rows[0] || null;
-    } catch (error) {
-      console.error(`Error finding account type ${account_type}:`, error);
-      throw error;
-    } finally {
-      if (conn) conn.release();
-    }
-  },
+  try {
+    return await prisma.account.findFirst({
+      where: { account_type },
+      select: {
+        account_id: true,
+        account_code: true,
+        account_name: true,
+        account_type: true,
+      },
+    });
+  } catch (error) {
+    console.error(`Error finding account type ${account_type}:`, error);
+    throw error;
+  }
+},
 
   /**
    * Obtains all active travel requests within an optional date range.
@@ -142,62 +155,60 @@ const Accountability = {
    * @returns {Promise<Array>}
    **/
   async getRequestsByDateRange(dateFrom = null, dateTo = null) {
-    let conn;
-    try {
-      conn = await pool.getConnection();
+  try {
+    const where = {
+      active: true,
+      ...(dateFrom || dateTo
+        ? {
+            creation_date: {
+              ...(dateFrom && { gte: new Date(dateFrom) }),
+              ...(dateTo && { lte: new Date(dateTo + 'T23:59:59') }),
+            },
+          }
+        : {}),
+    };
 
-      const filters = [];
-      let dateFilter = '';
+    const requests = await prisma.request.findMany({
+      where,
+      include: {
+        requester: {
+          include: {
+            department: {
+              include: {
+                CostCenter: true,
+              },
+            },
+          },
+        },
+        Request_status: true,
+      },
+      orderBy: {
+        creation_date: 'asc',
+      },
+    });
 
-      if (dateFrom) {
-        dateFilter += ' AND r.creation_date >= ?';
-        filters.push(dateFrom);
-      }
-      if (dateTo) {
-        dateFilter += ' AND r.creation_date <= ?';
-        filters.push(dateTo + ' 23:59:59');
-      }
+    return requests.map((r) => ({
+    request_id: r.request_id,
+    amount: r.requested_fee,
+    creation_date: r.creation_date,
+    notes: r.notes,
 
-      const rows = await conn.query(
-        `SELECT
-        r.request_id,
-        r.requested_fee        AS amount,
-        r.creation_date,
-        r.notes,
+    user_id: r.requester?.user_id,
+    traveler_name: r.requester?.user_name,
+    traveler_email: r.requester?.email,
 
-        -- 'Solicitante' data
-        u.user_id,
-        u.user_name            AS traveler_name,
-        u.email                AS traveler_email,
+    department_name: r.requester?.department?.department_name,
+    cost_center_id: r.requester?.department?.costCenter?.cost_center_id,
+    cost_center_name: r.requester?.department?.costCenter?.cost_center_name,
 
-        -- 'Department' and 'Cost center' data
-        d.department_name,
-        cc.cost_center_id,
-        cc.cost_center_name,
+    request_status: r.Request_status?.status,
+  }));
 
-        -- Request status data
-        rs.status              AS request_status
-
-        FROM Request r
-        INNER JOIN User u             ON u.user_id             = r.user_id
-        INNER JOIN Department d       ON d.department_id       = u.department_id
-        INNER JOIN CostCenter cc      ON cc.cost_center_id     = d.cost_center_id
-        INNER JOIN Request_status rs  ON rs.request_status_id  = r.request_status_id
-
-        WHERE r.active = 1
-        ${dateFilter}
-        ORDER BY r.creation_date ASC
-        `,
-        filters
-      );
-      return rows;
-    } catch (error) {
-      console.error('Error finding requests by date range:', error);
-      throw error;
-    } finally {
-      if (conn) conn.release();
-    }
-  },
+  } catch (error) {
+    console.error('Error finding requests by date range:', error);
+    throw error;
+  }
+},
 
 };
 
