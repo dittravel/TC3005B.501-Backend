@@ -61,7 +61,7 @@ const buildPolicy = (anticipo, gastos, cuentaBancos, cuentaAcreedores) => {
           },
           {
             movement:     'abono',
-            account_code: cuentaBancos.account_code,
+            //account_code: cuentaBancos.account_code,
             account_name: cuentaBancos.account_name,
             amount:       parseFloat(anticipo.amount),
           },
@@ -82,7 +82,7 @@ const buildPolicy = (anticipo, gastos, cuentaBancos, cuentaAcreedores) => {
         })),
         {
           movement:     'abono',
-          account_code: cuentaAcreedores.account_code,
+          //account_code: cuentaAcreedores.account_code,
           account_name: `${cuentaAcreedores.account_name} — ${anticipo.traveler_name}`,
           amount:       totalGastos,
         },
