@@ -42,18 +42,18 @@ model Audit_Log {
 }
 
 model AuthorizationRule {
-  rule_id                Int                            @id @default(autoincrement())
-  rule_name              String                         @db.VarChar(50)
-  is_default             Boolean                        @default(false)
-  num_levels             Int
-  automatic              Boolean                        @default(true)
-  travel_type            AuthorizationRule_travel_type?
-  min_duration           Int?
-  max_duration           Int?
-  min_amount             Float?                         @db.Float
-  max_amount             Float?                         @db.Float
-  levels                 AuthorizationRuleLevel[]
-  Request                Request[]
+  rule_id      Int                            @id @default(autoincrement())
+  rule_name    String                         @db.VarChar(50)
+  is_default   Boolean                        @default(false)
+  num_levels   Int
+  automatic    Boolean                        @default(true)
+  travel_type  AuthorizationRule_travel_type?
+  min_duration Int?
+  max_duration Int?
+  min_amount   Float?                         @db.Float
+  max_amount   Float?                         @db.Float
+  levels       AuthorizationRuleLevel[]
+  Request      Request[]
 }
 
 model AuthorizationRuleLevel {
@@ -68,10 +68,10 @@ model AuthorizationRuleLevel {
 }
 
 model City {
-  city_id     Int     @id @default(autoincrement())
-  city_name   String  @unique(map: "city_name") @db.VarChar(200)
-  routesTo    Route[] @relation("DestinationCity")
-  routesFrom  Route[] @relation("OriginCity")
+  city_id    Int     @id @default(autoincrement())
+  city_name  String  @unique(map: "city_name") @db.VarChar(200)
+  routesTo   Route[] @relation("DestinationCity")
+  routesFrom Route[] @relation("OriginCity")
 }
 
 model CostCenter {
@@ -81,10 +81,10 @@ model CostCenter {
 }
 
 model Country {
-  country_id    Int     @id @default(autoincrement())
-  country_name  String  @unique(map: "country_name") @db.VarChar(60)
-  routesTo      Route[] @relation("DestinationCountry")
-  routesFrom    Route[] @relation("OriginCountry")
+  country_id   Int     @id @default(autoincrement())
+  country_name String  @unique(map: "country_name") @db.VarChar(60)
+  routesTo     Route[] @relation("DestinationCountry")
+  routesFrom   Route[] @relation("OriginCountry")
 }
 
 model Currency {
@@ -120,32 +120,33 @@ model Permission {
 }
 
 model Receipt {
-  receipt_id        Int                 @id @default(autoincrement())
-  receipt_type_id   Int?
-  request_id        Int?
-  route_id          Int?
-  validation        Receipt_validation? @default(Pendiente)
-  amount            Float               @db.Float
-  currency          String?             @db.VarChar(6)
-  refund            Boolean?            @default(true)
-  submission_date   DateTime?           @default(now()) @db.Timestamp(0)
-  validation_date   DateTime?           @db.Timestamp(0)
-  pdf_file_id       String?             @db.VarChar(24)
-  pdf_file_name     String?             @db.VarChar(255)
-  xml_file_id       String?             @db.VarChar(24)
-  xml_file_name     String?             @db.VarChar(255)
-  xml_uuid          String?             @unique(map: "xml_uuid") @db.VarChar(36)
-  xml_rfc_emisor    String?             @db.VarChar(13)
-  xml_rfc_receptor  String?             @db.VarChar(13)
-  xml_nombre_emisor String?             @db.VarChar(255)
-  xml_fecha         DateTime?           @db.DateTime(0)
-  xml_total         Decimal?            @db.Decimal(15, 2)
-  xml_subtotal      Decimal?            @db.Decimal(15, 2)
-  xml_impuestos     Decimal?            @db.Decimal(15, 2)
-  xml_moneda        String?             @db.VarChar(6)
-  Request           Request?            @relation(fields: [request_id], references: [request_id], onDelete: Restrict, onUpdate: Restrict, map: "fk_receipt_request")
-  Route             Route?              @relation(fields: [route_id], references: [route_id], onDelete: Restrict, onUpdate: Restrict, map: "fk_receipt_route")
-  Receipt_Type      Receipt_Type?       @relation(fields: [receipt_type_id], references: [receipt_type_id], onDelete: Restrict, onUpdate: Restrict, map: "fk_receipt_type")
+  receipt_id          Int                   @id @default(autoincrement())
+  receipt_type_id     Int?
+  request_id          Int?
+  route_id            Int?
+  validation          Receipt_validation?   @default(Pendiente)
+  amount              Float                 @db.Float
+  currency            String?               @db.VarChar(6)
+  refund              Boolean?              @default(true)
+  submission_date     DateTime?             @default(now()) @db.Timestamp(0)
+  validation_date     DateTime?             @db.Timestamp(0)
+  pdf_file_id         String?               @db.VarChar(24)
+  pdf_file_name       String?               @db.VarChar(255)
+  xml_file_id         String?               @db.VarChar(24)
+  xml_file_name       String?               @db.VarChar(255)
+  xml_uuid            String?               @unique(map: "xml_uuid") @db.VarChar(36)
+  xml_rfc_emisor      String?               @db.VarChar(13)
+  xml_rfc_receptor    String?               @db.VarChar(13)
+  xml_nombre_emisor   String?               @db.VarChar(255)
+  xml_fecha           DateTime?             @db.DateTime(0)
+  xml_total           Decimal?              @db.Decimal(15, 2)
+  xml_subtotal        Decimal?              @db.Decimal(15, 2)
+  xml_impuestos       Decimal?              @db.Decimal(15, 2)
+  xml_moneda          String?               @db.VarChar(6)
+  Request             Request?              @relation(fields: [request_id], references: [request_id], onDelete: Restrict, onUpdate: Restrict, map: "fk_receipt_request")
+  Route               Route?                @relation(fields: [route_id], references: [route_id], onDelete: Restrict, onUpdate: Restrict, map: "fk_receipt_route")
+  Receipt_Type        Receipt_Type?         @relation(fields: [receipt_type_id], references: [receipt_type_id], onDelete: Restrict, onUpdate: Restrict, map: "fk_receipt_type")
+  ReceiptType_Account ReceiptType_Account[]
 
   @@index([request_id], map: "fk_receipt_request")
   @@index([route_id], map: "fk_receipt_route")
@@ -154,9 +155,22 @@ model Receipt {
 
 model Receipt_Type {
   receipt_type_id           Int                         @id @default(autoincrement())
-  receipt_type_name         String                      @unique(map: "receipt_type_name") @db.VarChar(20)
+  receipt_type_name         String                      @unique @db.VarChar(20)
   Receipt                   Receipt[]
+  ReceiptType_Account       ReceiptType_Account[]
   Reimbursement_Policy_Rule Reimbursement_Policy_Rule[]
+}
+
+model UserFullInfo {
+  user_id        Int       @id
+  user_name      String
+  email          String
+  active         Boolean
+  role_name      String?
+  department_name String?
+  department_id  Int?
+
+  @@map("UserFullInfo")
 }
 
 model Reimbursement_Policy {
@@ -212,26 +226,26 @@ model Reimbursement_Policy_Rule {
 }
 
 model Request {
-  request_id                     Int                @id @default(autoincrement())
-  user_id                        Int?
-  request_status_id              Int?               @default(1)
-  assigned_to                    Int?
-  authorization_level            Int?               @default(0)
-  authorization_rule_id          Int?
-  notes                          String?            @db.LongText
-  requested_fee                  Float?             @db.Float
-  imposed_fee                    Float?             @db.Float
-  request_days                   Float?             @db.Float
-  creation_date                  DateTime?          @default(now()) @db.Timestamp(0)
-  last_mod_date                  DateTime?          @default(now()) @db.Timestamp(0)
-  active                         Boolean            @default(true)
-  Alert                          Alert[]
-  Receipt                        Receipt[]
-  AuthorizationRule              AuthorizationRule? @relation(fields: [authorization_rule_id], references: [rule_id], onDelete: Restrict, onUpdate: Restrict, map: "fk_request_auth_rule")
-  Request_status                 Request_status?    @relation(fields: [request_status_id], references: [request_status_id], onDelete: Restrict, onUpdate: Restrict, map: "fk_request_status")
-  assignedUser                   User?              @relation("AssignedUser", fields: [assigned_to], references: [user_id], onDelete: Restrict, onUpdate: Restrict, map: "fk_request_assigned_user")
-  requester                      User?              @relation("RequesterUser", fields: [user_id], references: [user_id], onDelete: Restrict, onUpdate: Restrict, map: "fk_request_user")
-  Route_Request                  Route_Request[]
+  request_id            Int                @id @default(autoincrement())
+  user_id               Int?
+  request_status_id     Int?               @default(1)
+  assigned_to           Int?
+  authorization_level   Int?               @default(0)
+  authorization_rule_id Int?
+  notes                 String?            @db.LongText
+  requested_fee         Float?             @db.Float
+  imposed_fee           Float?             @db.Float
+  request_days          Float?             @db.Float
+  creation_date         DateTime?          @default(now()) @db.Timestamp(0)
+  last_mod_date         DateTime?          @default(now()) @db.Timestamp(0)
+  active                Boolean            @default(true)
+  Alert                 Alert[]
+  Receipt               Receipt[]
+  assignedUser          User?              @relation("AssignedUser", fields: [assigned_to], references: [user_id], onDelete: Restrict, onUpdate: Restrict, map: "fk_request_assigned_user")
+  AuthorizationRule     AuthorizationRule? @relation(fields: [authorization_rule_id], references: [rule_id], onDelete: Restrict, onUpdate: Restrict, map: "fk_request_auth_rule")
+  Request_status        Request_status?    @relation(fields: [request_status_id], references: [request_status_id], onDelete: Restrict, onUpdate: Restrict, map: "fk_request_status")
+  requester             User?              @relation("RequesterUser", fields: [user_id], references: [user_id], onDelete: Restrict, onUpdate: Restrict, map: "fk_request_user")
+  Route_Request         Route_Request[]
 
   @@index([assigned_to], map: "fk_request_assigned_user")
   @@index([authorization_rule_id], map: "fk_request_auth_rule")
@@ -270,24 +284,24 @@ model Role_Permission {
 }
 
 model Route {
-  route_id                                      Int             @id @default(autoincrement())
-  id_origin_country                             Int?
-  id_origin_city                                Int?
-  id_destination_country                        Int?
-  id_destination_city                           Int?
-  router_index                                  Int?
-  plane_needed                                  Boolean         @default(false)
-  hotel_needed                                  Boolean         @default(false)
-  beginning_date                                DateTime?       @db.Date
-  beginning_time                                DateTime?       @db.Time(0)
-  ending_date                                   DateTime?       @db.Date
-  ending_time                                   DateTime?       @db.Time(0)
-  Receipt                                       Receipt[]
-  destinationCity       City?   @relation("DestinationCity", fields: [id_destination_city], references: [city_id], onDelete: Restrict, onUpdate: Restrict, map: "fk_route_destination_city")
-  originCity            City?   @relation("OriginCity", fields: [id_origin_city], references: [city_id], onDelete: Restrict, onUpdate: Restrict, map: "fk_route_origin_city")
-  destinationCountry    Country? @relation("DestinationCountry", fields: [id_destination_country], references: [country_id], onDelete: Restrict, onUpdate: Restrict, map: "fk_route_destination_country")
-  originCountry         Country? @relation("OriginCountry", fields: [id_origin_country], references: [country_id], onDelete: Restrict, onUpdate: Restrict, map: "fk_route_origin_country")
-  Route_Request                                 Route_Request[]
+  route_id               Int             @id @default(autoincrement())
+  id_origin_country      Int?
+  id_origin_city         Int?
+  id_destination_country Int?
+  id_destination_city    Int?
+  router_index           Int?
+  plane_needed           Boolean         @default(false)
+  hotel_needed           Boolean         @default(false)
+  beginning_date         DateTime?       @db.Date
+  beginning_time         DateTime?       @db.Time(0)
+  ending_date            DateTime?       @db.Date
+  ending_time            DateTime?       @db.Time(0)
+  Receipt                Receipt[]
+  destinationCity        City?           @relation("DestinationCity", fields: [id_destination_city], references: [city_id], onDelete: Restrict, onUpdate: Restrict, map: "fk_route_destination_city")
+  destinationCountry     Country?        @relation("DestinationCountry", fields: [id_destination_country], references: [country_id], onDelete: Restrict, onUpdate: Restrict, map: "fk_route_destination_country")
+  originCity             City?           @relation("OriginCity", fields: [id_origin_city], references: [city_id], onDelete: Restrict, onUpdate: Restrict, map: "fk_route_origin_city")
+  originCountry          Country?        @relation("OriginCountry", fields: [id_origin_country], references: [country_id], onDelete: Restrict, onUpdate: Restrict, map: "fk_route_origin_country")
+  Route_Request          Route_Request[]
 
   @@index([id_destination_city], map: "fk_route_destination_city")
   @@index([id_destination_country], map: "fk_route_destination_country")
@@ -342,16 +356,47 @@ model User {
   @@index([substitute_id], map: "fk_user_substitute")
 }
 
-model UserFullInfo {
-  user_id        Int       @id
-  user_name      String
-  email          String
-  active         Boolean
-  role_name      String?
-  department_name String?
-  department_id  Int?
+model Account {
+  account_id          Int                   @id @default(autoincrement())
+  account_code        String                @unique @db.VarChar(20)
+  account_name        String                @db.VarChar(100)
+  account_type        String                @db.VarChar(50)
+  description         String?               @db.VarChar(255)
+  active              Boolean               @default(true)
+  created_at          DateTime              @default(now())
+  last_mod_date       DateTime              @default(now())
+  ReceiptType_Account ReceiptType_Account[]
+}
 
-  @@map("UserFullInfo")
+model ReceiptType_Account {
+  receipttype_account_id Int          @id @default(autoincrement())
+  receipt_type_id        Int
+  account_id             Int
+  is_default             Boolean      @default(false)
+  active                 Boolean      @default(true)
+  receiptReceipt_id      Int?
+  taxTax_id              Int?
+  Account                Account      @relation(fields: [account_id], references: [account_id])
+  Receipt                Receipt?     @relation(fields: [receiptReceipt_id], references: [receipt_id])
+  Receipt_Type           Receipt_Type @relation(fields: [receipt_type_id], references: [receipt_type_id])
+  Tax                    Tax?         @relation(fields: [taxTax_id], references: [tax_id])
+
+  @@unique([receipt_type_id, account_id])
+  @@index([account_id], map: "ReceiptType_Account_account_id_fkey")
+  @@index([receiptReceipt_id], map: "ReceiptType_Account_receiptReceipt_id_fkey")
+  @@index([taxTax_id], map: "ReceiptType_Account_taxTax_id_fkey")
+}
+
+model Tax {
+  tax_id              Int                   @id @default(autoincrement())
+  tax_code            String                @unique @db.VarChar(30)
+  tax_name            String                @db.VarChar(100)
+  tax_rate            Decimal               @db.Decimal(10, 4)
+  description         String?               @db.VarChar(255)
+  active              Boolean               @default(true)
+  created_at          DateTime              @default(now())
+  last_mod_date       DateTime              @default(now())
+  ReceiptType_Account ReceiptType_Account[]
 }
 
 enum Reimbursement_Policy_Rule_trip_scope {
