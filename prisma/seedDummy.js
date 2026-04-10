@@ -153,6 +153,36 @@ const DUMMY_USERS = [
   },
 ];
 
+const ACCOUNTS = [
+  { account_code: '1000', account_name: 'Caja',          account_type: 'Activo' },
+  { account_code: '1001', account_name: 'Bancos',        account_type: 'Activo' },
+  { account_code: '2000', account_name: 'Proveedores',   account_type: 'Pasivo' },
+  { account_code: '3000', account_name: 'Gastos de Viaje',       account_type: 'Gasto' },
+  { account_code: '3001', account_name: 'Gastos de Alimentación', account_type: 'Gasto' },
+  { account_code: '3002', account_name: 'Gastos de Transporte',  account_type: 'Gasto' },
+];
+
+const RECEIPT_TYPES = [
+  { receipt_type_name: 'Hotel' },
+  { receipt_type_name: 'Alimentos' },
+  { receipt_type_name: 'Taxi' },
+  { receipt_type_name: 'Hospedaje' },
+];
+
+const TAXES = [
+  { tax_code: 'IVA16',  tax_name: 'IVA 16%',          tax_rate: 0.1600 },
+  { tax_code: 'EXENTO', tax_name: 'Exento de Impuestos', tax_rate: 0.0000 },
+];
+
+// Mapeo de Receipt Type → Account Code
+const RECEIPT_TYPE_TO_ACCOUNT = {
+  'Hotel':      '3000',   // Gastos de Viaje
+  'Alimentos':  '3001',   // Gastos de Alimentación
+  'Taxi':       '3002',   // Gastos de Transporte
+  'Hospedaje':  '3000',   // Gastos de Viaje
+};
+
+
 async function seedDummyCostCenters() {
   console.log('Creating dummy cost centers...');
   for (const cost_center_name of COST_CENTER_NAMES) {
@@ -476,6 +506,70 @@ async function seedDummyTravelFixtures() {
   }
 }
 
+async function seedDummyAccountability() {
+  console.log('Creating dummy accountability data...');
+
+  try {
+    for (const account of ACCOUNTS) {
+      await prisma.account.upsert({
+        where: { account_code: account.account_code },
+        create: account,
+        update: account,
+      });
+    }
+
+    for (const receiptType of RECEIPT_TYPES) {
+      await prisma.receipt_Type.upsert({
+        where: { receipt_type_name: receiptType.receipt_type_name },
+        create: receiptType,
+        update: receiptType,
+      });
+    }
+
+    for (const [typeName, accountCode] of Object.entries(RECEIPT_TYPE_TO_ACCOUNT)) {
+      const receiptType = await prisma.receipt_Type.findUnique({
+        where: { receipt_type_name: typeName },
+        select: { receipt_type_id: true },
+      });
+
+      const account = await prisma.account.findUnique({
+        where: { account_code: accountCode },
+        select: { account_id: true },
+      });
+
+      if (!receiptType || !account) {
+        continue;
+      }
+
+      await prisma.receiptType_Account.upsert({
+        where: {
+          receipt_type_id_account_id: {
+            receipt_type_id: receiptType.receipt_type_id,
+            account_id: account.account_id,
+          },
+        },
+        create: {
+          receipt_type_id: receiptType.receipt_type_id,
+          account_id: account.account_id,
+          is_default: true,
+        },
+        update: {},
+      });
+    }
+
+    for (const tax of TAXES) {
+      await prisma.tax.upsert({
+        where: { tax_code: tax.tax_code },
+        create: tax,
+        update: tax,
+      });
+    }
+
+  } catch (error) {
+    console.error('Error en seedDummyAccountability:', error.message);
+  }
+}
+
 async function seedDummyLocationsAndUsers() {
   await seedDummyCostCenters();
   await seedDummyDepartments();
@@ -483,6 +577,7 @@ async function seedDummyLocationsAndUsers() {
   await seedDummyCities();
   await seedDummyUsers();
   await seedDummyTravelFixtures();
+  await seedDummyAccountability();
 }
 
 async function main() {

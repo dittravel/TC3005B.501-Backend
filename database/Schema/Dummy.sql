@@ -239,7 +239,9 @@ INSERT INTO Route_Request (request_id, route_id) VALUES
 
 INSERT INTO Receipt (receipt_type_id, request_id, validation, amount, validation_date) VALUES
   -- Pending receipts (awaiting accounts payable review)
-  (1, 1, 'Pendiente', 300.00, '2025-04-19 09:00:00');
+  (1, 1, 'Pendiente', 300.00, '2025-04-19 09:00:00'),
+  (2, 8, 'Aprobado', 285.50, '2026-04-08 11:20:00'),
+  (3, 8, 'Pendiente', 175.00, '2026-04-08 12:00:00');
 
 -- ============================================================================
 -- Auth Rules
@@ -251,3 +253,33 @@ INSERT INTO AuthorizationRule (rule_name, is_default, num_levels, automatic, tra
 INSERT INTO AuthorizationRuleLevel (rule_id, level_number, level_type, superior_level_number) VALUES
   (2, 1, 'Jefe', NULL),
   (2, 2, 'Aleatorio', 1);
+
+
+-- ============================================================================
+-- Accountability data
+-- ============================================================================
+
+-- Accounting accounts
+INSERT INTO Account (account_code, account_name, account_type) VALUES
+('1000', 'Caja', 'Activo'),
+('1001', 'Bancos', 'Activo'),
+('2000', 'Proveedores', 'Pasivo'),
+('3000', 'Gastos de Viaje', 'Gasto'),
+('3001', 'Gastos de Alimentación', 'Gasto'),
+('3002', 'Gastos de Transporte', 'Gasto');
+
+-- Receipt types
+INSERT INTO Receipt_Type (receipt_type_name) VALUES
+('Hotel'),
+('Alimentos'),
+('Taxi');
+
+INSERT INTO ReceiptType_Account (receipt_type_id, account_id) VALUES
+(1, 3), -- Hotel → Gastos de Viaje
+(2, 4), -- Alimentos → Gastos de Alimentación
+(3, 5); -- Taxi → Gastos de Transporte
+
+-- Tax
+INSERT INTO Tax (tax_code, tax_rate) VALUES
+('IVA16', 16.00),
+('EXENTO', 0.00);
