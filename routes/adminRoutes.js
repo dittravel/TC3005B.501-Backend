@@ -84,7 +84,7 @@ router.route("/delete-auth-rule/:rule_id")
 router.route("/get-boss-list/:department_id")
   .get(generalRateLimiter, authenticateToken, authorizeRole(['Administrador']), adminController.getBossList);
 
-// Import data from XML file
+// Import data from XML/JSON file
 router.route("/import-data")
   .post(
     generalRateLimiter,

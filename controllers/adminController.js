@@ -14,9 +14,8 @@ import Admin from "../models/adminModel.js";
 import userModel from "../models/userModel.js";
 import AuditLogService from "../services/auditLogService.js";
 
-// XML data parsing
-import { parseXmlData } from '../services/xmlParserService.js';
-import { extractExternalData } from '../services/orgParserService.js';
+// Data parsing (JSON)
+import { extractExternalDataFromJSON } from '../services/orgParserService.js';
 
 /**
 * Get list of all users
@@ -245,10 +244,10 @@ export const getBossList = async (req, res) => {
   }
 };
 
-// Import data from XML file
+// Import data from JSON file
 export const importData = async (req, res) => {
   if (!req.file) {
-    return res.status(400).json({ error: 'No XML file uploaded' });
+    return res.status(400).json({ error: 'No JSON file uploaded' });
   }
 
   if (!req.file.buffer) {
@@ -256,18 +255,33 @@ export const importData = async (req, res) => {
   }
 
   try {
-    // Convert buffer to UTF-8 string
-    const xmlContent = req.file.buffer.toString('utf-8');
+    const fileContent = req.file.buffer.toString('utf-8');
 
-    if (!xmlContent || xmlContent.trim() === '') {
-      return res.status(400).json({ error: 'XML file is empty' });
+    if (!fileContent || fileContent.trim() === '') {
+      return res.status(400).json({ error: 'File is empty' });
     }
 
-    const xmlData = await parseXmlData(xmlContent);
-    const xmlObj = await extractExternalData(xmlData);
+    // Parse as JSON
+    let jsonObj;
+    try {
+      jsonObj = JSON.parse(fileContent);
+    } catch (parseError) {
+      return res.status(400).json({ error: 'Invalid JSON format: ' + parseError.message });
+    }
+
+    // Extract data from JSON
+    const extractedData = await extractExternalDataFromJSON(jsonObj);
+
+    // Check if there were parsing errors
+    if (extractedData.errors && extractedData.errors.length > 0) {
+      return res.status(400).json({
+        error: 'Data contains parsing errors',
+        errors: extractedData.errors
+      });
+    }
 
     // Process the extracted data and store it in the database
-    const result = await adminService.createDataFromXml(xmlObj);
+    const result = await adminService.createDataFromJson(extractedData);
 
     res.status(200).json(result);
   }

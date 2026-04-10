@@ -161,18 +161,6 @@ model Receipt_Type {
   Reimbursement_Policy_Rule Reimbursement_Policy_Rule[]
 }
 
-model UserFullInfo {
-  user_id        Int       @id
-  user_name      String
-  email          String
-  active         Boolean
-  role_name      String?
-  department_name String?
-  department_id  Int?
-
-  @@map("UserFullInfo")
-}
-
 model Reimbursement_Policy {
   policy_id                       Int                               @id @default(autoincrement())
   policy_code                     String                            @unique(map: "policy_code") @db.VarChar(40)
@@ -321,34 +309,34 @@ model Route_Request {
 }
 
 model User {
-  user_id                  Int                    @id @default(autoincrement())
-  role_id                  Int?
-  department_id            Int?
-  boss_id                  Int?
-  substitute_id            Int?
-  out_of_office_start_date DateTime?              @db.Date
-  out_of_office_end_date   DateTime?              @db.Date
-  user_name                String                 @unique(map: "user_name") @db.VarChar(60)
-  password                 String                 @db.VarChar(60)
-  workstation              String                 @db.VarChar(20)
-  email                    String                 @unique(map: "email") @db.VarChar(254)
-  phone_number             String?                @db.VarChar(254)
-  wallet                   Float?                 @default(0) @db.Float
-  creation_date            DateTime?              @default(now()) @db.Timestamp(0)
-  last_mod_date            DateTime?              @default(now()) @db.Timestamp(0)
-  active                   Boolean                @default(true)
-  password_reset_token     String?                @db.VarChar(64)
-  password_reset_expires   DateTime?              @db.DateTime(0)
-  Audit_Log                Audit_Log[]
-  Reimbursement_Policy     Reimbursement_Policy[]
-  requestsAssigned         Request[]              @relation("AssignedUser")
-  requestsCreated          Request[]              @relation("RequesterUser")
-  boss                     User?                  @relation("UserBoss", fields: [boss_id], references: [user_id], onDelete: Restrict, onUpdate: Restrict, map: "fk_user_boss")
-  subordinates             User[]                 @relation("UserBoss")
-  department               Department?            @relation(fields: [department_id], references: [department_id], onDelete: Restrict, onUpdate: Restrict, map: "fk_user_department")
-  role                     Role?                  @relation(fields: [role_id], references: [role_id], onDelete: Restrict, onUpdate: Restrict, map: "fk_user_role")
-  substitute               User?                  @relation("UserSubstitute", fields: [substitute_id], references: [user_id], onDelete: Restrict, onUpdate: Restrict, map: "fk_user_substitute")
-  substitutedBy            User[]                 @relation("UserSubstitute")
+  user_id                             Int                    @id @default(autoincrement())
+  role_id                             Int?
+  department_id                       Int?
+  boss_id                             Int?
+  substitute_id                       Int?
+  out_of_office_start_date            DateTime?              @db.Date
+  out_of_office_end_date              DateTime?              @db.Date
+  user_name                           String                 @unique(map: "user_name") @db.VarChar(60)
+  password                            String                 @db.VarChar(60)
+  workstation                         String?                @db.VarChar(20)
+  email                               String                 @unique(map: "email") @db.VarChar(254)
+  phone_number                        String?                @db.VarChar(254)
+  wallet                              Float?                 @default(0) @db.Float
+  creation_date                       DateTime?              @default(now()) @db.Timestamp(0)
+  last_mod_date                       DateTime?              @default(now()) @db.Timestamp(0)
+  active                              Boolean                @default(true)
+  password_reset_token                String?                @db.VarChar(64)
+  password_reset_expires              DateTime?              @db.DateTime(0)
+  Audit_Log                           Audit_Log[]
+  Reimbursement_Policy                Reimbursement_Policy[]
+  requestsAssigned                    Request[]              @relation("AssignedUser")
+  requestsCreated                     Request[]              @relation("RequesterUser")
+  boss                                User?                  @relation("UserBoss", fields: [boss_id], references: [user_id], onDelete: Restrict, onUpdate: Restrict, map: "fk_user_boss")
+  subordinates                        User[]                 @relation("UserBoss")
+  department                          Department?            @relation(fields: [department_id], references: [department_id], onDelete: Restrict, onUpdate: Restrict, map: "fk_user_department")
+  role                                Role?                  @relation(fields: [role_id], references: [role_id], onDelete: Restrict, onUpdate: Restrict, map: "fk_user_role")
+  substitute                          User?                  @relation("UserSubstitute", fields: [substitute_id], references: [user_id], onDelete: Restrict, onUpdate: Restrict, map: "fk_user_substitute")
+  substitutedBy                       User[]                 @relation("UserSubstitute")
 
   @@index([boss_id], map: "fk_user_boss")
   @@index([department_id], map: "fk_user_department")
