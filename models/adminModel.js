@@ -185,6 +185,10 @@ const Admin = {
         data.boss = { connect: { user_id: data.boss_id } };
         delete data.boss_id;
       }
+      if (data.society_id) {
+        data.Society = { connect: { id: data.society_id } };
+        delete data.society_id;
+      }
       
       return await prisma.user.update({
         where: { user_id: Number(userId) },
