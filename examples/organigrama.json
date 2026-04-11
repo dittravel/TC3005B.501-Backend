@@ -1,6 +1,7 @@
 {
   "Sociedad": {
-    "Nombre": "Ditta Servicios",
+    "Clave": 1001,
+    "Descripción": "Ditta Servicios",
     "CeCo": [
       { "Clave": 101, "Descripcion": "CC-101" }
     ],

@@ -103,6 +103,13 @@ export async function extractExternalDataFromJSON(jsonObj) {
       return { users, departments, costCenters, errors };
     }
 
+    // Get society_id for linking users to society
+    const societyId = sociedad.Clave || null;
+
+    if (!societyId) {
+      errors.push('Sociedad con formato incorrecto: falta Id');
+    }
+
     // Parse Cost Centers (CeCo) catalog
     const cecoCatalog = {};
     if (sociedad.CeCo && Array.isArray(sociedad.CeCo)) {
@@ -174,6 +181,7 @@ export async function extractExternalDataFromJSON(jsonObj) {
         department_name: departamento,
         cost_center_id: costCenterId,
         active: emp.Status === 'A' ? true : false,
+        society_id: societyId
       });
     });
 

@@ -612,7 +612,8 @@ export const createDataFromJson = async (jsonObj) => {
         email: encryptedEmail,
         phone_number: encryptedPhone,
         boss_id: boss_id,
-        active: user.active || true
+        active: user.active || true,
+        society_id: user.society_id
       };
 
       if (!existingUser) {

@@ -100,6 +100,7 @@ const DUMMY_USERS = [
     email: 'laura.flores@empresa.com',
     phone_number: '555-1004',
     boss_user_name: null,
+    society_id: 1,
   },
   {
     role_name: 'Autorizador',
@@ -110,6 +111,7 @@ const DUMMY_USERS = [
     email: 'diego.hernandez@empresa.com',
     phone_number: '555-1005',
     boss_user_name: 'laura.flores',
+    society_id: 1,
   },
   {
     role_name: 'Solicitante',
@@ -120,6 +122,7 @@ const DUMMY_USERS = [
     email: 'andres.gomez@empresa.com',
     phone_number: '555-1001',
     boss_user_name: 'diego.hernandez',
+    society_id: 1,
   },
   {
     role_name: 'Agencia de viajes',
@@ -130,6 +133,7 @@ const DUMMY_USERS = [
     email: 'paula.martinez@empresa.com',
     phone_number: '555-1002',
     boss_user_name: null,
+    society_id: 1,
   },
   {
     role_name: 'Cuentas por pagar',
@@ -140,6 +144,7 @@ const DUMMY_USERS = [
     email: 'carlos.ramos@empresa.com',
     phone_number: '555-1003',
     boss_user_name: null,
+    society_id: 1,
   },
   {
     role_name: 'Administrador',
@@ -150,6 +155,7 @@ const DUMMY_USERS = [
     email: 'admin@empresa.com',
     phone_number: '555-0000',
     boss_user_name: null,
+    society_id: 1,
   },
 ];
 
@@ -181,6 +187,17 @@ const RECEIPT_TYPE_TO_ACCOUNT = {
   'Hospedaje':  '3000',
 };
 
+const SOCIETY_GROUPS = [
+  { id: 1, description: 'Ditta Consulting' },
+  { id: 2, description: 'Tec' },
+]
+
+const SOCIETIES = [
+  { id: 1, description: 'Ditta Servicios', local_currency: 'MXN', society_group_id: 1 },
+  { id: 2, description: 'Ditta Gestión', local_currency: 'MXN', society_group_id: 1 },
+  { id: 3, description: 'Tec Servicios', local_currency: 'USD', society_group_id: 2 },
+  { id: 4, description: 'Tec Gestión', local_currency: 'USD', society_group_id: 2 },
+]
 
 async function seedDummyCostCenters() {
   console.log('Creating dummy cost centers...');
@@ -276,6 +293,7 @@ async function seedDummyUsers() {
         department_id: department.department_id,
         boss_id: null,
         active: true,
+        society_id: userData.society_id,
       },
       update: {
         password: hashedPassword,
@@ -285,6 +303,7 @@ async function seedDummyUsers() {
         role_id: role.role_id,
         department_id: department.department_id,
         active: true,
+        society_id: userData.society_id,
       },
     });
   }
@@ -569,7 +588,42 @@ async function seedDummyAccountability() {
   }
 }
 
+async function seedDummySocietyGroups() {
+  console.log('Creating dummy society groups...');
+  for (const group of SOCIETY_GROUPS) {
+    await prisma.societyGroup.upsert({
+      where: { id: group.id },
+      create: { id: group.id, description: group.description },
+      update: { description: group.description },
+    });
+  }
+  console.log(`Created or updated ${SOCIETY_GROUPS.length} dummy society groups`);
+}
+
+async function seedDummySocieties() {
+  console.log('Creating dummy societies...');
+  for (const society of SOCIETIES) {
+    await prisma.society.upsert({
+      where: { id: society.id },
+      create: {
+        id: society.id,
+        description: society.description,
+        local_currency: society.local_currency,
+        society_group_id: society.society_group_id
+      },
+      update: {
+        description: society.description,
+        local_currency: society.local_currency,
+        society_group_id: society.society_group_id
+      },
+    });
+  }
+  console.log(`Created or updated ${SOCIETIES.length} dummy societies`);
+}
+
 async function seedDummyLocationsAndUsers() {
+  await seedDummySocietyGroups();
+  await seedDummySocieties();
   await seedDummyCostCenters();
   await seedDummyDepartments();
   await seedDummyCountries();

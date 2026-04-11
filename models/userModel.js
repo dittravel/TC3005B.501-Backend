@@ -47,6 +47,7 @@ const User = {
       substitute_id: user.substitute_id,
       boss_name: user.boss?.user_name ?? null,
       substitute_name: user.substitute?.user_name ?? null,
+      society_id: user.society_id,
     };
   },
 

@@ -134,7 +134,8 @@ const Admin = {
           workstation: userData.workstation || null,
           email: userData.email,
           phone_number: userData.phone_number || null,
-          boss_id: userData.boss_id || null
+          boss_id: userData.boss_id || null,
+          society_id: userData.society_id || null
         },
         select: { user_id: true }
       });
