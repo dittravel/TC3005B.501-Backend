@@ -327,6 +327,8 @@ model User {
   active                              Boolean                @default(true)
   password_reset_token                String?                @db.VarChar(64)
   password_reset_expires              DateTime?              @db.DateTime(0)
+  society_id                          Int?                   @db.Int
+  Society                             Society?               @relation(fields: [society_id], references: [id])
   Audit_Log                           Audit_Log[]
   Reimbursement_Policy                Reimbursement_Policy[]
   requestsAssigned                    Request[]              @relation("AssignedUser")
@@ -342,6 +344,21 @@ model User {
   @@index([department_id], map: "fk_user_department")
   @@index([role_id], map: "fk_user_role")
   @@index([substitute_id], map: "fk_user_substitute")
+}
+
+model SocietyGroup {
+  id            Int         @id @default(autoincrement())
+  description   String?     @db.VarChar(255)
+  Society       Society[]
+}
+
+model Society {
+  id                Int     @id @default(autoincrement())
+  description       String  @db.VarChar(20)
+  local_currency    String  @db.VarChar(6)
+  society_group_id  Int?
+  SocietyGroup      SocietyGroup? @relation(fields: [society_group_id], references: [id])
+  User              User[]
 }
 
 model Account {
