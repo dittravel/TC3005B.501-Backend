@@ -44,10 +44,24 @@ export async function deleteSocietyGroup(groupId) {
   });
 }
 
+export async function isDefaultSocietyGroup(groupId) {
+  if (!groupId) {
+    return false;
+  }
+
+  const group = await prisma.societyGroup.findUnique({
+    where: { id: groupId },
+    select: { is_default: true }
+  });
+
+  return group?.is_default === true;
+}
+
 export default {
   getSocietyGroups,
   getSocietyGroupById,
   createSocietyGroup,
   updateSocietyGroup,
-  deleteSocietyGroup
+  deleteSocietyGroup,
+  isDefaultSocietyGroup
 }

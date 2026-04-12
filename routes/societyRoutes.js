@@ -12,6 +12,14 @@ import { generalRateLimiter } from '../middleware/rateLimiters.js';
 
 const router = express.Router();
 
+router.route('/name/:society_id')
+  .get(
+    generalRateLimiter,
+    authenticateToken,
+    validateId,
+    societyController.getSocietyName
+  );
+
 router.route('/')
   .get(
     generalRateLimiter,

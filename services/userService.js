@@ -83,13 +83,15 @@ export async function authenticateUser(username, password, req) {
     };
 
     const token = jwt.sign(tokenPayload, process.env.JWT_SECRET, { expiresIn: '1h' });
-    
+
     return {
       token,
       role: user.role_name,
       username: user.user_name,
       user_id: user.user_id,
-      department_id: user.department_id 
+      department_id: user.department_id,
+      society_id: user.society_id,
+      society_group_id: user.society_group_id
     };
   } catch (error) {
     throw new Error(`Authentication failed: ${error.message}`);

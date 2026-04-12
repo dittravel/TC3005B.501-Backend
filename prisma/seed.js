@@ -30,14 +30,14 @@ const CURRENCY_CATALOG = [
 async function seedDefaultSocietyGroupAndSociety() {
   // Create default SocietyGroup
   const existingGroup = await prisma.societyGroup.findFirst({
-    where: { description: 'Default' },
+    where: { is_default: true },
     select: { id: true },
   });
 
   let defaultSocietyGroupId;
   if (!existingGroup) {
     const group = await prisma.societyGroup.create({
-      data: { description: 'Default' },
+      data: { description: 'Default', is_default: true },
     });
     defaultSocietyGroupId = group.id;
   } else {
@@ -47,7 +47,7 @@ async function seedDefaultSocietyGroupAndSociety() {
   // Create default Society
   const existingSociety = await prisma.society.findFirst({
     where: {
-      description: 'Default',
+      is_default: true,
       society_group_id: defaultSocietyGroupId
     },
     select: { id: true },
@@ -59,6 +59,7 @@ async function seedDefaultSocietyGroupAndSociety() {
         description: 'Default',
         local_currency: 'MXN',
         society_group_id: defaultSocietyGroupId,
+        is_default: true,
       },
     });
   }

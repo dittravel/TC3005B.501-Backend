@@ -24,6 +24,18 @@ export async function getSocietyById(societyId) {
   });
 }
 
+export async function getSocietyByNameAndGroup(description, societyGroupId) {
+  return await prisma.society.findFirst({
+    where: {
+      description: description,
+      society_group_id: societyGroupId
+    },
+    include: {
+      SocietyGroup: true
+    }
+  });
+}
+
 export async function createSociety(data) {
   return await prisma.society.create({
     data: {
@@ -60,6 +72,7 @@ export async function deleteSociety(societyId) {
 export default {
   getSocieties,
   getSocietyById,
+  getSocietyByNameAndGroup,
   createSociety,
   updateSociety,
   deleteSociety

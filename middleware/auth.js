@@ -124,13 +124,34 @@ export const validateSocietyAccess = (resourceType) => {
           select: { receipt_id: true },
         });
       } else if (resourceType === 'user') {
-        resource = await prisma.user.findFirst({
-          where: {
-            user_id: Number(resourceId),
-            society_id: Number(req.user.society_id),
-          },
-          select: { user_id: true },
+        // Check if users belong to same society, or to same society group if admin
+        const targetUser = await prisma.user.findUnique({
+          where: { user_id: Number(resourceId) },
+          select: { user_id: true, society_id: true }
         });
+
+        if (!targetUser) {
+          return res.status(403).json({ error: 'User not found' });
+        }
+
+        // If admin has society_group_id, check if target user's society is in the same group
+        if (req.user.society_group_id) {
+          const targetSociety = await prisma.society.findUnique({
+            where: { id: targetUser.society_id },
+            select: { society_group_id: true }
+          });
+
+          if (!targetSociety || targetSociety.society_group_id !== req.user.society_group_id) {
+            return res.status(403).json({ error: 'Access denied: User does not belong to your society group' });
+          }
+        } else {
+          // Regular user can only access their own society
+          if (targetUser.society_id !== Number(req.user.society_id)) {
+            return res.status(403).json({ error: 'Access denied: resource does not belong to your society' });
+          }
+        }
+
+        resource = targetUser;
       }
 
       if (!resource) {
@@ -143,4 +164,18 @@ export const validateSocietyAccess = (resourceType) => {
       res.status(500).json({ error: 'Internal server error' });
     }
   };
+};
+
+/**
+ * Middleware to require default admin permissions
+ * Prevents non-default admins from managing society groups
+ * Detailed authorization is checked in the service layer
+ */
+export const requireDefaultAdmin = (req, res, next) => {
+  // Basic check: admin must have a society_group_id
+  // Detailed authorization will be checked in the service
+  if (!req.user?.society_group_id) {
+    return res.status(403).json({ error: 'User must belong to a society group' });
+  }
+  next();
 };

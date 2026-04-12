@@ -196,7 +196,7 @@ const User = {
     });
   },
 
-  async getUserUsername(username) {
+  async getUserUsername(username, societyGroupId = null) {
     const user = await prisma.user.findUnique({
       where: { user_name: username },
       include: {
@@ -214,6 +214,11 @@ const User = {
     });
 
     if (!user) return null;
+
+    // Validate that user belongs to the specified society group if provided
+    if (societyGroupId !== null && user.Society?.society_group_id !== Number(societyGroupId)) {
+      return null;
+    }
 
     return {
       user_name: user.user_name,

@@ -11,6 +11,7 @@
 
 import Admin from "../models/adminModel.js";
 import User from "../models/userModel.js";
+import Society from "../models/societyModel.js";
 import crypto from 'crypto';
 import bcrypt from 'bcrypt';
 const AES_SECRET_KEY = process.env.AES_SECRET_KEY;
@@ -327,98 +328,100 @@ export async function getUserList(societyId = null) {
  * @returns {Promise<Object>} Result of the update operation
  */
 export const updateUserData = async (userId, newUserData, options = {}) => {
-    const userData = await User.getUserData(userId);
-    if (!userData) {
-        throw { status: 404, message: 'No information found for the user' };
-    }
+  const userData = await User.getUserData(userId);
+  if (!userData) {
+    throw { status: 404, message: 'No information found for the user' };
+  }
 
+  let currPhoneNumber = null;
+  if (userData.phone_number) {
     if (typeof userData.phone_number !== 'string') {
-        throw { status: 500, message: 'Internal server error: Invalid phone number format in database.' };
+      throw { status: 500, message: 'Internal server error: Invalid phone number format in database.' };
     }
+    currPhoneNumber = decrypt(userData.phone_number);
+  }
 
-    const currPhoneNumber = decrypt(userData.phone_number);
+  if (typeof userData.email !== 'string') {
+    throw { status: 500, message: 'Internal server error: Invalid email format in database.' };
+  }
+  const currUserEmail = decrypt(userData.email);
 
-    if (typeof userData.email !== 'string') {
-        throw { status: 500, message: 'Internal server error: Invalid email format in database.' };
-    }
-    const currUserEmail = decrypt(userData.email);
+  if (newUserData.email !== undefined && newUserData.email !== currUserEmail) {
+    const allEmailRecords = await Admin.getAllEmails(); 
+    
+    const isEmailAlreadyInUse = allEmailRecords.some(emailRecord => {
+      const encryptedEmailString = emailRecord.email; 
 
-    if (newUserData.email !== undefined && newUserData.email !== currUserEmail) {
-      const allEmailRecords = await Admin.getAllEmails(); 
+      if (typeof encryptedEmailString !== 'string') {
+        return false;
+      }
+
+      const existingDecryptedEmail = decrypt(encryptedEmailString);
       
-      const isEmailAlreadyInUse = allEmailRecords.some(emailRecord => {
-            const encryptedEmailString = emailRecord.email; 
+      const matchFound = existingDecryptedEmail === newUserData.email && encryptedEmailString !== userData.email;
+      return matchFound;
+    });
+    
+    if (isEmailAlreadyInUse) {
+      throw { status: 400, message: 'Email already in use by another user' };
+    }
+  }
 
-            if (typeof encryptedEmailString !== 'string') {
-                return false;
-            }
+  const updatedFields = [];
+  const fieldsToUpdateInDb = {};
+  const keysToCompare = ['role_id', 'department_id', 'society_id', 'user_name', 'workstation', 'email', 'phone_number', 'boss_id'];
 
-            const existingDecryptedEmail = decrypt(encryptedEmailString);
-            
-            const matchFound = existingDecryptedEmail === newUserData.email && encryptedEmailString !== userData.email;
-            return matchFound;
-        });
-      
-      if (isEmailAlreadyInUse) {
-            throw { status: 400, message: 'Email already in use by another user' };
+  for (const key of keysToCompare) {
+    if (newUserData[key] !== undefined) {
+      let actualCurrentValue;
+
+      if (key === 'email') {
+          actualCurrentValue = currUserEmail;
+      } else if (key === 'phone_number') {
+          actualCurrentValue = currPhoneNumber;
+      } else {
+          actualCurrentValue = userData[key];
+      }
+
+      if (newUserData[key] !== actualCurrentValue) {
+        if (key === 'role_id') {
+          fieldsToUpdateInDb.role_id = newUserData[key];
+          updatedFields.push(key);
+        } else if (key === 'department_id') {
+          fieldsToUpdateInDb.department_id = newUserData[key];
+          updatedFields.push(key);
+        } else if (key === 'email' || key === 'phone_number') {
+          const encryptedNewValue = encrypt(newUserData[key]);
+          fieldsToUpdateInDb[key] = encryptedNewValue;
+          updatedFields.push(key);
+        } else if (key === 'user_name') {
+          const userExists = await User.getUserUsername(newUserData[key]);
+          if (!userExists || userExists.user_id === userId) {
+            fieldsToUpdateInDb[key] = newUserData[key];
+            updatedFields.push(key);
+          } else {
+            throw { status: 400, message: `Username already in use by another user: ${newUserData[key]}` };
+          }
+        } else if (key === 'boss_id') {
+          fieldsToUpdateInDb[key] = newUserData[key] === '' ? null : newUserData[key];
+          updatedFields.push(key);
+        } else if (key === 'society_id') {
+          fieldsToUpdateInDb[key] = newUserData[key] === '' ? null : newUserData[key];
+          updatedFields.push(key);
+        } else {
+          fieldsToUpdateInDb[key] = newUserData[key];
+          updatedFields.push(key);
         }
+      }
     }
+  }
 
-    const updatedFields = [];
-    const fieldsToUpdateInDb = {};
-    const keysToCompare = ['role_id', 'department_id', 'society_id', 'user_name', 'workstation', 'email', 'phone_number', 'boss_id'];
+  if (Object.keys(fieldsToUpdateInDb).length > 0) {
+    await Admin.updateUser(userId, fieldsToUpdateInDb, options.connection);
+    return { message: 'User updated successfully', updated_fields: updatedFields };
+  }
 
-    for (const key of keysToCompare) {
-        if (newUserData[key] !== undefined) {
-            let actualCurrentValue;
-
-            if (key === 'email') {
-                actualCurrentValue = currUserEmail;
-            } else if (key === 'phone_number') {
-                actualCurrentValue = currPhoneNumber;
-            } else {
-                actualCurrentValue = userData[key];
-            }
-
-            if (newUserData[key] !== actualCurrentValue) {
-                if (key === 'role_id') {
-                    fieldsToUpdateInDb.role_id = newUserData[key];
-                    updatedFields.push(key);
-                } else if (key === 'department_id') {
-                    fieldsToUpdateInDb.department_id = newUserData[key];
-                    updatedFields.push(key);
-                } else if (key === 'email' || key === 'phone_number') {
-                    const encryptedNewValue = encrypt(newUserData[key]);
-                    fieldsToUpdateInDb[key] = encryptedNewValue;
-                    updatedFields.push(key);
-                } else if (key === 'user_name') {
-                    const userExists = await User.getUserUsername(newUserData[key]);
-                    if (!userExists || userExists.user_id === userId) {
-                        fieldsToUpdateInDb[key] = newUserData[key];
-                        updatedFields.push(key);
-                    } else {
-                        throw { status: 400, message: `Username already in use by another user: ${newUserData[key]}` };
-                    }
-                } else if (key === 'boss_id') {
-                  fieldsToUpdateInDb[key] = newUserData[key] === '' ? null : newUserData[key];
-                  updatedFields.push(key);
-                } else if (key === 'society_id') {
-                  fieldsToUpdateInDb[key] = newUserData[key] === '' ? null : newUserData[key];
-                  updatedFields.push(key);
-                } else {
-                    fieldsToUpdateInDb[key] = newUserData[key];
-                    updatedFields.push(key);
-                }
-            }
-        }
-    }
-
-    if (Object.keys(fieldsToUpdateInDb).length > 0) {
-        await Admin.updateUser(userId, fieldsToUpdateInDb, options.connection);
-        return { message: 'User updated successfully', updated_fields: updatedFields };
-    }
-
-    return { message: 'No changes detected, user data is up to date' };
+  return { message: 'No changes detected, user data is up to date' };
 };
 
 // Get list of departments
@@ -504,7 +507,7 @@ export const getBossList = async (departmentId) => {
 // Create data from JSON import
 export const createDataFromJson = async (jsonObj) => {
   try {
-    const { users, departments, costCenters, errors } = jsonObj;
+    const { users, departments, costCenters, societies, society_group_id, errors } = jsonObj;
 
     if (errors.length > 0) {
       return { success: false, message: 'Data extracted with some errors', errors };
@@ -512,25 +515,61 @@ export const createDataFromJson = async (jsonObj) => {
 
     // Track created and updated records
     const summary = {
+      societies: { created: [], updated: [], skipped: [] },
       departments: { created: [], updated: [], skipped: [] },
       costCenters: { created: [], updated: [], skipped: [] },
       users: { created: [], updated: [], deactivated: [] }
     };
 
-    // 1. Create cost centers first
+    // Mapping between JSON society IDs and actual database society IDs
+    const societyIdMap = {};
+
+    // 1: Create or update societies
+    if (societies && societies.length > 0) {
+      for (const society of societies) {
+        const existingSociety = await Society.getSocietyByNameAndGroup(
+          society.description,
+          society_group_id
+        );
+        if (!existingSociety) {
+          // Create new society and map the ID
+          const createdSociety = await Society.createSociety(society);
+          societyIdMap[society.id] = createdSociety.id;
+          summary.societies.created.push(society.description);
+        } else {
+          // Map existing society ID
+          societyIdMap[society.id] = existingSociety.id;
+          // Check if description or currency changed
+          if (existingSociety.description !== society.description
+            || existingSociety.local_currency !== society.local_currency) {
+            await Society.updateSociety(existingSociety.id, {
+              description: society.description,
+              local_currency: society.local_currency
+            });
+            summary.societies.updated.push(society.description);
+          } else {
+            summary.societies.skipped.push(society.description);
+          }
+        }
+      }
+    }
+
+    // 2. Create cost centers
     for (const cc of costCenters) {
       const existingCC = await Admin.findCostCenterByID(cc.cost_center_id);
       if (!existingCC) {
-        await Admin.createCostCenter({ 
+        await Admin.createCostCenter({
           cost_center_id: cc.cost_center_id,
-          cost_center_name: cc.cost_center_name
+          cost_center_name: cc.cost_center_name,
+          society_group_id
         });
         summary.costCenters.created.push(cc.cost_center_id);
       } else {
         // Check if name changed
         if (existingCC.cost_center_name !== cc.cost_center_name) {
           await Admin.updateCostCenter(cc.cost_center_id, {
-            cost_center_name: cc.cost_center_name
+            cost_center_name: cc.cost_center_name,
+            society_group_id
           });
           summary.costCenters.updated.push({
             cost_center_id: cc.cost_center_id,
@@ -543,14 +582,17 @@ export const createDataFromJson = async (jsonObj) => {
       }
     }
 
-    // 2. Create departments
+    // 3. Create departments
     for (const dept of departments) {
-      const existingDeptId = await Admin.findDepartmentID(dept.department_name);
+      const existingDeptId = society_group_id
+        ? await Admin.findDepartmentID(dept.department_name, society_group_id)
+        : await Admin.findDepartmentID(dept.department_name);
       if (!existingDeptId) {
         // Department doesn't exist, create it
         await Admin.createDepartment({
           department_name: dept.department_name,
-          cost_center_id: dept.cost_center_id || null
+          cost_center_id: dept.cost_center_id || null,
+          society_group_id
         });
         summary.departments.created.push({
           name: dept.department_name,
@@ -563,7 +605,8 @@ export const createDataFromJson = async (jsonObj) => {
           // Cost center changed, update it
           await Admin.updateDepartment(existingDeptId, {
             department_name: dept.department_name,
-            cost_center_id: dept.cost_center_id || null
+            cost_center_id: dept.cost_center_id || null,
+            society_group_id
           });
           summary.departments.updated.push({
             name: dept.department_name,
@@ -576,11 +619,11 @@ export const createDataFromJson = async (jsonObj) => {
       }
     }
 
-    // 3. Create users
+    // 4. Create users
     for (const user of users) {
       let boss_id = null;
       if (user.boss_user) {
-        const boss = await User.getUserUsername(user.boss_user);
+        const boss = await User.getUserUsername(user.boss_user, society_group_id);
         if (boss) {
           boss_id = boss.user_id;
         }
@@ -591,13 +634,15 @@ export const createDataFromJson = async (jsonObj) => {
 
       console.log(`[DEBUG] Usuario: ${user.user_name}, Rol asignado: ${user.role}`);
 
-      let roleId = await Admin.findRoleID(user.role);
-      console.log(`[DEBUG] Rol ID encontrado: ${roleId}`);
-      
+      let roleId = society_group_id
+        ? await Admin.findRoleID(user.role, society_group_id)
+        : await Admin.findRoleID(user.role);
+
       // If role not found, try to find 'Solicitante' as fallback
       if (!roleId) {
-        console.warn(`[WARN] Rol '${user.role}' no encontrado. Usando 'Solicitante' como fallback.`);
-        roleId = await Admin.findRoleID('Solicitante');
+        roleId = society_group_id
+          ? await Admin.findRoleID('Solicitante', society_group_id)
+          : await Admin.findRoleID('Solicitante');
       }
       
       // If still not found, log all available roles for debugging
@@ -605,19 +650,21 @@ export const createDataFromJson = async (jsonObj) => {
         console.error(`[ERROR] No se pudo encontrar ningún rol para '${user.role}' ni fallback 'Solicitante'`);
       }
 
-      const existingUser = await User.getUserUsername(user.user_name);
+      const existingUser = await User.getUserUsername(user.user_name, society_group_id);
 
       // Build userData
       const userData = {
         role_id: roleId,
-        department_id: await Admin.findDepartmentID(user.department_name),
+        department_id: society_group_id
+          ? await Admin.findDepartmentID(user.department_name, society_group_id)
+          : await Admin.findDepartmentID(user.department_name),
         user_name: user.user_name,
         workstation: user.workstation,
         email: encryptedEmail,
         phone_number: encryptedPhone,
         boss_id: boss_id,
         active: user.active || true,
-        society_id: user.society_id
+        society_id: societyIdMap[user.society_id] || user.society_id
       };
 
       if (!existingUser) {
@@ -645,9 +692,9 @@ export const createDataFromJson = async (jsonObj) => {
     // 4. Deactivate users NOT in the JSON
     const processedUsernames = users.map(u => u.user_name);
     const deptIds = [];
-    
+
     for (const dept of departments) {
-      const deptId = await Admin.findDepartmentID(dept.department_name);
+      const deptId = await Admin.findDepartmentID(dept.department_name, society_group_id);
       if (deptId) {
         deptIds.push(deptId);
       }

@@ -90,6 +90,18 @@ export const login = async (req, res) => {
         secure: true,
         maxAge: 1000 * 60 * 60,
       })
+      .cookie("society_id", result.society_id?.toString() || "", {
+        sameSite: "Lax",
+        httpOnly: true,
+        secure: true,
+        maxAge: 1000 * 60 * 60,
+      })
+      .cookie("society_group_id", result.society_group_id?.toString() || "", {
+        sameSite: "Lax",
+        httpOnly: true,
+        secure: true,
+        maxAge: 1000 * 60 * 60,
+      })
       .json(result);
   } catch (error) {
     res.status(400).json({ error: error.message });

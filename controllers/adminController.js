@@ -25,7 +25,12 @@ import { extractExternalDataFromJSON } from '../services/orgParserService.js';
 */
 export const getUserList = async (req, res) => {
   try {
-    const users = await adminService.getUserList(req.user.society_id);
+    // If user is Administrador with society_group_id, get all users in the group
+    // Otherwise, get users from their specific society
+    const filterBy = req.user.society_group_id 
+      ? { society_group_id: req.user.society_group_id } 
+      : { society_id: req.user.society_id };
+    const users = await adminService.getUserList(filterBy);
     if (!users) {
       return res.status(404).json({error: "No users found"});
     }
@@ -254,6 +259,11 @@ export const importData = async (req, res) => {
     return res.status(400).json({ error: 'File buffer not available - upload failed' });
   }
 
+  // Verify that admin has a society_group_id
+  if (!req.user.society_group_id) {
+    return res.status(403).json({ error: 'User does not have a valid society group assigned' });
+  }
+
   try {
     const fileContent = req.file.buffer.toString('utf-8');
 
@@ -269,8 +279,11 @@ export const importData = async (req, res) => {
       return res.status(400).json({ error: 'Invalid JSON format: ' + parseError.message });
     }
 
-    // Extract data from JSON
-    const extractedData = await extractExternalDataFromJSON(jsonObj);
+    // Extract data from JSON with admin's society_group_id
+    const extractedData = await extractExternalDataFromJSON(
+      jsonObj,
+      req.user.society_group_id
+    );
 
     // Check if there were parsing errors
     if (extractedData.errors && extractedData.errors.length > 0) {

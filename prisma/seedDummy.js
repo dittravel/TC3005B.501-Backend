@@ -159,6 +159,17 @@ const DUMMY_USERS = [
   },
   // Tec society group users (society_id: 3 = Tec Servicios)
   {
+    role_name: 'Administrador',
+    department_name: 'Admin',
+    user_name: 'admin.tec',
+    password: '123',
+    workstation: 'WS000',
+    email: 'admin@tec.com',
+    phone_number: '555-0000',
+    boss_user_name: null,
+    society_id: 3,
+  },
+  {
     role_name: 'Autorizador',
     department_name: 'Finanzas',
     user_name: 'maria.santos',

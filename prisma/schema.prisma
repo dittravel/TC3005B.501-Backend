@@ -381,6 +381,7 @@ model User {
 model SocietyGroup {
   id                   Int                    @id @default(autoincrement())
   description          String?                @db.VarChar(255)
+  is_default           Boolean                @default(false)
   Society              Society[]
   AuthorizationRule    AuthorizationRule[]
   Reimbursement_Policy Reimbursement_Policy[]
@@ -396,6 +397,7 @@ model Society {
   description       String  @db.VarChar(20)
   local_currency    String  @db.VarChar(6)
   society_group_id  Int?
+  is_default        Boolean @default(false)
   SocietyGroup      SocietyGroup? @relation(fields: [society_group_id], references: [id])
   User              User[]
   Request           Request[]
