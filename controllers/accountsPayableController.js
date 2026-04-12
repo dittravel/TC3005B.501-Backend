@@ -222,6 +222,7 @@ const searchReceipts = async (req, res) => {
       startDate: start_date,
       endDate: end_date,
       validation,
+      societyId: req.user.society_id,
       limit,
       offset,
     });

@@ -179,7 +179,7 @@ export const exportByDateRange = async (req, res) => {
 
   try {
     const [solicitudes, cuentaBancos, cuentaAcreedores] = await Promise.all([
-      Accountability.getRequestsByDateRange(date_from, date_to),
+      Accountability.getRequestsByDateRange(date_from, date_to, req.user.society_id),
       Accountability.getAccountByType('Activo'),
       Accountability.getAccountByType('Pasivo'),
     ]);

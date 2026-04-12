@@ -155,8 +155,17 @@ const Authorizer = {
         department_id: true,
         boss_id: true,
         user_name: true,
+        Society: {
+          select: {
+            society_group_id: true,
+          },
+        },
       },
-    });
+    }).then(user => user ? {
+      ...user,
+      society_group_id: user.Society?.society_group_id || null,
+      Society: undefined,
+    } : null);
   },
 
   // Update request routing

@@ -87,10 +87,10 @@ const AccountsPayable = {
   },
   
   // Search receipts across all requests with optional filters
-  async searchReceipts({ userId, startDate, endDate, validation, limit = 50, offset = 0 } = {}) {
+  async searchReceipts({ userId, startDate, endDate, validation, societyId, limit = 50, offset = 0 } = {}) {
     // Build Prisma where clause
     const where = {};
-    if (startDate || endDate || validation || userId) {
+    if (startDate || endDate || validation || userId || societyId) {
       where.AND = [];
       if (userId) {
         where.AND.push({ Request: { user_id: userId } });
@@ -103,6 +103,9 @@ const AccountsPayable = {
       }
       if (validation) {
         where.AND.push({ validation });
+      }
+      if (societyId) {
+        where.AND.push({ society_id: Number(societyId) });
       }
     }
     const [receipts, total_count] = await Promise.all([

@@ -84,18 +84,18 @@ const authorizeRequest = async (request_id, user_id, options = {}) => {
       
       if (needsTravelAgent) {
         // Trip requires flights or hotels: assign to Travel Agent
-        const travelAgent = await User.getRandomUserByRole(2, requesterUser.department_id); // Travel Agent role_id = 2
+        const travelAgent = await User.getRandomUserByRoleName('Agencia de viajes', requesterUser.department_id, requesterUser.society_group_id);
         if (!travelAgent) {
-          throw { 
-            status: 500, 
-            message: "No Travel Agent available in this department" 
+          throw {
+            status: 500,
+            message: "No Travel Agent available in this department"
           };
         }
         new_assigned_to = travelAgent.user_id;
         new_status_id = 4; // Agency travel
       } else {
         // Trip doesn't require flights or hotels: assign to Accounts Payable
-        const accountsPayable = await User.getRandomUserByRole(3, requesterUser.department_id); // Accounts Payable role_id = 3
+        const accountsPayable = await User.getRandomUserByRoleName('Cuentas por pagar', requesterUser.department_id, requesterUser.society_group_id);
         if (!accountsPayable) {
           throw { 
             status: 500, 
@@ -121,11 +121,11 @@ const authorizeRequest = async (request_id, user_id, options = {}) => {
             // Boss is not an authorizer, route to next step (Travel Agent or Accounts Payable)
             const needsTravelAgent = await Authorizer.requiresTravelAgencyServices(request_id);
             if (needsTravelAgent) {
-              const travelAgent = await User.getRandomUserByRole(2, requesterUser.department_id);
+              const travelAgent = await User.getRandomUserByRoleName('Agencia de viajes', requesterUser.department_id, requesterUser.society_group_id);
               new_assigned_to = travelAgent ? travelAgent.user_id : null;
               new_status_id = 4;
             } else {
-              const accountsPayable = await User.getRandomUserByRole(3, requesterUser.department_id);
+              const accountsPayable = await User.getRandomUserByRoleName('Cuentas por pagar', requesterUser.department_id, requesterUser.society_group_id);
               new_assigned_to = accountsPayable ? accountsPayable.user_id : null;
               new_status_id = 3;
             }
@@ -134,11 +134,11 @@ const authorizeRequest = async (request_id, user_id, options = {}) => {
           // No boss found, route to Travel Agent or Accounts Payable
           const needsTravelAgent = await Authorizer.requiresTravelAgencyServices(request_id);
           if (needsTravelAgent) {
-            const travelAgent = await User.getRandomUserByRole(2, requesterUser.department_id);
+            const travelAgent = await User.getRandomUserByRoleName('Agencia de viajes', requesterUser.department_id, requesterUser.society_group_id);
             new_assigned_to = travelAgent ? travelAgent.user_id : null;
             new_status_id = 4;
           } else {
-            const accountsPayable = await User.getRandomUserByRole(3, requesterUser.department_id);
+            const accountsPayable = await User.getRandomUserByRoleName('Cuentas por pagar', requesterUser.department_id, requesterUser.society_group_id);
             new_assigned_to = accountsPayable ? accountsPayable.user_id : null;
             new_status_id = 3;
           }
@@ -161,7 +161,8 @@ const authorizeRequest = async (request_id, user_id, options = {}) => {
         new_assigned_to = await AuthorizationRuleService.getNextApproverForRuleLevel(
           nextRuleLevel,
           request.user_id, // requester (original applicant)
-          requesterUser.department_id
+          requesterUser.department_id,
+          requesterUser.society_group_id
         );
 
         if (!new_assigned_to) {

@@ -51,11 +51,11 @@ const completeServiceAssignment = async (request_id, user_id) => {
     }
 
     // Get Accounts Payable user from same department
-    const accountsPayable = await User.getRandomUserByRole(3, travelAgentUser.department_id); // Accounts Payable role_id = 3
+    const accountsPayable = await User.getRandomUserByRoleName('Cuentas por pagar', travelAgentUser.department_id, travelAgentUser.society_group_id);
     if (!accountsPayable) {
-      throw { 
-        status: 500, 
-        message: "No Accounts Payable user available in this department" 
+      throw {
+        status: 500,
+        message: "No Accounts Payable user available in this department"
       };
     }
 

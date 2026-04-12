@@ -8,7 +8,7 @@
 import express from "express";
 import { exportById, exportByDateRange } from "../controllers/accountabilityController.js";
 import { generalRateLimiter } from "../middleware/rateLimiters.js";
-import { authenticateToken, authorizeRole } from "../middleware/auth.js"; // For validating permissions
+import { authenticateToken, authorizeRole, validateSocietyAccess } from "../middleware/auth.js"; // For validating permissions
 
 
 const router = express.Router();
@@ -16,9 +16,10 @@ const router = express.Router();
 // Export by ID (one request at a time)
 router.route('/:request_id')
   .get(
-    generalRateLimiter, 
-    authenticateToken, 
-    authorizeRole(['Administrador']), 
+    generalRateLimiter,
+    authenticateToken,
+    authorizeRole(['Administrador']),
+    validateSocietyAccess('request'),
     exportById
 );
 

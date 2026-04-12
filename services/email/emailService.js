@@ -9,13 +9,13 @@ import RequestService from '../requestService.js';
 export async function sendEmails(requestId) {
   // Get users who will receive email notifications
   const { applicantId, assignedToId } = await mailData(requestId);
-  
+
   // Get current request status
   const status = await RequestService.getRequestStatusName(requestId);
-  
+
   // Final states to only send to applicant
   const finalStates = ['Finalizado', 'Cancelado', 'Rechazado'];
-  
+
   if (finalStates.includes(status)) {
     // Only send to applicant for final states
     await sendMail(applicantId, requestId);

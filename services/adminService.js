@@ -66,6 +66,7 @@ export async function createUser(userData, options = {}) {
     const newUser = {
       role_id: userData.role_id,
       department_id: userData.department_id,
+      society_id: userData.society_id,
       user_name: userData.user_name,
       password: hashedPassword,
       workstation: userData.workstation,
@@ -304,9 +305,9 @@ export const parseCSV = async (filePath, dummy) => {
  * Get list of all users (admin functionality)
  * @returns {Promise<Array>} List of users
  */
-export async function getUserList() {
+export async function getUserList(societyId = null) {
   try {
-    const users = await Admin.getUserList();
+    const users = await Admin.getUserList(societyId);
 
     return users.map(user => {
       const decryptedUser = { ...user };
@@ -365,7 +366,7 @@ export const updateUserData = async (userId, newUserData, options = {}) => {
 
     const updatedFields = [];
     const fieldsToUpdateInDb = {};
-    const keysToCompare = ['role_id', 'department_id', 'user_name', 'workstation', 'email', 'phone_number', 'boss_id'];
+    const keysToCompare = ['role_id', 'department_id', 'society_id', 'user_name', 'workstation', 'email', 'phone_number', 'boss_id'];
 
     for (const key of keysToCompare) {
         if (newUserData[key] !== undefined) {
@@ -401,6 +402,9 @@ export const updateUserData = async (userId, newUserData, options = {}) => {
                 } else if (key === 'boss_id') {
                   fieldsToUpdateInDb[key] = newUserData[key] === '' ? null : newUserData[key];
                   updatedFields.push(key);
+                } else if (key === 'society_id') {
+                  fieldsToUpdateInDb[key] = newUserData[key] === '' ? null : newUserData[key];
+                  updatedFields.push(key);
                 } else {
                     fieldsToUpdateInDb[key] = newUserData[key];
                     updatedFields.push(key);
@@ -418,9 +422,9 @@ export const updateUserData = async (userId, newUserData, options = {}) => {
 };
 
 // Get list of departments
-export const getDepartments = async () => {
+export const getDepartments = async (societyGroupId = null) => {
   try {
-    const departments = await Admin.getDepartments();
+    const departments = await Admin.getDepartments(societyGroupId);
     return departments;
   } catch (error) {
     throw new Error(`Error fetching departments: ${error.message}`);
@@ -428,9 +432,9 @@ export const getDepartments = async () => {
 }
 
 // Get list of roles
-export const getRoles = async () => {
+export const getRoles = async (societyGroupId = null) => {
   try {
-    const roles = await Admin.getRoles();
+    const roles = await Admin.getRoles(societyGroupId);
     return roles;
   } catch (error) {
     throw new Error(`Error fetching roles: ${error.message}`);
@@ -448,9 +452,9 @@ export const getAuthRuleById = async (ruleId) => {
 };
 
 // Get auth rules
-export const getAuthRules = async () => {
+export const getAuthRules = async (societyGroupId = null) => {
   try {
-    const authRules = await Admin.getAuthRules();
+    const authRules = await Admin.getAuthRules(societyGroupId);
     return authRules;
   } catch (error) {
     throw new Error(`Error fetching authorization rules: ${error.message}`);
@@ -458,9 +462,9 @@ export const getAuthRules = async () => {
 };
 
 // Create auth rule
-export const createAuthRule = async (ruleData) => {
+export const createAuthRule = async (ruleData, societyGroupId = null) => {
   try {
-    await Admin.createAuthRule(ruleData);
+    await Admin.createAuthRule(ruleData, societyGroupId);
     return { success: true, message: 'Authorization rule created successfully' };
   } catch (error) {
     throw new Error(`Error creating authorization rule: ${error.message}`);
@@ -468,9 +472,9 @@ export const createAuthRule = async (ruleData) => {
 };
 
 // Update auth rule
-export const updateAuthRule = async (ruleId, updatedData) => {
+export const updateAuthRule = async (ruleId, updatedData, societyGroupId = null) => {
   try {
-    await Admin.updateAuthRule(ruleId, updatedData);
+    await Admin.updateAuthRule(ruleId, updatedData, societyGroupId);
     return { success: true, message: 'Authorization rule updated successfully' };
   } catch (error) {
     throw new Error(`Error updating authorization rule: ${error.message}`);
@@ -478,9 +482,9 @@ export const updateAuthRule = async (ruleId, updatedData) => {
 };
 
 // Delete auth rule
-export const deleteAuthRule = async (ruleId) => {
+export const deleteAuthRule = async (ruleId, societyGroupId = null) => {
   try {
-    await Admin.deleteAuthRule(ruleId);
+    await Admin.deleteAuthRule(ruleId, societyGroupId);
     return { success: true, message: 'Authorization rule deleted successfully' };
   } catch (error) {
     throw new Error(`Error deleting authorization rule: ${error.message}`);

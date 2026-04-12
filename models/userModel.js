@@ -119,6 +119,7 @@ const User = {
 
     return routeRows.map((route) => ({
       ...base,
+      route_id: route.route_id,
       router_index: route.router_index,
       origin_country: route.originCountry?.country_name ?? null,
       origin_city: route.originCity?.city_name ?? null,
@@ -204,6 +205,11 @@ const User = {
             role_name: true,
           },
         },
+        Society: {
+          select: {
+            society_group_id: true,
+          },
+        },
       },
     });
 
@@ -216,6 +222,8 @@ const User = {
       password: user.password,
       active: user.active,
       role_name: user.role?.role_name ?? null,
+      society_id: user.society_id,
+      society_group_id: user.Society?.society_group_id ?? null,
     };
   },
 
@@ -230,12 +238,13 @@ const User = {
     });
   },
 
-  async getUserDepartmentMembers(userId) {
+  async getUserDepartmentMembers(userId, societyId = null) {
     const user = await prisma.user.findUnique({
       where: { user_id: Number(userId) },
       select: {
         department_id: true,
         role_id: true,
+        society_id: true,
       },
     });
 
@@ -243,10 +252,16 @@ const User = {
       return [];
     }
 
+    // Validate society_id if provided
+    if (societyId && user.society_id !== Number(societyId)) {
+      return [];
+    }
+
     return prisma.user.findMany({
       where: {
         department_id: user.department_id,
         role_id: user.role_id,
+        society_id: user.society_id,
         active: true,
         user_id: { not: Number(userId) },
       },
@@ -404,6 +419,54 @@ const User = {
         role_id: Number(roleId),
         department_id: Number(departmentId),
         active: true,
+      },
+      select: {
+        user_id: true,
+        user_name: true,
+        out_of_office_start_date: true,
+        out_of_office_end_date: true,
+        substitute_id: true,
+      },
+    });
+
+    if (candidates.length === 0) {
+      return null;
+    }
+
+    const user = candidates[Math.floor(Math.random() * candidates.length)];
+    const effectiveUserId = await this.getEffectiveUserId(user);
+
+    if (!effectiveUserId) {
+      return null;
+    }
+
+    if (effectiveUserId === user.user_id) {
+      return {
+        user_id: user.user_id,
+        user_name: user.user_name,
+      };
+    }
+
+    const substitute = await prisma.user.findUnique({
+      where: { user_id: effectiveUserId },
+      select: {
+        user_id: true,
+        user_name: true,
+      },
+    });
+
+    return substitute || null;
+  },
+
+  async getRandomUserByRoleName(roleName, departmentId, societyGroupId) {
+    const candidates = await prisma.user.findMany({
+      where: {
+        department_id: Number(departmentId),
+        active: true,
+        role: {
+          role_name: roleName,
+          society_group_id: Number(societyGroupId),
+        },
       },
       select: {
         user_id: true,

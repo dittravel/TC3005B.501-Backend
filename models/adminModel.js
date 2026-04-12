@@ -8,10 +8,13 @@ import { prisma } from '../lib/prisma.js';
 
 const Admin = {
   // Get all active users with full information
-  async getUserList() {
+  async getUserList(societyId = null) {
     try {
       const users = await prisma.user.findMany({
-        where: { active: true },
+        where: {
+          active: true,
+          ...(societyId && { society_id: Number(societyId) }),
+        },
         orderBy: { department_id: 'asc' },
         include: {
           role: {
@@ -216,9 +219,10 @@ const Admin = {
   },
 
   // Get departments
-  async getDepartments() {
+  async getDepartments(societyGroupId = null) {
     try {
       const departments = await prisma.department.findMany({
+        where: societyGroupId ? { society_group_id: Number(societyGroupId) } : {},
         select: { department_id: true, department_name: true }
       });
       return departments;
@@ -229,9 +233,10 @@ const Admin = {
   },
 
   // Get roles
-  async getRoles() {
+  async getRoles(societyGroupId = null) {
     try {
       const roles = await prisma.role.findMany({
+        where: societyGroupId ? { society_group_id: Number(societyGroupId) } : {},
         select: { role_id: true, role_name: true }
       });
       return roles;
@@ -266,9 +271,10 @@ const Admin = {
   },
 
   // Get auth rules
-  async getAuthRules() {
+  async getAuthRules(societyGroupId = null) {
     try {
       const rules = await prisma.authorizationRule.findMany({
+        where: societyGroupId ? { society_group_id: Number(societyGroupId) } : {},
         include: {
           levels: {
             orderBy: { level_number: 'asc' },
@@ -288,7 +294,7 @@ const Admin = {
   },
 
   // Create auth rule
-  async createAuthRule(ruleData) {
+  async createAuthRule(ruleData, societyGroupId = null) {
     try {
       // Step 1: Create the new authorization rule
       const rule = await prisma.authorizationRule.create({
@@ -302,6 +308,7 @@ const Admin = {
           max_duration: ruleData.max_duration,
           min_amount: ruleData.min_amount,
           max_amount: ruleData.max_amount,
+          society_group_id: societyGroupId ? Number(societyGroupId) : null,
           levels: {
             create: (Array.isArray(ruleData.levels) ? ruleData.levels : []).map(level => ({
               level_number: level.level_number,
@@ -319,9 +326,22 @@ const Admin = {
   },
 
   // Update auth rule
-  async updateAuthRule(ruleId, ruleData) {
+  async updateAuthRule(ruleId, ruleData, societyGroupId = null) {
     try {
       const id = Number(ruleId);
+
+      // Validate society_group_id if provided
+      if (societyGroupId) {
+        const rule = await prisma.authorizationRule.findUnique({
+          where: { rule_id: id },
+          select: { society_group_id: true }
+        });
+
+        if (rule && rule.society_group_id !== Number(societyGroupId)) {
+          throw new Error('Unauthorized: Rule does not belong to your society group');
+        }
+      }
+
       // Step 1: Update the main authorization rule fields
       await prisma.authorizationRule.update({
         where: { rule_id: id },
@@ -361,9 +381,22 @@ const Admin = {
   },
 
   // Delete auth rule
-  async deleteAuthRule(ruleId) {
+  async deleteAuthRule(ruleId, societyGroupId = null) {
     try {
       const id = Number(ruleId);
+
+      // Validate society_group_id if provided
+      if (societyGroupId) {
+        const rule = await prisma.authorizationRule.findUnique({
+          where: { rule_id: id },
+          select: { society_group_id: true }
+        });
+
+        if (rule && rule.society_group_id !== Number(societyGroupId)) {
+          throw new Error('Unauthorized: Rule does not belong to your society group');
+        }
+      }
+
       // Step 1: Delete all levels associated with the rule
       await prisma.authorizationRuleLevel.deleteMany({ where: { rule_id: id } });
       // Step 2: Delete the rule itself

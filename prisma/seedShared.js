@@ -33,7 +33,7 @@ async function upsertOrderedRecords(prismaModel, items, mapData) {
   }
 }
 
-export async function seedReferenceData(prisma) {
+export async function seedReferenceData(prisma, defaultSocietyGroupId) {
   await upsertOrderedRecords(prisma.role, [
     { role_name: 'Solicitante' },
     { role_name: 'Agencia de viajes' },
@@ -41,9 +41,9 @@ export async function seedReferenceData(prisma) {
     { role_name: 'Autorizador' },
     { role_name: 'Administrador' },
   ], (item) => ({
-    where: { role_name: item.role_name },
-    create: { role_name: item.role_name },
-    update: { role_name: item.role_name },
+    where: { role_name_society_group_id: { role_name: item.role_name, society_group_id: defaultSocietyGroupId } },
+    create: { role_name: item.role_name, society_group_id: defaultSocietyGroupId },
+    update: { role_name: item.role_name, society_group_id: defaultSocietyGroupId },
   }));
 
   const alertMessages = [
@@ -118,33 +118,42 @@ export async function seedReferenceData(prisma) {
   ];
 
   await upsertOrderedRecords(prisma.permission, permissions, (item) => ({
-    where: { permission_key: item.permission_key },
-    create: item,
-    update: item,
+    where: { permission_key_society_group_id: { permission_key: item.permission_key, society_group_id: defaultSocietyGroupId } },
+    create: { ...item, society_group_id: defaultSocietyGroupId },
+    update: { ...item, society_group_id: defaultSocietyGroupId },
   }));
 }
 
-export async function seedAdminAccount(prisma) {
-  const adminRole = await prisma.role.findUnique({ where: { role_name: 'Administrador' } });
+export async function seedAdminAccount(prisma, defaultSocietyGroupId) {
+  const adminRole = await prisma.role.findUnique({
+    where: {
+      role_name_society_group_id: {
+        role_name: 'Administrador',
+        society_group_id: defaultSocietyGroupId
+      }
+    }
+  });
   if (!adminRole) {
     throw new Error('Administrator role must exist before seeding the admin account');
   }
 
   const costCenter = await prisma.costCenter.upsert({
-    where: { cost_center_name: ADMIN_COST_CENTER_NAME },
-    create: { cost_center_name: ADMIN_COST_CENTER_NAME },
-    update: { cost_center_name: ADMIN_COST_CENTER_NAME },
+    where: { cost_center_name_society_group_id: { cost_center_name: ADMIN_COST_CENTER_NAME, society_group_id: defaultSocietyGroupId } },
+    create: { cost_center_name: ADMIN_COST_CENTER_NAME, society_group_id: defaultSocietyGroupId },
+    update: { cost_center_name: ADMIN_COST_CENTER_NAME, society_group_id: defaultSocietyGroupId },
   });
 
   const department = await prisma.department.upsert({
-    where: { department_name: ADMIN_DEPARTMENT_NAME },
+    where: { department_name_society_group_id: { department_name: ADMIN_DEPARTMENT_NAME, society_group_id: defaultSocietyGroupId } },
     create: {
       department_name: ADMIN_DEPARTMENT_NAME,
       cost_center_id: costCenter.cost_center_id,
+      society_group_id: defaultSocietyGroupId,
       active: true,
     },
     update: {
       cost_center_id: costCenter.cost_center_id,
+      society_group_id: defaultSocietyGroupId,
       active: true,
     },
   });
@@ -162,6 +171,7 @@ export async function seedAdminAccount(prisma) {
       workstation: ADMIN_WORKSTATION,
       email,
       phone_number: null,
+      society_id: 1,
       active: true,
     },
     update: {
@@ -171,6 +181,7 @@ export async function seedAdminAccount(prisma) {
       workstation: ADMIN_WORKSTATION,
       email,
       phone_number: null,
+      society_id: 1,
       active: true,
     },
   });

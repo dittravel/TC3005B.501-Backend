@@ -38,6 +38,7 @@ export async function getUserById(userId) {
       role_name: userData.role_name,
       boss_id: userData.boss_id,
       boss_name: userData.boss_name || 'N/A',
+      society_id: userData.society_id,
       out_of_office_start_date: userData.out_of_office_start_date,
       out_of_office_end_date: userData.out_of_office_end_date,
       substitute_id: userData.substitute_id,
@@ -76,6 +77,8 @@ export async function authenticateUser(username, password, req) {
     const tokenPayload = {
       user_id: user.user_id,
       role: user.role_name,
+      society_id: user.society_id,
+      society_group_id: user.society_group_id,
       ...(enforceIpBinding ? { ip: req.ip } : {}),
     };
 

@@ -27,7 +27,46 @@ const CURRENCY_CATALOG = [
   { currency_code: 'INR', currency_name: 'Rupia India', country: 'India', banxico_series_id: 'SF57829', frequency: 'monthly' },
 ];
 
-async function seedDefaultAuthorizationRule() {
+async function seedDefaultSocietyGroupAndSociety() {
+  // Create default SocietyGroup
+  const existingGroup = await prisma.societyGroup.findFirst({
+    where: { description: 'Default' },
+    select: { id: true },
+  });
+
+  let defaultSocietyGroupId;
+  if (!existingGroup) {
+    const group = await prisma.societyGroup.create({
+      data: { description: 'Default' },
+    });
+    defaultSocietyGroupId = group.id;
+  } else {
+    defaultSocietyGroupId = existingGroup.id;
+  }
+
+  // Create default Society
+  const existingSociety = await prisma.society.findFirst({
+    where: {
+      description: 'Default',
+      society_group_id: defaultSocietyGroupId
+    },
+    select: { id: true },
+  });
+
+  if (!existingSociety) {
+    await prisma.society.create({
+      data: {
+        description: 'Default',
+        local_currency: 'MXN',
+        society_group_id: defaultSocietyGroupId,
+      },
+    });
+  }
+
+  return defaultSocietyGroupId;
+}
+
+async function seedDefaultAuthorizationRule(defaultSocietyGroupId) {
   const existingDefault = await prisma.authorizationRule.findFirst({
     where: { is_default: true },
     select: { rule_id: true },
@@ -44,6 +83,7 @@ async function seedDefaultAuthorizationRule() {
       num_levels: 2,
       automatic: true,
       travel_type: 'Todos',
+      society_group_id: defaultSocietyGroupId,
     },
   });
 }
@@ -66,10 +106,11 @@ async function seedCurrencyCatalog() {
 
 export async function seedEmptyDatabase() {
   console.log('Creating base Prisma data and admin account...');
-  await seedReferenceData(prisma);
-  await seedDefaultAuthorizationRule();
+  const defaultSocietyGroupId = await seedDefaultSocietyGroupAndSociety();
+  await seedReferenceData(prisma, defaultSocietyGroupId);
+  await seedDefaultAuthorizationRule(defaultSocietyGroupId);
   await seedCurrencyCatalog();
-  await seedAdminAccount(prisma);
+  await seedAdminAccount(prisma, defaultSocietyGroupId);
   console.log('Base Prisma data created');
 }
 

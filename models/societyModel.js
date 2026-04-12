@@ -11,7 +11,6 @@ export async function getSocieties(societyGroupId) {
     where: societyGroupId ? { society_group_id: societyGroupId } : undefined,
     include: {
       SocietyGroup: true,
-      User: true
     }
   });
 }
@@ -20,8 +19,7 @@ export async function getSocietyById(societyId) {
   return await prisma.society.findUnique({
     where: { id: societyId },
     include: {
-      SocietyGroup: true,
-      User: true
+      SocietyGroup: true
     }
   });
 }
@@ -35,7 +33,6 @@ export async function createSociety(data) {
     },
     include: {
       SocietyGroup: true,
-      User: true
     }
   });
 }
@@ -50,7 +47,6 @@ export async function updateSociety(societyId, data) {
     },
     include: {
       SocietyGroup: true,
-      User: true
     }
   });
 }

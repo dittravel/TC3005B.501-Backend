@@ -25,7 +25,7 @@ import { extractExternalDataFromJSON } from '../services/orgParserService.js';
 */
 export const getUserList = async (req, res) => {
   try {
-    const users = await adminService.getUserList();
+    const users = await adminService.getUserList(req.user.society_id);
     if (!users) {
       return res.status(404).json({error: "No users found"});
     }
@@ -150,7 +150,7 @@ export const deactivateUser = async (req, res) => {
 // Get list of all departments
 export const getDepartments = async (req, res) => {
   try {
-    const departments = await adminService.getDepartments();
+    const departments = await adminService.getDepartments(req.user.society_group_id);
     res.status(200).json(departments);
   } catch (error) {
     console.error('Error getting departments:', error.message);
@@ -161,7 +161,7 @@ export const getDepartments = async (req, res) => {
 // Get list of all roles
 export const getRoles = async (req, res) => {
   try {
-    const roles = await adminService.getRoles();
+    const roles = await adminService.getRoles(req.user.society_group_id);
     res.status(200).json(roles);
   } catch (error) {
     console.error('Error getting roles:', error.message);
@@ -187,7 +187,7 @@ export const getAuthRuleById = async (req, res) => {
 // Get list of all auth rules
 export const getAuthRules = async (req, res) => {
   try {
-    const rules = await adminService.getAuthRules();
+    const rules = await adminService.getAuthRules(req.user.society_group_id);
     console.log('Retrieved auth rules:', rules);
     res.status(200).json(rules);
   } catch (error) {
@@ -200,7 +200,7 @@ export const getAuthRules = async (req, res) => {
 export const createAuthRule = async (req, res) => {
   try {
     const ruleData = req.body;
-    await adminService.createAuthRule(ruleData);
+    await adminService.createAuthRule(ruleData, req.user.society_group_id);
     return res.status(201).json({ success: true, message: 'Authorization rule created successfully' });
   } catch (error) {
     console.error('Error creating auth rule:', error.message);
@@ -212,7 +212,7 @@ export const createAuthRule = async (req, res) => {
 export const updateAuthRule = async (req, res) => {
   try {
     const ruleId = req.params.rule_id;
-    const result = await adminService.updateAuthRule(ruleId, req.body);
+    const result = await adminService.updateAuthRule(ruleId, req.body, req.user.society_group_id);
     return res.status(200).json(result);
   } catch (error) {
     console.error('Error updating auth rule:', error.message);
@@ -224,7 +224,7 @@ export const updateAuthRule = async (req, res) => {
 export const deleteAuthRule = async (req, res) => {
   try {
     const ruleId = req.params.rule_id;
-    await adminService.deleteAuthRule(ruleId);
+    await adminService.deleteAuthRule(ruleId, req.user.society_group_id);
     return res.status(200).json({ message: 'Authorization rule deleted successfully' });
   } catch (error) {
     console.error('Error deleting auth rule:', error.message);

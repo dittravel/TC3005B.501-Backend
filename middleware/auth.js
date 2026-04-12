@@ -1,12 +1,13 @@
 /**
 * Authentication Middleware
-* 
+*
 * This module provides authentication and authorization middleware functions
 * for the travel request system. It handles JWT token validation, role-based
-* access control, and IP address verification for enhanced security.
+* access control, IP address verification, and multi-tenant society access validation.
 */
 
 import jwt from 'jsonwebtoken';
+import { prisma } from '../lib/prisma.js';
 
 const isIpBindingEnabled = String(process.env.ENFORCE_TOKEN_IP_BINDING || 'false').toLowerCase() === 'true';
 
@@ -52,8 +53,8 @@ export const authenticateTokenFromCookies = (req, res, next) => {
   // Parse cookies from the Cookie header
   const cookieHeader = req.headers.cookie || '';
   const cookies = {};
-  
-  // Split the cookie header into individual cookies 
+
+  // Split the cookie header into individual cookies
   // and populate the cookies object with key-value pairs
   cookieHeader.split(';').forEach(cookie => {
     const [key, value] = cookie.trim().split('=');
@@ -69,7 +70,7 @@ export const authenticateTokenFromCookies = (req, res, next) => {
   if (!userRole || !userId) {
     return res.status(401).json({ error: 'User is not authenticated' });
   }
-  
+
   req.user = {
     role: userRole,
     user_id: parseInt(userId),
@@ -77,4 +78,69 @@ export const authenticateTokenFromCookies = (req, res, next) => {
   };
 
   next();
+};
+
+/**
+ * Middleware to validate that a resource (Request or Receipt) belongs to the user's society
+ * Prevents users from accessing resources from other societies
+ * @param {string} resourceType - Type of resource: 'request' or 'receipt'
+ */
+export const validateSocietyAccess = (resourceType) => {
+  return async (req, res, next) => {
+    if (!req.user?.society_id) {
+      return res.status(401).json({ error: 'Society ID not found in token' });
+    }
+
+    try {
+      // Extract resource ID from params
+      const resourceId = resourceType === 'request'
+        ? req.params.request_id
+        : resourceType === 'receipt'
+        ? req.params.receipt_id
+        : resourceType === 'user'
+        ? req.params.user_id
+        : req.params.id;
+
+      if (!resourceId) {
+        return next(); // No ID in params, skip validation
+      }
+
+      let resource;
+
+      if (resourceType === 'request') {
+        resource = await prisma.request.findFirst({
+          where: {
+            request_id: Number(resourceId),
+            society_id: Number(req.user.society_id),
+          },
+          select: { request_id: true },
+        });
+      } else if (resourceType === 'receipt') {
+        resource = await prisma.receipt.findFirst({
+          where: {
+            receipt_id: Number(resourceId),
+            society_id: Number(req.user.society_id),
+          },
+          select: { receipt_id: true },
+        });
+      } else if (resourceType === 'user') {
+        resource = await prisma.user.findFirst({
+          where: {
+            user_id: Number(resourceId),
+            society_id: Number(req.user.society_id),
+          },
+          select: { user_id: true },
+        });
+      }
+
+      if (!resource) {
+        return res.status(403).json({ error: 'Access denied: resource does not belong to your society' });
+      }
+
+      next();
+    } catch (error) {
+      console.error('Error in validateSocietyAccess middleware:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  };
 };

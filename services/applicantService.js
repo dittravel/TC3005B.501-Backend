@@ -222,13 +222,13 @@ export const getCityId = async (conn, cityName) => {
 export async function sendReceiptsForValidation(requestId) {
   const currentStatus = await Applicant.getRequestStatus(requestId);
   const departmentId = await Applicant.getRequestDepartment(requestId);
-  
+
   if (currentStatus === null) {
     const err = new Error(`No request found with id ${requestId}`);
     err.status = 404;
     throw err;
   }
-  
+
   if (currentStatus !== 5) {
     const err = new Error(
       "Request must be in status 5 (Comprobación gastos del viaje) to send for validation"
@@ -237,9 +237,12 @@ export async function sendReceiptsForValidation(requestId) {
     throw err;
   }
 
+  // Get society_group_id from request
+  const societyGroupId = await Applicant.getRequestSocietyGroupId(requestId);
+
   // Update request status to receipt validation
   // Get a random accounts payable user from the department
-  const accountsPayable = await User.getRandomUserByRole(3, departmentId); // Accounts Payable role_id = 3
+  const accountsPayable = await User.getRandomUserByRoleName('Cuentas por pagar', departmentId, societyGroupId);
 
   if (accountsPayable) {
     await Authorizer.updateRequestRouting(requestId, accountsPayable.user_id, 2, 6);
