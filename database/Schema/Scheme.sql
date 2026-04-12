@@ -396,3 +396,30 @@ CREATE TABLE IF NOT EXISTS ReceiptType_Account (
     FOREIGN KEY (receipt_type_id) REFERENCES Receipt_Type(receipt_type_id),
     FOREIGN KEY (account_id) REFERENCES Account(account_id)
 );
+
+CREATE TABLE IF NOT EXISTS Expense_Type (
+    expense_type_id INT PRIMARY KEY AUTO_INCREMENT,
+    expense_type_name VARCHAR(100) NOT NULL UNIQUE -- Nombre del tipo de gasto
+);
+
+CREATE TABLE IF NOT EXISTS Travel_Expense_Accounting (
+    accounting_id INT PRIMARY KEY AUTO_INCREMENT,          -- Identificador único para el dato contable
+    receipt_id INT NOT NULL,                               -- Recibo asociado (relación con la tabla Receipt)
+    cost_center_id INT NOT NULL,                           -- Centro de costo asociado al gasto
+    account_id INT NOT NULL,                               -- Cuenta contable asociada al gasto
+    invoice_number VARCHAR(50) NOT NULL,                   -- Número de factura asociada
+    expense_type_id INT NOT NULL,                          -- Tipo de gasto (Ej: Alojamiento, Comida, Transporte)
+    currency_code VARCHAR(6) NOT NULL,                     -- Moneda en que fue realizado el gasto
+    exchange_rate DECIMAL(15,6) NOT NULL,                  -- Tipo de cambio utilizado
+    accounting_date DATE NOT NULL,                         -- Fecha contable (cuando se registra)
+    accounting_status ENUM('Pendiente', 'Aprobado', 'Rechazado') DEFAULT 'Pendiente',  -- Estado contable
+    creation_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,     -- Fecha de creación del registro contable
+    last_mod_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, -- Fecha de última modificación
+
+    -- Relaciones con otras tablas
+    CONSTRAINT fk_travel_expense_receipt FOREIGN KEY (receipt_id) REFERENCES Receipt(receipt_id),
+    CONSTRAINT fk_travel_expense_costcenter FOREIGN KEY (cost_center_id) REFERENCES CostCenter(cost_center_id),
+    CONSTRAINT fk_travel_expense_account FOREIGN KEY (account_id) REFERENCES Account(account_id),
+    CONSTRAINT fk_travel_expense_expense_type FOREIGN KEY (expense_type_id) REFERENCES Expense_Type(expense_type_id),
+    CONSTRAINT fk_travel_expense_currency FOREIGN KEY (currency_code) REFERENCES Currency(currency_code)
+);
