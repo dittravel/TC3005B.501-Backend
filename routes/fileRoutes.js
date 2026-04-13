@@ -9,7 +9,7 @@
 
 import express from 'express';
 import multer from 'multer';
-import { generalRateLimiter } from '../middleware/rateLimiters.js';
+import { generalRateLimiter, fileUploadRateLimiter } from '../middleware/rateLimiters.js';
 import { sanitizeMongoInputs } from '../middleware/mongoSanitize.js';
 import { authenticateToken, validateSocietyAccess } from '../middleware/auth.js';
 import {
@@ -27,6 +27,7 @@ router.use(sanitizeMongoInputs);
 
 // Upload both PDF and XML files for a receipt
 router.post('/upload-receipt-files/:receipt_id',
+  fileUploadRateLimiter,
   authenticateToken,
   validateSocietyAccess('receipt'),
   upload.fields([
@@ -40,11 +41,12 @@ router.post('/upload-receipt-files/:receipt_id',
 router.get('/receipt-file/:file_id', generalRateLimiter, getReceiptFileController);
 
 // Get receipt files metadata (filenames and object ids)
-router.get('/receipt-files/:receipt_id', authenticateToken, validateSocietyAccess('receipt'), getReceiptFilesMetadataController);
+router.get('/receipt-files/:receipt_id', generalRateLimiter, authenticateToken, validateSocietyAccess('receipt'), getReceiptFilesMetadataController);
 
 // Get data from XML file to display in the UI
 // This route is used to parse the XML file and extract CFDI data for preview in the frontend.
 router.post('/parse-xml-preview',
+  fileUploadRateLimiter,
   // Only accept uploading one XML file
   upload.fields([
     { name: 'xml', maxCount: 1 }
