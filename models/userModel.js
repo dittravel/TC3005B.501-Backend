@@ -4,6 +4,7 @@
  * Prisma-based data access for user workflows.
  */
 
+import { randomInt } from 'crypto';
 import { prisma } from '../lib/prisma.js';
 import { decrypt } from '../middleware/decryption.js';
 
@@ -438,7 +439,7 @@ const User = {
       return null;
     }
 
-    const user = candidates[Math.floor(Math.random() * candidates.length)];
+    const user = candidates[randomInt(0, candidates.length)];
     const effectiveUserId = await this.getEffectiveUserId(user);
 
     if (!effectiveUserId) {
@@ -486,7 +487,7 @@ const User = {
       return null;
     }
 
-    const user = candidates[Math.floor(Math.random() * candidates.length)];
+    const user = candidates[randomInt(0, candidates.length)];
     const effectiveUserId = await this.getEffectiveUserId(user);
 
     if (!effectiveUserId) {
