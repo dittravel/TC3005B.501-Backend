@@ -17,6 +17,7 @@
         "prisma:migrate:deploy": "prisma migrate deploy",
         "prisma:seed": "npx prisma migrate reset && npx prisma generate && node prisma/seed.js",
         "prisma:seed:dummy": "npx prisma migrate reset && npx prisma generate && node prisma/seedDummy.js",
+        "prisma:seed:ci": "npx prisma migrate reset --force && npx prisma generate && node prisma/seedDummy.js",
         "docker:start:prisma": "node docker-start.js"
     },
     "repository": {
