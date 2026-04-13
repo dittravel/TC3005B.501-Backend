@@ -7,7 +7,7 @@
 
 import express from "express";
 import travelAgentController from "../controllers/travelAgentController.js";
-import { validateId, validateInputs } from "../middleware/validation.js";
+import { validateId, validateInputs, validateFlightSearch } from "../middleware/validation.js";
 import { authenticateToken, authorizeRole } from "../middleware/auth.js";
 import { generalRateLimiter } from "../middleware/rateLimiters.js";
 
@@ -24,5 +24,32 @@ router.route("/attend-travel-request/:request_id")
 // Complete service assignment and route to Accounts Payable for quoting
 router.route("/complete-service-assignment/:request_id")
   .put(generalRateLimiter, authenticateToken, authorizeRole(['Agencia de viajes']), validateId, validateInputs, travelAgentController.completeServiceAssignment);
+
+/**
+ * Search available flight offers in Duffel
+ * POST /api/travel-agent/flights/search
+ *
+ * Request body (camelCase):
+ * {
+ *   "origin": "MEX",
+ *   "destination": "CUN",
+ *   "departureDate": "2026-05-10",
+ *   "tripType": "one_way" | "round",
+ *   "returnDate": "2026-05-15" (required for round trips only),
+ *   "cabinClass": "economy" | "premium_economy" | "business" | "first" (optional)
+ * }
+ *
+ * Returns offers with search metadata and passenger information.
+ * No booking is performed; results are for display purposes only.
+ */
+router.route("/flights/search")
+  .post(
+    generalRateLimiter,
+    authenticateToken,
+    authorizeRole(['Agencia de viajes']),
+    validateFlightSearch,
+    validateInputs,
+    travelAgentController.searchFlightOffers
+  );
 
 export default router;

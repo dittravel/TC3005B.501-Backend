@@ -27,6 +27,7 @@
     "author": "",
     "license": "ISC",
     "dependencies": {
+        "@duffel/api": "^4.23.0",
         "axios": "^1.13.6",
         "bcrypt": "^6.0.0",
         "cookie-parser": "^1.4.7",
