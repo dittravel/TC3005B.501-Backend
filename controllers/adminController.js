@@ -25,7 +25,12 @@ import { extractExternalDataFromJSON } from '../services/orgParserService.js';
 */
 export const getUserList = async (req, res) => {
   try {
-    const users = await adminService.getUserList();
+    // If user is Administrador with society_group_id, get all users in the group
+    // Otherwise, get users from their specific society
+    const filterBy = req.user.society_group_id 
+      ? { society_group_id: req.user.society_group_id } 
+      : { society_id: req.user.society_id };
+    const users = await adminService.getUserList(filterBy);
     if (!users) {
       return res.status(404).json({error: "No users found"});
     }
@@ -150,7 +155,7 @@ export const deactivateUser = async (req, res) => {
 // Get list of all departments
 export const getDepartments = async (req, res) => {
   try {
-    const departments = await adminService.getDepartments();
+    const departments = await adminService.getDepartments(req.user.society_group_id);
     res.status(200).json(departments);
   } catch (error) {
     console.error('Error getting departments:', error.message);
@@ -161,7 +166,7 @@ export const getDepartments = async (req, res) => {
 // Get list of all roles
 export const getRoles = async (req, res) => {
   try {
-    const roles = await adminService.getRoles();
+    const roles = await adminService.getRoles(req.user.society_group_id);
     res.status(200).json(roles);
   } catch (error) {
     console.error('Error getting roles:', error.message);
@@ -187,7 +192,7 @@ export const getAuthRuleById = async (req, res) => {
 // Get list of all auth rules
 export const getAuthRules = async (req, res) => {
   try {
-    const rules = await adminService.getAuthRules();
+    const rules = await adminService.getAuthRules(req.user.society_group_id);
     console.log('Retrieved auth rules:', rules);
     res.status(200).json(rules);
   } catch (error) {
@@ -200,7 +205,7 @@ export const getAuthRules = async (req, res) => {
 export const createAuthRule = async (req, res) => {
   try {
     const ruleData = req.body;
-    await adminService.createAuthRule(ruleData);
+    await adminService.createAuthRule(ruleData, req.user.society_group_id);
     return res.status(201).json({ success: true, message: 'Authorization rule created successfully' });
   } catch (error) {
     console.error('Error creating auth rule:', error.message);
@@ -212,7 +217,7 @@ export const createAuthRule = async (req, res) => {
 export const updateAuthRule = async (req, res) => {
   try {
     const ruleId = req.params.rule_id;
-    const result = await adminService.updateAuthRule(ruleId, req.body);
+    const result = await adminService.updateAuthRule(ruleId, req.body, req.user.society_group_id);
     return res.status(200).json(result);
   } catch (error) {
     console.error('Error updating auth rule:', error.message);
@@ -224,7 +229,7 @@ export const updateAuthRule = async (req, res) => {
 export const deleteAuthRule = async (req, res) => {
   try {
     const ruleId = req.params.rule_id;
-    await adminService.deleteAuthRule(ruleId);
+    await adminService.deleteAuthRule(ruleId, req.user.society_group_id);
     return res.status(200).json({ message: 'Authorization rule deleted successfully' });
   } catch (error) {
     console.error('Error deleting auth rule:', error.message);
@@ -254,6 +259,11 @@ export const importData = async (req, res) => {
     return res.status(400).json({ error: 'File buffer not available - upload failed' });
   }
 
+  // Verify that admin has a society_group_id
+  if (!req.user.society_group_id) {
+    return res.status(403).json({ error: 'User does not have a valid society group assigned' });
+  }
+
   try {
     const fileContent = req.file.buffer.toString('utf-8');
 
@@ -269,8 +279,11 @@ export const importData = async (req, res) => {
       return res.status(400).json({ error: 'Invalid JSON format: ' + parseError.message });
     }
 
-    // Extract data from JSON
-    const extractedData = await extractExternalDataFromJSON(jsonObj);
+    // Extract data from JSON with admin's society_group_id
+    const extractedData = await extractExternalDataFromJSON(
+      jsonObj,
+      req.user.society_group_id
+    );
 
     // Check if there were parsing errors
     if (extractedData.errors && extractedData.errors.length > 0) {

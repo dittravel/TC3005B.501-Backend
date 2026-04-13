@@ -100,6 +100,7 @@ const DUMMY_USERS = [
     email: 'laura.flores@empresa.com',
     phone_number: '555-1004',
     boss_user_name: null,
+    society_id: 1,
   },
   {
     role_name: 'Autorizador',
@@ -110,6 +111,7 @@ const DUMMY_USERS = [
     email: 'diego.hernandez@empresa.com',
     phone_number: '555-1005',
     boss_user_name: 'laura.flores',
+    society_id: 1,
   },
   {
     role_name: 'Solicitante',
@@ -120,6 +122,7 @@ const DUMMY_USERS = [
     email: 'andres.gomez@empresa.com',
     phone_number: '555-1001',
     boss_user_name: 'diego.hernandez',
+    society_id: 1,
   },
   {
     role_name: 'Agencia de viajes',
@@ -130,6 +133,7 @@ const DUMMY_USERS = [
     email: 'paula.martinez@empresa.com',
     phone_number: '555-1002',
     boss_user_name: null,
+    society_id: 1,
   },
   {
     role_name: 'Cuentas por pagar',
@@ -140,6 +144,7 @@ const DUMMY_USERS = [
     email: 'carlos.ramos@empresa.com',
     phone_number: '555-1003',
     boss_user_name: null,
+    society_id: 1,
   },
   {
     role_name: 'Administrador',
@@ -150,6 +155,74 @@ const DUMMY_USERS = [
     email: 'admin@empresa.com',
     phone_number: '555-0000',
     boss_user_name: null,
+    society_id: 1,
+  },
+  // Tec society group users (society_id: 3 = Tec Servicios)
+  {
+    role_name: 'Administrador',
+    department_name: 'Admin',
+    user_name: 'admin.tec',
+    password: '123',
+    workstation: 'WS000',
+    email: 'admin@tec.com',
+    phone_number: '555-0000',
+    boss_user_name: null,
+    society_id: 3,
+  },
+  {
+    role_name: 'Autorizador',
+    department_name: 'Finanzas',
+    user_name: 'maria.santos',
+    password: '123',
+    workstation: 'WS204',
+    email: 'maria.santos@tec.com',
+    phone_number: '555-2004',
+    boss_user_name: null,
+    society_id: 3,
+  },
+  {
+    role_name: 'Autorizador',
+    department_name: 'Finanzas',
+    user_name: 'juan.torres',
+    password: '123',
+    workstation: 'WS205',
+    email: 'juan.torres@tec.com',
+    phone_number: '555-2005',
+    boss_user_name: 'maria.santos',
+    society_id: 3,
+  },
+  {
+    role_name: 'Solicitante',
+    department_name: 'Finanzas',
+    user_name: 'carlos.silva',
+    password: '123',
+    workstation: 'WS201',
+    email: 'carlos.silva@tec.com',
+    phone_number: '555-2001',
+    boss_user_name: 'juan.torres',
+    society_id: 3,
+  },
+  {
+    role_name: 'Agencia de viajes',
+    department_name: 'Finanzas',
+    user_name: 'lucia.moreno',
+    password: '123',
+    workstation: 'WS202',
+    email: 'lucia.moreno@tec.com',
+    phone_number: '555-2002',
+    boss_user_name: null,
+    society_id: 3,
+  },
+  {
+    role_name: 'Cuentas por pagar',
+    department_name: 'Finanzas',
+    user_name: 'fernando.rojas',
+    password: '123',
+    workstation: 'WS203',
+    email: 'fernando.rojas@tec.com',
+    phone_number: '555-2003',
+    boss_user_name: null,
+    society_id: 3,
   },
 ];
 
@@ -181,42 +254,73 @@ const RECEIPT_TYPE_TO_ACCOUNT = {
   'Hospedaje':  '3000',
 };
 
+const SOCIETY_GROUPS = [
+  { id: 1, description: 'Ditta Consulting' },
+  { id: 2, description: 'Tec' },
+]
+
+const SOCIETIES = [
+  { id: 1, description: 'Ditta Servicios', local_currency: 'MXN', society_group_id: 1 },
+  { id: 2, description: 'Ditta Gestión', local_currency: 'MXN', society_group_id: 1 },
+  { id: 3, description: 'Tec Servicios', local_currency: 'USD', society_group_id: 2 },
+  { id: 4, description: 'Tec Gestión', local_currency: 'USD', society_group_id: 2 },
+]
 
 async function seedDummyCostCenters() {
   console.log('Creating dummy cost centers...');
-  for (const cost_center_name of COST_CENTER_NAMES) {
-    await prisma.costCenter.upsert({
-      where: { cost_center_name },
-      create: { cost_center_name },
-      update: { cost_center_name },
-    });
+
+  // Get all society groups
+  const societyGroups = await prisma.societyGroup.findMany({
+    select: { id: true },
+  });
+
+  // Create cost centers for each society group
+  for (const societyGroup of societyGroups) {
+    for (const cost_center_name of COST_CENTER_NAMES) {
+      await prisma.costCenter.upsert({
+        where: { cost_center_name_society_group_id: { cost_center_name, society_group_id: societyGroup.id } },
+        create: { cost_center_name, society_group_id: societyGroup.id },
+        update: { cost_center_name, society_group_id: societyGroup.id },
+      });
+    }
   }
 }
 
 async function seedDummyDepartments() {
   console.log('Creating dummy departments...');
-  for (const department of DEPARTMENT_NAMES) {
-    const costCenter = await prisma.costCenter.findUnique({
-      where: { cost_center_name: department.costCenter },
-      select: { cost_center_id: true },
-    });
 
-    if (!costCenter) {
-      throw new Error(`Missing cost center ${department.costCenter}`);
+  // Get all society groups
+  const societyGroups = await prisma.societyGroup.findMany({
+    select: { id: true },
+  });
+
+  // Create departments for each society group
+  for (const societyGroup of societyGroups) {
+    for (const department of DEPARTMENT_NAMES) {
+      const costCenter = await prisma.costCenter.findUnique({
+        where: { cost_center_name_society_group_id: { cost_center_name: department.costCenter, society_group_id: societyGroup.id } },
+        select: { cost_center_id: true },
+      });
+
+      if (!costCenter) {
+        throw new Error(`Missing cost center ${department.costCenter}`);
+      }
+
+      await prisma.department.upsert({
+        where: { department_name_society_group_id: { department_name: department.name, society_group_id: societyGroup.id } },
+        create: {
+          department_name: department.name,
+          cost_center_id: costCenter.cost_center_id,
+          society_group_id: societyGroup.id,
+          active: department.active,
+        },
+        update: {
+          cost_center_id: costCenter.cost_center_id,
+          society_group_id: societyGroup.id,
+          active: department.active,
+        },
+      });
     }
-
-    await prisma.department.upsert({
-      where: { department_name: department.name },
-      create: {
-        department_name: department.name,
-        cost_center_id: costCenter.cost_center_id,
-        active: department.active,
-      },
-      update: {
-        cost_center_id: costCenter.cost_center_id,
-        active: department.active,
-      },
-    });
   }
 }
 
@@ -246,13 +350,20 @@ async function seedDummyUsers() {
   console.log('Creating hardcoded dummy users...');
 
   for (const userData of DUMMY_USERS) {
+    // Find the society_group_id based on the user's society_id
+    const society = await prisma.society.findUnique({
+      where: { id: userData.society_id },
+      select: { society_group_id: true },
+    });
+
+    const societyGroupId = society?.society_group_id || 1;
 
     const role = await prisma.role.findUnique({
-      where: { role_name: userData.role_name },
+      where: { role_name_society_group_id: { role_name: userData.role_name, society_group_id: societyGroupId } },
       select: { role_id: true },
     });
     const department = await prisma.department.findUnique({
-      where: { department_name: userData.department_name },
+      where: { department_name_society_group_id: { department_name: userData.department_name, society_group_id: societyGroupId } },
       select: { department_id: true },
     });
 
@@ -276,6 +387,7 @@ async function seedDummyUsers() {
         department_id: department.department_id,
         boss_id: null,
         active: true,
+        society_id: userData.society_id,
       },
       update: {
         password: hashedPassword,
@@ -285,6 +397,7 @@ async function seedDummyUsers() {
         role_id: role.role_id,
         department_id: department.department_id,
         active: true,
+        society_id: userData.society_id,
       },
     });
   }
@@ -386,6 +499,7 @@ async function seedDummyTravelFixtures() {
         request_status_id: statusMap.get(requestData.status),
         assigned_to: requestData.assigned_to,
         authorization_level: requestData.assigned_to ? 1 : 0,
+        society_id: 1,
         notes: requestData.notes,
         requested_fee: requestData.requested_fee,
         imposed_fee: requestData.imposed_fee,
@@ -469,6 +583,7 @@ async function seedDummyTravelFixtures() {
       data: {
         receipt_type_id: hospedajeType.receipt_type_id,
         request_id: createdRequests[0],
+        society_id: 1,
         validation: 'Pendiente',
         amount: 300.0,
         validation_date: new Date('2025-04-19T09:00:00'),
@@ -493,6 +608,7 @@ async function seedDummyTravelFixtures() {
         max_duration: 5,
         min_amount: 0,
         max_amount: 5000.0,
+        society_group_id: 1,
       },
     });
 
@@ -569,7 +685,72 @@ async function seedDummyAccountability() {
   }
 }
 
+async function seedDummySocietyGroups() {
+  console.log('Creating dummy society groups...');
+  for (const group of SOCIETY_GROUPS) {
+    await prisma.societyGroup.upsert({
+      where: { id: group.id },
+      create: { id: group.id, description: group.description },
+      update: { description: group.description },
+    });
+  }
+  console.log(`Created or updated ${SOCIETY_GROUPS.length} dummy society groups`);
+}
+
+async function seedDummySocieties() {
+  console.log('Creating dummy societies...');
+  for (const society of SOCIETIES) {
+    await prisma.society.upsert({
+      where: { id: society.id },
+      create: {
+        id: society.id,
+        description: society.description,
+        local_currency: society.local_currency,
+        society_group_id: society.society_group_id
+      },
+      update: {
+        description: society.description,
+        local_currency: society.local_currency,
+        society_group_id: society.society_group_id
+      },
+    });
+  }
+  console.log(`Created or updated ${SOCIETIES.length} dummy societies`);
+}
+
+async function seedDummyRoles() {
+  console.log('Creating dummy roles for society groups...');
+  const ROLE_NAMES = [
+    'Solicitante',
+    'Agencia de viajes',
+    'Cuentas por pagar',
+    'Autorizador',
+    'Administrador',
+  ];
+
+  // Get all society groups except 'Default'
+  const societyGroups = await prisma.societyGroup.findMany({
+    where: { description: { not: 'Default' } },
+    select: { id: true, description: true },
+  });
+
+  // Create roles for each society group
+  for (const societyGroup of societyGroups) {
+    for (const role_name of ROLE_NAMES) {
+      await prisma.role.upsert({
+        where: { role_name_society_group_id: { role_name, society_group_id: societyGroup.id } },
+        create: { role_name, society_group_id: societyGroup.id },
+        update: { role_name, society_group_id: societyGroup.id },
+      });
+    }
+  }
+  console.log('Created roles for all society groups');
+}
+
 async function seedDummyLocationsAndUsers() {
+  await seedDummySocietyGroups();
+  await seedDummySocieties();
+  await seedDummyRoles();
   await seedDummyCostCenters();
   await seedDummyDepartments();
   await seedDummyCountries();

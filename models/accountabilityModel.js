@@ -154,10 +154,11 @@ const Accountability = {
    * @param {string|null} dateTo    YYYY-MM-DD
    * @returns {Promise<Array>}
    **/
-  async getRequestsByDateRange(dateFrom = null, dateTo = null) {
+  async getRequestsByDateRange(dateFrom = null, dateTo = null, societyId = null) {
   try {
     const where = {
       active: true,
+      ...(societyId && { society_id: Number(societyId) }),
       ...(dateFrom || dateTo
         ? {
             creation_date: {

@@ -36,7 +36,7 @@ export const getApplicantById = async (req, res) => {
 export const getApplicantRequests = async (req, res) => {
   const userId = req.params.user_id;
   try {
-    const applicantRequests = await Applicant.getApplicantRequests(userId);
+    const applicantRequests = await Applicant.getApplicantRequests(userId, req.user.society_id);
 
     if (!applicantRequests || applicantRequests.length === 0) {
       return res.status(404).json({ error: "No user requests found" });
@@ -116,7 +116,7 @@ export const getApplicantRequest = async (req, res) => {
 export const getCostCenterByUserId = async (req, res) => {
   const user_id = req.params.user_id;
   try {
-    const costCenter = await Applicant.findCostCenterByUserId(user_id);
+    const costCenter = await Applicant.findCostCenterByUserId(user_id, req.user.society_group_id);
     if (!costCenter) {
       return res.status(404).json({
         error: `Cost center not found for user_id ${user_id}`,
@@ -210,9 +210,9 @@ export const getCompletedRequests = async (req, res) => {
   if (!Number.isInteger(userId)) {
     return res.status(400).json({ error: "Invalid user ID" });
   }
-  
+
   try {
-    const completedRequests = await Applicant.getCompletedRequests(userId);
+    const completedRequests = await Applicant.getCompletedRequests(userId, req.user.society_id);
     if (!completedRequests || completedRequests.length === 0) {
       return res.status(404).json({ error: "No completed requests found for the user" });
     }

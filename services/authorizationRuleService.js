@@ -74,9 +74,10 @@ const AuthorizationRuleService = {
    * @param {object} ruleLevel - The AuthorizationRuleLevel object with level_type and superior_level_number
    * @param {number} requesterUserId - The ID of the user who created the request
    * @param {number} departmentId - The department of the requester
+   * @param {number} societyGroupId - The society group ID
    * @returns {number|null} The user_id of the next approver, or null if none found
    */
-  async getNextApproverForRuleLevel(ruleLevel, requesterUserId, departmentId) {
+  async getNextApproverForRuleLevel(ruleLevel, requesterUserId, departmentId, societyGroupId) {
     try {
       if (ruleLevel.level_type === 'Jefe') {
         // Direct boss
@@ -84,13 +85,13 @@ const AuthorizationRuleService = {
         return boss;
       } else if (ruleLevel.level_type === 'Aleatorio') {
         // Random authorizer from the department
-        let randomAuthorizer = await User.getRandomUserByRole(4, departmentId);
-        
+        let randomAuthorizer = await User.getRandomUserByRoleName('Autorizador', departmentId, societyGroupId);
+
         // If authorizer == requester, try again
         if (randomAuthorizer && randomAuthorizer.user_id === requesterUserId) {
           let attempts = 0;
           while (attempts < 5 && randomAuthorizer && randomAuthorizer.user_id === requesterUserId) {
-            randomAuthorizer = await User.getRandomUserByRole(4, departmentId);
+            randomAuthorizer = await User.getRandomUserByRoleName('Autorizador', departmentId, societyGroupId);
             attempts++;
           }
         }

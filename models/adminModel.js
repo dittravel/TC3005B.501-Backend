@@ -8,10 +8,23 @@ import { prisma } from '../lib/prisma.js';
 
 const Admin = {
   // Get all active users with full information
-  async getUserList() {
+  async getUserList(filterBy = {}) {
     try {
+      const where = { active: true };
+
+      if (typeof filterBy === 'number') {
+        where.society_id = filterBy;
+      } else if (filterBy.society_group_id) {
+        // Filter by society_group_id, get users from any society in the group
+        where.Society = {
+          society_group_id: filterBy.society_group_id
+        };
+      } else if (filterBy.society_id) {
+        where.society_id = filterBy.society_id;
+      }
+
       const users = await prisma.user.findMany({
-        where: { active: true },
+        where,
         orderBy: { department_id: 'asc' },
         include: {
           role: {
@@ -68,10 +81,15 @@ const Admin = {
   },
     
   // Find role ID by role name
-  async findRoleID(role_name) {
+  async findRoleID(role_name, society_group_id = null) {
     try {
       const role = await prisma.role.findUnique({
-        where: { role_name },
+        where: {
+          role_name_society_group_id: {
+            role_name,
+            society_group_id
+          }
+        },
         select: { role_id: true }
       });
       return role ? role.role_id : null;
@@ -81,11 +99,16 @@ const Admin = {
     }
   },
   
-  // Find department ID by department name
-  async findDepartmentID(department_name) {
+  // Find department ID by department name and society_group_id
+  async findDepartmentID(department_name, society_group_id = null) {
     try {
       const department = await prisma.department.findUnique({
-        where: { department_name },
+        where: {
+          department_name_society_group_id: {
+            department_name,
+            society_group_id
+          }
+        },
         select: { department_id: true }
       });
       return department ? department.department_id : null;
@@ -134,7 +157,8 @@ const Admin = {
           workstation: userData.workstation || null,
           email: userData.email,
           phone_number: userData.phone_number || null,
-          boss_id: userData.boss_id || null
+          boss_id: userData.boss_id || null,
+          society_id: userData.society_id || null
         },
         select: { user_id: true }
       });
@@ -184,6 +208,10 @@ const Admin = {
         data.boss = { connect: { user_id: data.boss_id } };
         delete data.boss_id;
       }
+      if (data.society_id) {
+        data.Society = { connect: { id: data.society_id } };
+        delete data.society_id;
+      }
       
       return await prisma.user.update({
         where: { user_id: Number(userId) },
@@ -211,10 +239,11 @@ const Admin = {
   },
 
   // Get departments
-  async getDepartments() {
+  async getDepartments(societyGroupId = null) {
     try {
       const departments = await prisma.department.findMany({
-        select: { department_id: true, department_name: true }
+        where: societyGroupId ? { society_group_id: Number(societyGroupId) } : {},
+        select: { department_id: true, department_name: true, society_group_id: true }
       });
       return departments;
     } catch (error) {
@@ -224,9 +253,10 @@ const Admin = {
   },
 
   // Get roles
-  async getRoles() {
+  async getRoles(societyGroupId = null) {
     try {
       const roles = await prisma.role.findMany({
+        where: societyGroupId ? { society_group_id: Number(societyGroupId) } : {},
         select: { role_id: true, role_name: true }
       });
       return roles;
@@ -261,9 +291,10 @@ const Admin = {
   },
 
   // Get auth rules
-  async getAuthRules() {
+  async getAuthRules(societyGroupId = null) {
     try {
       const rules = await prisma.authorizationRule.findMany({
+        where: societyGroupId ? { society_group_id: Number(societyGroupId) } : {},
         include: {
           levels: {
             orderBy: { level_number: 'asc' },
@@ -283,7 +314,7 @@ const Admin = {
   },
 
   // Create auth rule
-  async createAuthRule(ruleData) {
+  async createAuthRule(ruleData, societyGroupId = null) {
     try {
       // Step 1: Create the new authorization rule
       const rule = await prisma.authorizationRule.create({
@@ -297,6 +328,7 @@ const Admin = {
           max_duration: ruleData.max_duration,
           min_amount: ruleData.min_amount,
           max_amount: ruleData.max_amount,
+          society_group_id: societyGroupId ? Number(societyGroupId) : null,
           levels: {
             create: (Array.isArray(ruleData.levels) ? ruleData.levels : []).map(level => ({
               level_number: level.level_number,
@@ -314,9 +346,22 @@ const Admin = {
   },
 
   // Update auth rule
-  async updateAuthRule(ruleId, ruleData) {
+  async updateAuthRule(ruleId, ruleData, societyGroupId = null) {
     try {
       const id = Number(ruleId);
+
+      // Validate society_group_id if provided
+      if (societyGroupId) {
+        const rule = await prisma.authorizationRule.findUnique({
+          where: { rule_id: id },
+          select: { society_group_id: true }
+        });
+
+        if (rule && rule.society_group_id !== Number(societyGroupId)) {
+          throw new Error('Unauthorized: Rule does not belong to your society group');
+        }
+      }
+
       // Step 1: Update the main authorization rule fields
       await prisma.authorizationRule.update({
         where: { rule_id: id },
@@ -356,9 +401,22 @@ const Admin = {
   },
 
   // Delete auth rule
-  async deleteAuthRule(ruleId) {
+  async deleteAuthRule(ruleId, societyGroupId = null) {
     try {
       const id = Number(ruleId);
+
+      // Validate society_group_id if provided
+      if (societyGroupId) {
+        const rule = await prisma.authorizationRule.findUnique({
+          where: { rule_id: id },
+          select: { society_group_id: true }
+        });
+
+        if (rule && rule.society_group_id !== Number(societyGroupId)) {
+          throw new Error('Unauthorized: Rule does not belong to your society group');
+        }
+      }
+
       // Step 1: Delete all levels associated with the rule
       await prisma.authorizationRuleLevel.deleteMany({ where: { rule_id: id } });
       // Step 2: Delete the rule itself
@@ -393,14 +451,29 @@ const Admin = {
     }
   },
 
-  // Find department ID by department name
-  async findDepartmentID(department_name) {
+  // Find department ID by department name and society_group_id
+  async findDepartmentID(department_name, society_group_id = null) {
     try {
-      const department = await prisma.department.findUnique({
-        where: { department_name },
-        select: { department_id: true }
-      });
-      return department ? department.department_id : null;
+      // If society_group_id is provided, use compound unique key
+      if (society_group_id !== null && society_group_id !== undefined) {
+        const department = await prisma.department.findUnique({
+          where: {
+            department_name_society_group_id: {
+              department_name,
+              society_group_id
+            }
+          },
+          select: { department_id: true }
+        });
+        return department ? department.department_id : null;
+      } else {
+        // Find first department with this name
+        const department = await prisma.department.findFirst({
+          where: { department_name },
+          select: { department_id: true }
+        });
+        return department ? department.department_id : null;
+      }
     } catch (error) {
       console.error('Error finding department ID for %s:', department_name, error);
       throw error;
@@ -413,7 +486,8 @@ const Admin = {
       await prisma.department.create({
         data: {
           department_name: departmentData.department_name,
-          cost_center_id: departmentData.cost_center_id ?? null
+          cost_center_id: departmentData.cost_center_id ?? null,
+          society_group_id: departmentData.society_group_id ?? null
         }
       });
     } catch (error) {
@@ -429,7 +503,8 @@ const Admin = {
         where: { department_id: departmentId },
         data: {
           department_name: departmentData.department_name,
-          cost_center_id: departmentData.cost_center_id ?? null
+          cost_center_id: departmentData.cost_center_id ?? null,
+          ...(departmentData.society_group_id !== undefined && { society_group_id: departmentData.society_group_id })
         }
       });
     } catch (error) {
@@ -487,7 +562,8 @@ const Admin = {
       await prisma.costCenter.update({
         where: { cost_center_id },
         data: {
-          cost_center_name: costCenterData.cost_center_name
+          cost_center_name: costCenterData.cost_center_name,
+          ...(costCenterData.society_group_id !== undefined && { society_group_id: costCenterData.society_group_id })
         }
       });
     } catch (error) {
@@ -500,15 +576,16 @@ const Admin = {
   async createCostCenter(costCenterData) {
     try {
       const data = {
-        cost_center_name: costCenterData.cost_center_name
+        cost_center_name: costCenterData.cost_center_name,
+        society_group_id: costCenterData.society_group_id ?? null
       };
-      
+
       // If cost_center_id is provided, use it (manual ID).
       // Otherwise autoincrement will handle it
       if (costCenterData.cost_center_id) {
         data.cost_center_id = costCenterData.cost_center_id;
       }
-      
+
       await prisma.costCenter.create({ data });
     } catch (error) {
       console.error('Error creating cost center:', error);

@@ -99,7 +99,7 @@ const Applicant = {
   },
   
   // Find cost center by user ID
-  async findCostCenterByUserId(user_id) {
+  async findCostCenterByUserId(user_id, societyGroupId = null) {
     try {
       const user = await prisma.user.findUnique({
         where: { user_id: Number(user_id) },
@@ -108,6 +108,7 @@ const Applicant = {
             select: {
               department_name: true,
               cost_center_id: true,
+              society_group_id: true,
               CostCenter: {
                 select: {
                   cost_center_name: true,
@@ -122,12 +123,17 @@ const Applicant = {
         return null;
       }
 
+      // Validate society_group_id if provided
+      if (societyGroupId && user.department.society_group_id !== Number(societyGroupId)) {
+        return null;
+      }
+
       return {
         department_name: user.department.department_name,
         cost_center_id: user.department.cost_center_id,
         costs_center: user.department.CostCenter?.cost_center_name ?? null,
       };
-      
+
     } catch (error) {
       console.error("Error finding cost center by ID:", error);
       throw error;
@@ -182,6 +188,12 @@ const Applicant = {
           role_id: true,
           boss_id: true,
           department_id: true,
+          society_id: true,
+          role: {
+            select: {
+              role_name: true,
+            },
+          },
         },
       });
 
@@ -191,7 +203,7 @@ const Applicant = {
 
       const departmentId = role.department_id;
 
-      if (role.role_id !== 1 && role.role_id !== 4) {
+      if (role.role?.role_name !== 'Solicitante' && role.role?.role_name !== 'Autorizador') {
         throw new Error("User role is not allowed to create a travel request");
       }
 
@@ -279,6 +291,7 @@ const Applicant = {
             assigned_to: assignedTo,
             authorization_level: 0,
             authorization_rule_id: authorizationRuleId,
+            society_id: role.society_id,
             notes,
             requested_fee,
             imposed_fee,
@@ -449,6 +462,30 @@ const Applicant = {
       throw error;
     }
   },
+
+  async getRequestSocietyGroupId(request_id) {
+    try {
+      const request = await prisma.request.findUnique({
+        where: { request_id: Number(request_id) },
+        select: {
+          requester: {
+            select: {
+              Society: {
+                select: {
+                  society_group_id: true,
+                },
+              },
+            },
+          },
+        },
+      });
+
+      return request?.requester?.Society?.society_group_id || null;
+    } catch (error) {
+      console.error("Error getting request society_group_id:", error);
+      throw error;
+    }
+  },
   
   // Cancel travel request
   async cancelTravelRequest(request_id) {
@@ -466,10 +503,13 @@ const Applicant = {
   },
   
   // Get completed requests for an applicant
-  async getCompletedRequests(userId) {
+  async getCompletedRequests(userId, societyId = null) {
     try {
       const requests = await prisma.request.findMany({
-        where: { user_id: Number(userId) },
+        where: {
+          user_id: Number(userId),
+          ...(societyId ? { society_id: Number(societyId) } : {}),
+        },
         select: {
           request_id: true,
           creation_date: true,
@@ -524,7 +564,7 @@ const Applicant = {
   },
   
   // Get applicant requests
-  async getApplicantRequests(userId) {
+  async getApplicantRequests(userId, societyId = null) {
     try {
       const requests = await prisma.request.findMany({
         where: {
@@ -532,6 +572,7 @@ const Applicant = {
           request_status_id: {
             notIn: [7, 8, 9],
           },
+          ...(societyId && { society_id: Number(societyId) }),
         },
         select: {
           request_id: true,
@@ -685,6 +726,15 @@ const Applicant = {
   * @returns {number} number of inserted rows
   */
   async createExpenseBatch(receipts) {
+    // Get society_id for each request
+    const requestIds = [...new Set(receipts.map(r => Number(r.request_id)))];
+    const requests = await prisma.request.findMany({
+      where: { request_id: { in: requestIds } },
+      select: { request_id: true, society_id: true },
+    });
+
+    const requestSocietyMap = new Map(requests.map(r => [r.request_id, r.society_id]));
+
     const created = await prisma.$transaction(
       receipts.map((r) =>
         prisma.receipt.create({
@@ -694,6 +744,7 @@ const Applicant = {
             route_id: Number(r.route_id),
             amount: Number(r.amount),
             currency: r.currency || "MXN",
+            society_id: requestSocietyMap.get(Number(r.request_id)),
           },
         }),
       ),
@@ -744,9 +795,17 @@ const Applicant = {
       
       // Step 1: Insert into Request table
       const request_days = getRequestDays(allRoutes);
-      
-      // Get the boss (checking if they're out of office)
+
+      // Get the boss (checking if they're out of office) and user's society_id
       const bossId = await User.getBossId(user_id);
+      const user = await prisma.user.findUnique({
+        where: { user_id: Number(user_id) },
+        select: { society_id: true },
+      });
+
+      if (!user) {
+        throw new Error("User not found");
+      }
 
       const requestId = await prisma.$transaction(async (tx) => {
         const createdRequest = await tx.request.create({
@@ -755,6 +814,7 @@ const Applicant = {
             request_status_id: 1,
             assigned_to: bossId,
             authorization_level: 0,
+            society_id: user.society_id,
             notes,
             requested_fee,
             imposed_fee,
@@ -786,11 +846,18 @@ const Applicant = {
       await prisma.$transaction(async (tx) => {
         const role = await tx.user.findUnique({
           where: { user_id: Number(userId) },
-          select: { role_id: true },
+          select: {
+            role_id: true,
+            role: {
+              select: {
+                role_name: true,
+              },
+            },
+          },
         });
 
         let request_status;
-        if (role?.role_id === 1 || role?.role_id === 4) {
+        if (role?.role?.role_name === 'Solicitante' || role?.role?.role_name === 'Autorizador') {
           console.log("Role ID:", role.role_id);
           request_status = 2;
         } else {
@@ -951,6 +1018,16 @@ const Applicant = {
       xmlFile
     } = data;
 
+    // Get the request to obtain its society_id
+    const request = await prisma.request.findUnique({
+      where: { request_id: Number(request_id) },
+      select: { society_id: true },
+    });
+
+    if (!request) {
+      throw new Error("Request not found");
+    }
+
     const result = await prisma.$transaction(async (tx) => {
       const receipt = await tx.receipt.create({
         data: {
@@ -959,6 +1036,7 @@ const Applicant = {
           route_id: Number(route_id),
           amount: Number(amount),
           currency,
+          society_id: request.society_id,
         },
         select: { receipt_id: true },
       });

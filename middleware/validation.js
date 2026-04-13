@@ -40,6 +40,16 @@ export const validateId = [
     .isInt()
     .toInt()
     .withMessage('Department ID must be a valid number'),
+  param('society_id')
+    .optional()
+    .isInt()
+    .toInt()
+    .withMessage('Society ID must be a valid number'),
+  param('group_id')
+    .optional()
+    .isInt()
+    .toInt()
+    .withMessage('Group ID must be a valid number'),
   (req, res, next) => {
     if (
       !req.params.id &&
@@ -47,7 +57,9 @@ export const validateId = [
       !req.params.request_id &&
       !req.params.receipt_id &&
       !req.params.policy_id &&
-      !req.params.department_id
+      !req.params.department_id &&
+      !req.params.society_id &&
+      !req.params.group_id
     ) {
       return res.status(400).json({ error: "At least one ID needs to be provided" });
     }
