@@ -25,16 +25,23 @@ import { validateCFDI } from './finkokService.js';
  * @throws {Error} If the XML cannot be parsed or Finkok returns an error.
  */
 export async function validateCFDIFromXml(xmlBuffer) {
+  console.log('[CFDI] Iniciando validación...');
+
   // Convert the file buffer to a UTF-8 string for the XML parser
   const xmlString = xmlBuffer.toString('utf-8');
+  console.log('[CFDI] XML recibido, tamaño:', xmlString.length, 'caracteres');
 
   // Parse the XML string into a JavaScript object
+  console.log('[CFDI] Parseando XML...');
   const parsedXml = await parseXmlData(xmlString);
 
   // Extract the CFDI fields we need for validation and display
+  console.log('[CFDI] Extrayendo datos del CFDI...');
   const cfdiData = extractXmlData(parsedXml);
+  console.log('[CFDI] Datos extraídos:', cfdiData);
 
   // Send CFDI fields to Finkok for SAT status validation
+  console.log('[CFDI] Enviando a Finkok para validación con el SAT...');
   const finkokResult = await validateCFDI(
     cfdiData.uuid,
     cfdiData.rfcEmisor,
@@ -42,6 +49,8 @@ export async function validateCFDIFromXml(xmlBuffer) {
     cfdiData.total,
     cfdiData.fecha
   );
+
+  console.log('[CFDI] Validación completada. Resultado Finkok:', finkokResult);
 
   return {
     cfdiData,

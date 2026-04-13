@@ -30,6 +30,7 @@ let sessionCookie = null;
  * @throws {Error} If login fails or credentials are rejected.
  */
 async function login() {
+  console.log('[Finkok] Intentando login con usuario:', process.env.FINKOK_USERNAME);
   const response = await axios.post(
     `${FINKOK_BASE_URL}/login/`,
     {
@@ -50,6 +51,7 @@ async function login() {
   }
 
   sessionCookie = setCookieHeader.map((c) => c.split(';')[0]).join('; ');
+  console.log('[Finkok] Login exitoso. Cookie de sesión guardada.');
 }
 
 /**
@@ -83,6 +85,8 @@ async function callValidate(uuid, rfcEmisor, rfcReceptor, total, fecha) {
     fecha,
   };
 
+  console.log('[Finkok] Enviando validación al endpoint:', `${FINKOK_BASE_URL}${FINKOK_VALIDATE_PATH}`);
+  console.log('[Finkok] Payload:', payload);
   const response = await axios.post(
     `${FINKOK_BASE_URL}${FINKOK_VALIDATE_PATH}`,
     payload,
@@ -94,6 +98,8 @@ async function callValidate(uuid, rfcEmisor, rfcReceptor, total, fecha) {
     }
   );
 
+  console.log('[Finkok] Respuesta de validación — status:', response.status);
+  console.log('[Finkok] Respuesta de validación — data:', response.data);
   return response.data;
 }
 
@@ -123,6 +129,7 @@ export async function validateCFDI(uuid, rfcEmisor, rfcReceptor, total, fecha) {
     // If Finkok rejects the session, re-authenticate and retry once
     const status = error.response?.status;
     if (status === 401 || status === 403) {
+      console.log('[Finkok] Sesión expirada, reintentando login...');
       sessionCookie = null;
       await login();
       return await callValidate(uuid, rfcEmisor, rfcReceptor, total, fecha);
