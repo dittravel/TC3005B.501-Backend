@@ -77,6 +77,7 @@ CREATE OR REPLACE VIEW RequestWithRouteDetails AS
         -- Department information for cost center tracking
         Department.department_name,
         Department.department_id,
+        CostCenter.cost_center_name,
 
         -- Aggregated route details (ordered by route segment sequence)
         -- Origins (e.g., "México, Francia, Italia")
@@ -101,6 +102,8 @@ CREATE OR REPLACE VIEW RequestWithRouteDetails AS
             ON Request.request_status_id = Request_status.request_status_id
         LEFT JOIN Department
             ON `User`.department_id = Department.department_id
+        LEFT JOIN CostCenter
+            ON Department.cost_center_id = CostCenter.cost_center_id
         LEFT JOIN Route_Request
             ON Request.request_id = Route_Request.request_id
         LEFT JOIN Route
@@ -132,7 +135,8 @@ CREATE OR REPLACE VIEW RequestWithRouteDetails AS
         Request_status.status,
         
         Department.department_name,
-        Department.department_id;
+        Department.department_id,
+        CostCenter.cost_center_name;
 
 
 
@@ -151,8 +155,10 @@ CREATE OR REPLACE VIEW UserFullInfo AS
         u.active,              -- User account status
         r.role_name,           -- Access level (Solicitante, Autorizador, Admin, etc.)
         d.department_name,     -- Department name
-        d.department_id        -- Department ID for filtering
+        d.department_id,       -- Department ID for filtering
+        cc.cost_center_name    -- Cost center linked through department
     FROM
         `User` u
         LEFT JOIN `Role` r ON u.role_id = r.role_id
-        LEFT JOIN Department d ON u.department_id = d.department_id;
+        LEFT JOIN Department d ON u.department_id = d.department_id
+        LEFT JOIN CostCenter cc ON d.cost_center_id = cc.cost_center_id;

@@ -10,6 +10,7 @@
  */
 import Applicant from "../models/applicantModel.js";
 import { cancelTravelRequestValidation, createExpenseValidationBatch, sendReceiptsForValidation } from '../services/applicantService.js';
+import ReimbursementPolicyService from '../services/reimbursementPolicyService.js';
 import { decrypt } from '../middleware/decryption.js';
 import { sendEmails } from "../services/email/emailService.js";
 
@@ -35,7 +36,7 @@ export const getApplicantById = async (req, res) => {
 export const getApplicantRequests = async (req, res) => {
   const userId = req.params.user_id;
   try {
-    const applicantRequests = await Applicant.getApplicantRequests(userId);
+    const applicantRequests = await Applicant.getApplicantRequests(userId, req.user.society_id);
 
     if (!applicantRequests || applicantRequests.length === 0) {
       return res.status(404).json({ error: "No user requests found" });
@@ -115,7 +116,7 @@ export const getApplicantRequest = async (req, res) => {
 export const getCostCenterByUserId = async (req, res) => {
   const user_id = req.params.user_id;
   try {
-    const costCenter = await Applicant.findCostCenterByUserId(user_id);
+    const costCenter = await Applicant.findCostCenterByUserId(user_id, req.user.society_group_id);
     if (!costCenter) {
       return res.status(404).json({
         error: `Cost center not found for user_id ${user_id}`,
@@ -167,13 +168,13 @@ export const editTravelRequest = async (req, res) => {
 
 // Cancel a travel request and send notification
 export const cancelTravelRequest = async (req, res) => {
-  const { requestId } = req.params;
+  const { request_id } = req.params;
 
   try {
-    const result = await cancelTravelRequestValidation(Number(requestId));
+    const result = await cancelTravelRequestValidation(Number(request_id));
     
     // Send email notifications
-    await sendEmails(requestId);
+    await sendEmails(request_id);
 
     return res.status(200).json(result);
   } catch (err) {
@@ -209,9 +210,9 @@ export const getCompletedRequests = async (req, res) => {
   if (!Number.isInteger(userId)) {
     return res.status(400).json({ error: "Invalid user ID" });
   }
-  
+
   try {
-    const completedRequests = await Applicant.getCompletedRequests(userId);
+    const completedRequests = await Applicant.getCompletedRequests(userId, req.user.society_id);
     if (!completedRequests || completedRequests.length === 0) {
       return res.status(404).json({ error: "No completed requests found for the user" });
     }
@@ -423,6 +424,28 @@ export async function createExpenseWithFilesHandler(req, res) {
       return res.status(400).json({ error: "Missing required fields" });
     }
 
+    // Check submission deadline against active reimbursement policy before saving
+    try {
+      const deadlineStatus = await ReimbursementPolicyService.getRequestDeadlineStatus(Number(request_id));
+      if (deadlineStatus.policy_configured) {
+        const ruleDeadline = deadlineStatus.per_rule_deadlines.find(
+          r => r.receipt_type_id === Number(receipt_type_id)
+        );
+        if (ruleDeadline && !ruleDeadline.is_within_deadline) {
+          return res.status(422).json({
+            error: 'Submission deadline exceeded for this receipt type',
+            deadline_date: ruleDeadline.deadline_date,
+            days_overdue: Math.abs(ruleDeadline.days_remaining),
+          });
+        }
+      }
+    } catch (deadlineError) {
+      // 404 = no active policy configured — allow submission
+      if (!deadlineError.status || deadlineError.status !== 404) {
+        throw deadlineError;
+      }
+    }
+
     // Create the expense and upload files
     const result = await Applicant.createExpenseWithFiles({
       receipt_type_id: Number(receipt_type_id),
@@ -447,6 +470,10 @@ export async function createExpenseWithFilesHandler(req, res) {
     if (err.code === "DUPLICATE_UUID") {
       return res.status(409).json({ error: err.message });
     }
+    // Unique constraint violation if XML file already exists
+    if (err.code === "P2002" && err.meta?.modelName === 'Receipt') {
+      return res.status(409).json({ error: "Este comprobante XML ya existe" });
+    }
     if (err.code === "BAD_REQUEST") {
       return res.status(400).json({ error: err.message });
     }
@@ -456,6 +483,21 @@ export async function createExpenseWithFilesHandler(req, res) {
     return res.status(500).json({ error: "Internal server error" });
   }
 }
+
+// Get deadline status for a request — tells frontend if the submission window is still open
+export const getDeadlineStatus = async (req, res) => {
+  const requestId = Number(req.params.request_id);
+  try {
+    const status = await ReimbursementPolicyService.getRequestDeadlineStatus(requestId);
+    return res.status(200).json(status);
+  } catch (err) {
+    if (err.status === 404) {
+      return res.status(404).json({ error: err.message });
+    }
+    console.error('Error in getDeadlineStatus controller:', err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+};
 
 export default {
   getApplicantById,
@@ -474,5 +516,6 @@ export default {
   getReceipt,
   updateReceipt,
   updateRequestStatus,
-  createExpenseWithFilesHandler
+  createExpenseWithFilesHandler,
+  getDeadlineStatus,
 };

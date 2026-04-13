@@ -21,10 +21,13 @@ paths:
                 properties:
                   department_name:
                     type: string
+                  cost_center_name:
+                    type: string
                   costs_center:
                     type: string
                 example:
                   department_name: "Administrativo"
+                  cost_center_name: "34239845782394"
                   costs_center: "34239845782394"
         "404":
           description: Cost center not found

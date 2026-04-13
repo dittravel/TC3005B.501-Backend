@@ -21,3 +21,10 @@ export var loginRateLimiter = RateLimit({
     max: 5, // Limit each IP to 5 login attempts per windowMs
     message: 'Too many login attempts from this IP, please try again after a minute',
 });
+
+// Rate limiter for file uploads and expensive operations
+export var fileUploadRateLimiter = RateLimit({
+    windowMs: 60 * 1000, // 1 minute
+    max: 10, // Limit each IP to 10 uploads per windowMs
+    message: 'Too many file uploads, please try again later',
+});

@@ -1,0 +1,22 @@
+<cfdi:Comprobante Version="4.0" Fecha="2024-02-15T10:30:00"
+  SubTotal="850.00" Total="1000.00" Moneda="MXN"
+  xmlns:cfdi="http://www.sat.gob.mx/cfd/4"
+  xmlns:tfd="http://www.sat.gob.mx/TimbreFiscalDigital">
+
+  <cfdi:Emisor Rfc="AAA010101AAA" Nombre="AEROMEXICO SA DE CV"/>
+  
+  <cfdi:Receptor Rfc="XAXX010101000" Nombre="PUBLICO EN GENERAL"/>
+
+  <cfdi:Impuestos TotalImpuestosTrasladados="136.00">
+    <cfdi:Traslados>
+      <cfdi:Traslado Impuesto="002" TipoFactor="Tasa" TasaOCuota="0.160000" Importe="136.00"/>
+    </cfdi:Traslados>
+  </cfdi:Impuestos>
+
+  <cfdi:Complemento>
+    <tfd:TimbreFiscalDigital 
+      UUID="A1B2C3D4-E5F6-7890-ABCD-1234567890GG"
+      FechaTimbrado="2024-02-15T10:31:00"/>
+  </cfdi:Complemento>
+
+</cfdi:Comprobante>

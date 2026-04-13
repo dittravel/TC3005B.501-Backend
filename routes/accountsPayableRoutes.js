@@ -7,7 +7,7 @@
 
 import express from "express";
 import { validateId, validateInputs, validateReceiptSearchQuery } from "../middleware/validation.js";
-import { authenticateToken, authorizeRole } from "../middleware/auth.js";
+import { authenticateToken, authorizeRole, validateSocietyAccess } from "../middleware/auth.js";
 import { generalRateLimiter } from "../middleware/rateLimiters.js";
 import AccountsPayableController from "../controllers/accountsPayableController.js";
 
@@ -19,19 +19,19 @@ router.use((req, res, next) => {
 
 // Get pending travel request by request ID
 router.route("/attend-travel-request/:request_id")
-  .put(generalRateLimiter, authenticateToken, authorizeRole(['Cuentas por pagar']), validateId, validateInputs, AccountsPayableController.attendTravelRequest);
+  .put(generalRateLimiter, authenticateToken, authorizeRole(['Cuentas por pagar']), validateSocietyAccess('request'), validateId, validateInputs, AccountsPayableController.attendTravelRequest);
 
 // Validate expense receipts for a travel request by request ID
 router.route("/validate-receipts/:request_id")
-  .put(generalRateLimiter, authenticateToken, authorizeRole(['Cuentas por pagar']), validateId, validateInputs, AccountsPayableController.validateReceiptsHandler);
+  .put(generalRateLimiter, authenticateToken, authorizeRole(['Cuentas por pagar']), validateSocietyAccess('request'), validateId, validateInputs, AccountsPayableController.validateReceiptsHandler);
 
 // Validate a single receipt by receipt ID
 router.route("/validate-receipt/:receipt_id")
-  .put(generalRateLimiter, authenticateToken, authorizeRole(['Cuentas por pagar']), validateId, validateInputs, AccountsPayableController.validateReceipt);
+  .put(generalRateLimiter, authenticateToken, authorizeRole(['Cuentas por pagar']), validateSocietyAccess('receipt'), validateId, validateInputs, AccountsPayableController.validateReceipt);
 
 // Get expense validations for a travel request by request ID
 router.route("/get-expense-validations/:request_id")
-  .get(generalRateLimiter, authenticateToken, authorizeRole(['Cuentas por pagar', 'Solicitante', 'Autorizador']), validateId, validateInputs, AccountsPayableController.getExpenseValidations);
+  .get(generalRateLimiter, authenticateToken, authorizeRole(['Cuentas por pagar', 'Solicitante', 'Autorizador']), validateSocietyAccess('request'), validateId, validateInputs, AccountsPayableController.getExpenseValidations);
 
 // Search receipts across all requests by user_id, date range, and/or validation status
 router.route("/search-receipts")

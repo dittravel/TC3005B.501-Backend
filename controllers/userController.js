@@ -90,6 +90,18 @@ export const login = async (req, res) => {
         secure: true,
         maxAge: 1000 * 60 * 60,
       })
+      .cookie("society_id", result.society_id?.toString() || "", {
+        sameSite: "Lax",
+        httpOnly: true,
+        secure: true,
+        maxAge: 1000 * 60 * 60,
+      })
+      .cookie("society_group_id", result.society_group_id?.toString() || "", {
+        sameSite: "Lax",
+        httpOnly: true,
+        secure: true,
+        maxAge: 1000 * 60 * 60,
+      })
       .json(result);
   } catch (error) {
     res.status(400).json({ error: error.message });
@@ -161,6 +173,7 @@ export const getTravelRequestById = async (req, res) => {
       },
       // Map all rows to routes array (one row per route)
       routes: requestData.map((row) => ({
+        route_id: row.route_id,
         router_index: row.router_index,
         origin_country: row.origin_country,
         origin_city: row.origin_city,
@@ -243,7 +256,7 @@ export const getSubstituteUsers = async (req, res) => {
       return res.status(400).json({ error: 'Invalid user ID format' });
     }
 
-    const users = await User.getUserDepartmentMembers(userId);
+    const users = await User.getUserDepartmentMembers(userId, req.user.society_id);
     return res.status(200).json(users);
   } catch (error) {
     console.error('Error retrieving department users:', error);

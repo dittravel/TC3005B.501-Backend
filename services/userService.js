@@ -32,11 +32,13 @@ export async function getUserById(userId) {
       phone_number: decryptedPhone,
       workstation: userData.workstation,
       department_name: userData.department_name,
-      costs_center: userData.costs_center,
+      cost_center_name: userData.cost_center_name,
+      costs_center: userData.cost_center_name,
       creation_date: userData.creation_date,
       role_name: userData.role_name,
       boss_id: userData.boss_id,
       boss_name: userData.boss_name || 'N/A',
+      society_id: userData.society_id,
       out_of_office_start_date: userData.out_of_office_start_date,
       out_of_office_end_date: userData.out_of_office_end_date,
       substitute_id: userData.substitute_id,
@@ -71,18 +73,25 @@ export async function authenticateUser(username, password, req) {
       throw new Error("User acccount is inactive")
     }
 
-    const token = jwt.sign(
-      { user_id: user.user_id, role: user.role_name, ip: req.ip },
-      process.env.JWT_SECRET,
-      { expiresIn: '1h' }
-    );
-    
+    const enforceIpBinding = String(process.env.ENFORCE_TOKEN_IP_BINDING || 'false').toLowerCase() === 'true';
+    const tokenPayload = {
+      user_id: user.user_id,
+      role: user.role_name,
+      society_id: user.society_id,
+      society_group_id: user.society_group_id,
+      ...(enforceIpBinding ? { ip: req.ip } : {}),
+    };
+
+    const token = jwt.sign(tokenPayload, process.env.JWT_SECRET, { expiresIn: '1h' });
+
     return {
       token,
       role: user.role_name,
       username: user.user_name,
       user_id: user.user_id,
-      department_id: user.department_id 
+      department_id: user.department_id,
+      society_id: user.society_id,
+      society_group_id: user.society_group_id
     };
   } catch (error) {
     throw new Error(`Authentication failed: ${error.message}`);
