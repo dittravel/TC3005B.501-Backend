@@ -13,7 +13,7 @@ import { validateCFDIFromXml } from '../services/cfdiValidationService.js';
  *
  * Expects a multipart/form-data request with a single file field named "xml".
  * Extracts the file buffer, calls the validation service, and responds with
- * the CFDI data and the Finkok validation result.
+ * the CFDI data and the ValidaCFDI validation result.
  *
  * POST /api/cfdi/validate
  *
@@ -21,29 +21,23 @@ import { validateCFDIFromXml } from '../services/cfdiValidationService.js';
  * @param {import('express').Response} res - Express response object.
  */
 export const validateCFDIController = async (req, res) => {
-  console.log('[CFDI Controller] Petición recibida en POST /api/cfdi/validate');
-
   // Verify that the XML file was included in the request
   if (!req.files || !req.files.xml) {
-    console.log('[CFDI Controller] Error: no se recibió archivo XML');
     return res.status(400).json({ error: 'XML file is required' });
   }
-
-  console.log('[CFDI Controller] Archivo XML recibido:', req.files.xml[0].originalname);
 
   try {
     const xmlBuffer = req.files.xml[0].buffer;
 
-    const { cfdiData, finkokResult } = await validateCFDIFromXml(xmlBuffer);
+    const { cfdiData, validationResult } = await validateCFDIFromXml(xmlBuffer);
 
-    console.log('[CFDI Controller] Validación exitosa, respondiendo al cliente');
     return res.status(200).json({
       success: true,
       cfdiData,
-      finkokResult,
+      validationResult,
     });
   } catch (error) {
-    console.error('[CFDI Controller] Error durante la validación:', error.message);
+    console.error('Error validating CFDI:', error);
 
     // Surface XML parsing or data extraction errors as 400 (bad request)
     if (
