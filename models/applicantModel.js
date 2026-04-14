@@ -922,6 +922,7 @@ const Applicant = {
         amount: receipt.amount,
         currency: receipt.currency,
         submission_date: receipt.submission_date,
+        receipt_date: receipt.receipt_date,
         receipt_type_name: receipt.Receipt_Type?.receipt_type_name ?? null,
         pdf_id: receipt.pdf_file_id,
         pdf_name: receipt.pdf_file_name,
@@ -964,6 +965,7 @@ const Applicant = {
             receipt_type_id: receiptType.receipt_type_id,
             amount: Number(data.amount),
             currency: data.currency,
+            receipt_date: new Date(data.receipt_date),
           },
         });
       });
@@ -1014,6 +1016,7 @@ const Applicant = {
       route_id,
       amount,
       currency,
+      receipt_date,
       pdfFile,
       xmlFile
     } = data;
@@ -1036,6 +1039,7 @@ const Applicant = {
           route_id: Number(route_id),
           amount: Number(amount),
           currency,
+          receipt_date: receipt_date || null,
           society_id: request.society_id,
         },
         select: { receipt_id: true },

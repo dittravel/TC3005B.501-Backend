@@ -347,19 +347,20 @@ export const getReceipt = async (req, res) => {
 // Update receipt details
 export const updateReceipt = async (req, res) => {
   const { receipt_id } = req.params;
-  const { route_id, receipt_type_name, amount, currency } = req.body;
-  
+  const { route_id, receipt_type_name, amount, currency, receipt_date } = req.body;
+
   try {
     // Validate required fields
     if (!route_id || !receipt_type_name || amount === undefined || !currency) {
       return res.status(400).json({ error: "Missing required fields" });
     }
-    
+
     const updatedReceipt = await Applicant.updateReceipt(Number(receipt_id), {
       route_id,
       receipt_type_name,
       amount,
-      currency
+      currency,
+      receipt_date
     });
     
     if (!updatedReceipt) {
@@ -417,7 +418,7 @@ export async function createExpenseWithFilesHandler(req, res) {
     }
 
     // Extract receipt details from request body
-    const { receipt_type_id, request_id, route_id, amount, currency } = req.body;
+    const { receipt_type_id, request_id, route_id, amount, currency, receipt_date } = req.body;
 
     // Validate required fields
     if (!receipt_type_id || !request_id || !route_id || amount === undefined || !currency) {
@@ -453,6 +454,7 @@ export async function createExpenseWithFilesHandler(req, res) {
       route_id: Number(route_id),
       amount: parseFloat(amount),
       currency: currency,
+      receipt_date: new Date(receipt_date),
       pdfFile: req.files.pdf[0],
       xmlFile: req.files.xml ? req.files.xml[0] : null // Optional XML file
     });
