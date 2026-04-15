@@ -117,7 +117,7 @@ jobs:
         echo "MariaDB is ready!"
     
     - name: Setup Prisma Schema and Dummy Data
-      run: npm run prisma:seed:ci
+      run: npm run prisma:seed:dummy
     
     - name: Run Unit Tests
       run: npm test

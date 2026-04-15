@@ -1,0 +1,114 @@
+# ------------------------------------------------------------------
+# Business Logic Tests Workflow
+#
+# Purpose:
+# This workflow is designed to run automated tests specifically for
+# the business logic layer of the backend application. It ensures that
+# the core functionalities and rules of the application are correctly
+# implemented and that any changes do not break existing logic.
+#
+# Key Features:
+# - Runs on pushes and pull requests to `main` and `development`
+
+name: Business Logic Tests
+
+on:
+  push:
+    branches: [ "main", "development" ]
+  pull_request:
+    branches: [ "main", "development" ]
+    types: [ "opened", "reopened", "synchronize" ]
+
+jobs:
+  business-logic-tests:
+    runs-on: ubuntu-latest
+
+    # env variables for database connection
+    # Ref: https://docs.github.com/en/actions/how-tos/write-workflows/choose-what-workflows-do/use-variables#about-yaml-syntax-for-github-actions-environment-variables
+    env:
+      DB_URL: mysql://test_user:test_password@127.0.0.1:3306/CocoScheme
+      MONGO_URI: mongodb://localhost:27017
+      AES_SECRET_KEY: 12345678901234567890123456789012
+      JWT_SECRET_KEY: test_jwt_secret_key_for_github_actions
+
+    services:
+      # MariaDB service with a test database and user
+      mariadb:
+        image: mariadb:10.6
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: CocoScheme
+          MYSQL_USER: test_user
+          MYSQL_PASSWORD: test_password
+        # The container's port 3306 will be accessible on the host at port 3306
+        ports: [3306:3306]
+        # Health check to ensure MariaDB is ready before running tests
+        options: >-
+          --health-cmd="mysqladmin ping -uroot -proot"
+          --health-interval=10s
+          --health-timeout=10s
+          --health-retries=10
+      
+      # MongoDB service with the latest version
+      mongodb:
+        image: mongo:latest
+        ports: [27017:27017]
+        options: >-
+          --health-cmd="mongosh --eval 'db.runCommand({ ping: 1 })'"
+          --health-interval=10s
+          --health-timeout=10s
+          --health-retries=10
+      
+      strategy:
+        matrix:
+          node-version: [22.x]
+
+    steps:
+    # Checkout the code from the repository
+    # This will create a local copy of the repository 
+    # in the runner environment to run tests
+    - uses: actions/checkout@v4
+
+    # Set up Node.js environment with caching for npm dependencies
+    # Caching speeds up subsequent runs by reusing previously 
+    # installed dependencies
+    - name: Use Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ matrix.node-version }}
+        cache: 'npm'
+
+    # Install MySQL client
+    - name: Install MySQL client
+      run: sudo apt-get update && sudo apt-get install -y default-mysql-client
+    
+    # Install Node dependencies defined in package.json
+    - name: Install Node dependencies
+      run: npm install
+    
+    # Wait for MariaDB to be healthy before proceeding with tests
+    - name: Wait for MariaDB
+      run: |
+        timeout=60
+        counter=0
+        until mysql -h127.0.0.1 -P3306 -uroot -proot -e "SELECT 1" &> /dev/null
+        do
+          if [ $counter -gt $timeout ]; then
+            echo "Timed out waiting for MariaDB to start"
+            exit 1
+          fi
+          counter=$((counter+1))
+          echo "Waiting for MariaDB to be ready... ($counter/$timeout)"
+          sleep 1
+        done
+    
+    # Setup database schema with dummy data
+    - name: Setup Prisma Schema and Dummy Data
+      run: npm run prisma:seed:dummy
+    
+    # Run unit tests defined in the project
+    - name: Run business logic tests
+      run: |
+        npm run test:policy
+        npm run test:erp
+        npm run test:audit
