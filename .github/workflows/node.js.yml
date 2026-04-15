@@ -119,5 +119,5 @@ jobs:
     - name: Setup Prisma Schema and Dummy Data
       run: npm run prisma:seed:dummy
     
-    - name: Run Unit Tests
+    - name: Run Business Logic Tests
       run: npm test
