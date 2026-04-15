@@ -21,8 +21,6 @@ import { prisma } from '../lib/prisma.js';
 // XML parsing functions
 import { parseXmlData, extractXmlData } from './xmlParserService.js';
 
-// ValidaCFDI - SAT CFDI validation
-import { validateCFDI } from './validaCfdiService.js';
 
 // Upload both PDF and XML files for a receipt
 export async function uploadReceiptFiles(receiptId, pdfFile, xmlFile, existingConn = null) {
@@ -51,34 +49,14 @@ export async function uploadReceiptFiles(receiptId, pdfFile, xmlFile, existingCo
 
     // Parse CFDI data from XML file only if it exists
     let cfdiData = {};
-    let validationResult = null;
     if (xmlFile) {
       try {
-        // Convert XML buffer to string
         const xmlString = xmlFile.buffer.toString('utf8');
         const parsedXml = await parseXmlData(xmlString);
         cfdiData = extractXmlData(parsedXml);
         console.log('[Receipt] Datos CFDI extraídos del XML:', cfdiData);
       } catch (err) {
         console.warn('[Receipt] Error parseando XML:', err);
-      }
-
-      // Validate CFDI against SAT through ValidaCFDI if we successfully extracted the data
-      if (cfdiData.uuid) {
-        try {
-          console.log('[Receipt] Enviando CFDI a ValidaCFDI para validación con el SAT...');
-          validationResult = await validateCFDI(
-            cfdiData.uuid,
-            cfdiData.rfcEmisor,
-            cfdiData.rfcReceptor,
-            cfdiData.total,
-            cfdiData.fecha
-          );
-          console.log('[Receipt] Resultado de validación ValidaCFDI:', validationResult);
-        } catch (err) {
-          // ValidaCFDI failure does not block the file upload
-          console.warn('[Receipt] Error al validar con ValidaCFDI (el archivo se sube igual):', err.message);
-        }
       }
     }
 
@@ -107,7 +85,6 @@ export async function uploadReceiptFiles(receiptId, pdfFile, xmlFile, existingCo
         pdf: pdfResult,
         xml: xmlResult,
         cfdiData: cfdiData,
-        validationResult: validationResult
       };
     } catch (dbError) {
       // Check for duplicate UUID error (MySQL error 1062)

@@ -37,8 +37,6 @@ export async function validateCFDI(uuid, rfcEmisor, rfcReceptor, total) {
     total: parseFloat(total),
   };
 
-  console.log('[ValidaCFDI] Enviando validación al SAT con payload:', payload);
-
   const response = await axios.post(
     `${BASE_URL}/validate`,
     payload,
@@ -49,9 +47,6 @@ export async function validateCFDI(uuid, rfcEmisor, rfcReceptor, total) {
       },
     }
   );
-
-  console.log('[ValidaCFDI] Respuesta — status HTTP:', response.status);
-  console.log('[ValidaCFDI] Respuesta — data:', response.data);
 
   return response.data;
 }

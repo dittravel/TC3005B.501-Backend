@@ -2,7 +2,7 @@
  * CFDI Routes
  *
  * Defines the routes for CFDI validation in the travel request system.
- * All routes require a valid JWT token and the "Cuentas por pagar" role.
+ * All routes require a valid JWT token and either the "Solicitante" or "Autorizador" role.
  *
  * Available endpoints:
  *   POST /api/cfdi/validate - Validate a CFDI by uploading an XML file.
@@ -22,17 +22,17 @@ const upload = multer({ storage: multer.memoryStorage() });
 /**
  * POST /api/cfdi/validate
  *
- * Validates a CFDI XML file against the SAT through the Finkok API.
- * Requires authentication and the "Cuentas por pagar" role.
+ * Validates a CFDI XML file against the SAT through the ValidaCFDI API.
+ * Requires authentication and the "Solicitante" or "Autorizador" role.
  *
  * Request: multipart/form-data with field "xml" containing the XML file.
- * Response: JSON with cfdiData (extracted fields) and finkokResult (SAT status).
+ * Response: JSON with cfdiData (extracted fields) and validationResult (SAT status).
  */
 router.post(
   '/validate',
   generalRateLimiter,
   authenticateToken,
-  authorizeRole(['Cuentas por pagar']),
+  authorizeRole(['Solicitante', 'Autorizador']),
   upload.fields([{ name: 'xml', maxCount: 1 }]),
   validateCFDIController
 );
