@@ -14,7 +14,7 @@ name: Business Logic Tests
 
 on:
   push:
-    branches: [ "main", "development" ]
+    branches: [ "main", "development", "github-actions-tests" ]
   pull_request:
     branches: [ "main", "development" ]
     types: [ "opened", "reopened", "synchronize" ]
