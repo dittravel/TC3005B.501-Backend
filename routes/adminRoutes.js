@@ -8,7 +8,7 @@
 import express from "express";
 import multer from "multer";
 import * as adminController from "../controllers/adminController.js";
-import { authenticateToken, authorizeRole } from "../middleware/auth.js";
+import { authenticateToken, authorizeRole, validateSocietyAccess } from "../middleware/auth.js";
 import { validateCreateUser, validateInputs } from "../middleware/validation.js";
 import { generalRateLimiter } from "../middleware/rateLimiters.js";
 
@@ -46,11 +46,11 @@ router.route("/create-multiple-users")
 
 // Update user information by user ID
 router.route('/update-user/:user_id')
-  .put(generalRateLimiter, authenticateToken, authorizeRole(['Administrador']), adminController.updateUser);
+  .put(generalRateLimiter, authenticateToken, authorizeRole(['Administrador']), validateSocietyAccess('user'), adminController.updateUser);
 
 // Delete a user by user ID
 router.route("/delete-user/:user_id")
-  .put(generalRateLimiter, authenticateToken, authorizeRole(['Administrador']), adminController.deactivateUser);
+  .put(generalRateLimiter, authenticateToken, authorizeRole(['Administrador']), validateSocietyAccess('user'), adminController.deactivateUser);
 
 // Get departments
 router.route("/get-departments")
@@ -84,7 +84,7 @@ router.route("/delete-auth-rule/:rule_id")
 router.route("/get-boss-list/:department_id")
   .get(generalRateLimiter, authenticateToken, authorizeRole(['Administrador']), adminController.getBossList);
 
-// Import data from XML file
+// Import data from XML/JSON file
 router.route("/import-data")
   .post(
     generalRateLimiter,

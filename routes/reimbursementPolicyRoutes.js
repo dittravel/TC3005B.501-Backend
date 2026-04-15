@@ -7,7 +7,7 @@
 
 import express from 'express';
 import * as reimbursementPolicyController from '../controllers/reimbursementPolicyController.js';
-import { authenticateToken, authorizeRole } from '../middleware/auth.js';
+import { authenticateToken, authorizeRole, validateSocietyAccess } from '../middleware/auth.js';
 import {
   validateId,
   validateInputs,
@@ -81,6 +81,7 @@ router.route('/evaluate-request/:request_id')
     generalRateLimiter,
     authenticateToken,
     authorizeRole(['Solicitante', 'Cuentas por pagar', 'Administrador']),
+    validateSocietyAccess('request'),
     validateId,
     validateInputs,
     reimbursementPolicyController.evaluateRequest

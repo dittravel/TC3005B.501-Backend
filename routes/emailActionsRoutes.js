@@ -12,7 +12,6 @@ import { authenticateTokenFromCookies } from '../middleware/auth.js';
 import authorizerServices from '../services/authorizerService.js';
 import AuditLogService from '../services/auditLogService.js';
 import { sendEmails } from '../services/email/emailService.js';
-import pool from '../database/config/db.js';
 
 const router = express.Router();
 
@@ -42,8 +41,6 @@ router.get('/:action/:token', authenticateTokenFromCookies, async (req, res) => 
       return res.redirect(frontendUrl);
     }
 
-    let connection;
-
     switch (action) {
       case 'approve': {
         // Only the assigned Autorizador can approve
@@ -54,10 +51,8 @@ router.get('/:action/:token', authenticateTokenFromCookies, async (req, res) => 
         }
 
         // Authorizer approves request
-        connection = await pool.getConnection();
-        await connection.beginTransaction();
         try {
-          const result = await authorizerServices.authorizeRequest(requestId, userId, { connection });
+          const result = await authorizerServices.authorizeRequest(requestId, userId);
           
           // Create req-like object for audit logging
           const auditReq = {
@@ -77,10 +72,8 @@ router.get('/:action/:token', authenticateTokenFromCookies, async (req, res) => 
                 new_status: result.new_status,
                 source: 'email_action',
               },
-            },
-            { connection }
+            }
           );
-          await connection.commit();
           
           // Send email notifications to the newly assigned user
           try {
@@ -94,10 +87,7 @@ router.get('/:action/:token', authenticateTokenFromCookies, async (req, res) => 
           const frontendUrl = `${process.env.FRONTEND_URL}/resultado-accion-email?action=approve&requestId=${requestId}&status=${encodeURIComponent(result.new_status)}`;
           return res.redirect(frontendUrl);
         } catch (err) {
-          await connection.rollback();
           throw err;
-        } finally {
-          connection.release();
         }
       }
 
@@ -110,10 +100,8 @@ router.get('/:action/:token', authenticateTokenFromCookies, async (req, res) => 
         }
 
         // Authorizer declines request
-        connection = await pool.getConnection();
-        await connection.beginTransaction();
         try {
-          const result = await authorizerServices.declineRequest(requestId, userId, { connection });
+          const result = await authorizerServices.declineRequest(requestId, userId);
           
           // Create req-like object for audit logging
           const auditReq = {
@@ -133,10 +121,8 @@ router.get('/:action/:token', authenticateTokenFromCookies, async (req, res) => 
                 new_status: result.new_status,
                 source: 'email_action',
               },
-            },
-            { connection }
+            }
           );
-          await connection.commit();
           
           // Send email notifications about the decline
           try {
@@ -150,10 +136,7 @@ router.get('/:action/:token', authenticateTokenFromCookies, async (req, res) => 
           const frontendUrl = `${process.env.FRONTEND_URL}/resultado-accion-email?action=decline&requestId=${requestId}&status=${encodeURIComponent(result.new_status)}`;
           return res.redirect(frontendUrl);
         } catch (err) {
-          await connection.rollback();
           throw err;
-        } finally {
-          connection.release();
         }
       }
 

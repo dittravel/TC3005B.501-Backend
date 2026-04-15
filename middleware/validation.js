@@ -40,6 +40,16 @@ export const validateId = [
     .isInt()
     .toInt()
     .withMessage('Department ID must be a valid number'),
+  param('society_id')
+    .optional()
+    .isInt()
+    .toInt()
+    .withMessage('Society ID must be a valid number'),
+  param('group_id')
+    .optional()
+    .isInt()
+    .toInt()
+    .withMessage('Group ID must be a valid number'),
   (req, res, next) => {
     if (
       !req.params.id &&
@@ -47,7 +57,9 @@ export const validateId = [
       !req.params.request_id &&
       !req.params.receipt_id &&
       !req.params.policy_id &&
-      !req.params.department_id
+      !req.params.department_id &&
+      !req.params.society_id &&
+      !req.params.group_id
     ) {
       return res.status(400).json({ error: "At least one ID needs to be provided" });
     }
@@ -812,6 +824,58 @@ export const validateFlightSearch = [
 
     return true;
   })
+];
+
+// Validate forgot-password request body
+export const validateForgotPassword = [
+  body('email')
+    .isEmail()
+    .normalizeEmail()
+    .withMessage('email must be a valid email address'),
+];
+
+// Validate reset-password request body
+export const validateResetPassword = [
+  body('token')
+    .isString()
+    .trim()
+    .matches(/^[a-f0-9]{64}$/)
+    .withMessage('token must be a valid 64-character hex string'),
+  body('new_password')
+    .isString()
+    .isLength({ min: 8, max: 128 })
+    .withMessage('new_password must be between 8 and 128 characters'),
+];
+
+// Validate receipt search query parameters
+export const validateReceiptSearchQuery = [
+  query('user_id')
+    .optional()
+    .isInt({ min: 1 })
+    .toInt()
+    .withMessage('user_id must be a valid positive integer'),
+  query('start_date')
+    .optional()
+    .isISO8601()
+    .withMessage('start_date must be a valid ISO 8601 date'),
+  query('end_date')
+    .optional()
+    .isISO8601()
+    .withMessage('end_date must be a valid ISO 8601 date'),
+  query('validation')
+    .optional()
+    .isIn(['Pendiente', 'Aprobado', 'Rechazado'])
+    .withMessage('validation must be one of: Pendiente, Aprobado, Rechazado'),
+  query('limit')
+    .optional()
+    .isInt({ min: 1, max: 200 })
+    .toInt()
+    .withMessage('limit must be an integer between 1 and 200'),
+  query('offset')
+    .optional()
+    .isInt({ min: 0 })
+    .toInt()
+    .withMessage('offset must be a non-negative integer'),
 ];
 
 // Generic validation error handler

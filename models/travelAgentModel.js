@@ -6,145 +6,105 @@
  * the existence of requests in the database.
  */
 
-import pool from "../database/config/db.js";
+import { prisma } from "../lib/prisma.js";
+
 
 const TravelAgent = {
   // Update request status to receipt validation
   async attendTravelRequest(requestId) {
-    let conn;
     try {
-      conn = await pool.getConnection();
-      const result = await conn.query(
-        "UPDATE `Request` SET request_status_id = 5 WHERE request_id = ?",
-        [requestId],
-      );
-      return result.affectedRows > 0;
-
+      const result = await prisma.request.updateMany({
+        where: { request_id: requestId },
+        data: { request_status_id: 5 },
+      });
+      return result.count > 0;
     } catch (error) {
       console.error("Error updating travel request status:", error);
       throw error;
-
-    } finally {
-      if (conn) {
-        conn.release();
-      }
     }
   },
-  
+
   // Check if request exists in the database
   async requestExists(requestId) {
-    let conn;
     try {
-      conn = await pool.getConnection();
-      const rows = await conn.query(
-        "SELECT request_id FROM `Request` WHERE request_id = ?",
-        [requestId],
-      );
-      return rows.length > 0;
-
+      const found = await prisma.request.findUnique({
+        where: { request_id: requestId },
+        select: { request_id: true },
+      });
+      return !!found;
     } catch (error) {
       console.error("Error checking if request exists:", error);
       throw error;
-      
-    } finally {
-      if (conn) {
-        conn.release();
-      }
     }
   },
 
-  /**
-   * Get request with all relevant details
-   * @param {number} request_id - The ID of the travel request
-   * @returns {object} Request object with details
-   */
+  // Get request with all relevant details
   async getRequestWithDetails(request_id) {
-    let conn;
-    const query = `
-      SELECT 
-        r.request_id,
-        r.user_id,
-        r.request_status_id,
-        r.assigned_to,
-        r.authorization_level,
-        r.requested_fee,
-        r.notes,
-        r.creation_date,
-        r.last_mod_date
-      FROM Request r
-      WHERE r.request_id = ? AND r.active = true
-    `;
-
     try {
-      conn = await pool.getConnection();
-      const rows = await conn.query(query, [request_id]);
-      return rows.length > 0 ? rows[0] : null;
-
+      const req = await prisma.request.findFirst({
+        where: { request_id, active: true },
+        select: {
+          request_id: true,
+          user_id: true,
+          request_status_id: true,
+          assigned_to: true,
+          authorization_level: true,
+          requested_fee: true,
+          notes: true,
+          creation_date: true,
+          last_mod_date: true,
+        },
+      });
+      return req || null;
     } catch (error) {
       console.error('Error getting request with details:', error);
       throw error;
-
-    } finally {
-      if (conn) conn.release();
     }
   },
 
-  /**
-   * Get user with department information
-   * @param {number} user_id - The ID of the user
-   * @returns {object} User object with department_id
-   */
+  // Get user with department information
   async getUserWithDepartment(user_id) {
-    let conn;
-    const query = `
-      SELECT 
-        user_id,
-        user_name,
-        department_id,
-        role_id
-      FROM User
-      WHERE user_id = ? AND active = true
-    `;
-
     try {
-      conn = await pool.getConnection();
-      const rows = await conn.query(query, [user_id]);
-      return rows.length > 0 ? rows[0] : null;
-
+      const user = await prisma.user.findFirst({
+        where: { user_id, active: true },
+        select: {
+          user_id: true,
+          user_name: true,
+          department_id: true,
+          role_id: true,
+          Society: {
+            select: {
+              society_group_id: true,
+            },
+          },
+        },
+      });
+      if (!user) return null;
+      return {
+        ...user,
+        society_group_id: user.Society?.society_group_id || null,
+        Society: undefined,
+      };
     } catch (error) {
       console.error('Error getting user with department:', error);
       throw error;
-
-    } finally {
-      if (conn) conn.release();
     }
   },
 
-  /**
-   * Update request status and assigned user
-   * @param {number} request_id - The ID of the travel request
-   * @param {number} assigned_to - The user ID to assign to
-   * @param {number} status_id - The new status ID
-   */
+  // Update request status and assigned user
   async updateRequestRouting(request_id, assigned_to, status_id) {
-    let conn;
-    const query = `
-      UPDATE Request
-      SET assigned_to = ?, request_status_id = ?
-      WHERE request_id = ?
-    `;
-
     try {
-      conn = await pool.getConnection();
-      const result = await conn.query(query, [assigned_to, status_id, request_id]);
+      const result = await prisma.request.updateMany({
+        where: { request_id },
+        data: {
+          assigned_to,
+          request_status_id: status_id,
+        },
+      });
       return result;
-
     } catch (error) {
       console.error('Error updating request routing:', error);
       throw error;
-
-    } finally {
-      if (conn) conn.release();
     }
   },
 };

@@ -3,7 +3,7 @@
  * Returns data for both the applicant and the assigned_to user.
  */
 
-import pool from "../../database/config/db.js";
+import { prisma } from "../../lib/prisma.js";
 
 /**
  * Fetch mail details for a travel request to send notification emails.
@@ -12,33 +12,22 @@ import pool from "../../database/config/db.js";
  * @throws {Error} If database query fails
  */
 const getMailDetails = async (requestId) => {
-  let conn;
-  const query = `
-    SELECT 
-      user_id,
-      assigned_to
-    FROM Request
-    WHERE request_id = ?
-  `;
-  try {
-    conn = await pool.getConnection();
-    const rows = await conn.query(query, [requestId]);
+  const request = await prisma.request.findUnique({
+    where: { request_id: Number(requestId) },
+    select: {
+      user_id: true,
+      assigned_to: true,
+    },
+  });
 
-    if (!rows || rows.length === 0) {
-      throw new Error('Request not found');
-    }
-
-    return {
-      applicantId: rows[0].user_id,
-      assignedToId: rows[0].assigned_to,
-    };
-  } catch (error) {
-    throw error;
-  } finally {
-    if (conn) {
-      conn.release();
-    }
+  if (!request) {
+    throw new Error('Request not found');
   }
+
+  return {
+    applicantId: request.user_id,
+    assignedToId: request.assigned_to,
+  };
 };
 
 export default getMailDetails;

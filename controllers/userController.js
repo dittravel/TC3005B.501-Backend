@@ -10,6 +10,7 @@
  * data and operations appropriate to their role and department.
  */
 import * as userService from '../services/userService.js';
+import { requestPasswordReset, resetPassword as resetPasswordService } from '../services/userService.js';
 import User from '../models/userModel.js';
 import { decrypt } from '../middleware/decryption.js';
 
@@ -89,6 +90,18 @@ export const login = async (req, res) => {
         secure: true,
         maxAge: 1000 * 60 * 60,
       })
+      .cookie("society_id", result.society_id?.toString() || "", {
+        sameSite: "Lax",
+        httpOnly: true,
+        secure: true,
+        maxAge: 1000 * 60 * 60,
+      })
+      .cookie("society_group_id", result.society_group_id?.toString() || "", {
+        sameSite: "Lax",
+        httpOnly: true,
+        secure: true,
+        maxAge: 1000 * 60 * 60,
+      })
       .json(result);
   } catch (error) {
     res.status(400).json({ error: error.message });
@@ -160,6 +173,7 @@ export const getTravelRequestById = async (req, res) => {
       },
       // Map all rows to routes array (one row per route)
       routes: requestData.map((row) => ({
+        route_id: row.route_id,
         router_index: row.router_index,
         origin_country: row.origin_country,
         origin_city: row.origin_city,
@@ -242,10 +256,36 @@ export const getSubstituteUsers = async (req, res) => {
       return res.status(400).json({ error: 'Invalid user ID format' });
     }
 
-    const users = await User.getUserDepartmentMembers(userId);
+    const users = await User.getUserDepartmentMembers(userId, req.user.society_id);
     return res.status(200).json(users);
   } catch (error) {
     console.error('Error retrieving department users:', error);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+// Request a password reset — sends a recovery email if the username exists
+export const forgotPassword = async (req, res) => {
+  try {
+    await requestPasswordReset(req.body.email);
+    // Always 200 — don't reveal whether the username exists
+    return res.status(200).json({ message: 'If an account with that username exists, a recovery email has been sent.' });
+  } catch (err) {
+    console.error('Error in forgotPassword controller:', err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+// Validate a reset token and set a new password
+export const resetPassword = async (req, res) => {
+  try {
+    await resetPasswordService(req.body.token, req.body.new_password);
+    return res.status(200).json({ message: 'Password updated successfully.' });
+  } catch (err) {
+    if (err.status === 400) {
+      return res.status(400).json({ error: err.message });
+    }
+    console.error('Error in resetPassword controller:', err);
     return res.status(500).json({ error: 'Internal server error' });
   }
 };

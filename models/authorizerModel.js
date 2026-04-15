@@ -6,7 +6,7 @@
  * travel requests.
  */
 
-import pool from '../database/config/db.js';
+import { prisma } from '../lib/prisma.js';
 
 const Authorizer = {
   /**
@@ -16,259 +16,169 @@ const Authorizer = {
    * @returns {Array} Array of pending requests assigned to the user
    */
   async getPendingRequests(user_id, limit = 0) {
-    let conn;
-    let query = `
-      SELECT 
-        r.request_id,
-        r.user_id,
-        u.user_name AS requester_name,
-        r.request_status_id,
-        rs.status AS request_status,
-        r.assigned_to,
-        r.authorization_level,
-        r.requested_fee,
-        r.notes,
-        r.creation_date,
-        r.last_mod_date,
-        c.country_name AS destination_country,
-        MIN(ro.beginning_date) AS beginning_date,
-        MAX(ro.ending_date) AS ending_date
-      FROM Request r
-      INNER JOIN User u ON r.user_id = u.user_id
-      INNER JOIN Request_status rs ON r.request_status_id = rs.request_status_id
-      LEFT JOIN Route_Request rr ON r.request_id = rr.request_id
-      LEFT JOIN Route ro ON rr.route_id = ro.route_id
-      LEFT JOIN Country c ON ro.id_destination_country = c.country_id
-      WHERE r.assigned_to = ? AND r.active = true
-      GROUP BY r.request_id, u.user_id, u.user_name, r.request_status_id, rs.status, c.country_name
-      ORDER BY r.creation_date ASC
-    `;
+    // Get pending requests assigned to a user, with related info
+    const requests = await prisma.request.findMany({
+      where: {
+        assigned_to: user_id,
+        active: true,
+      },
+      include: {
+        requester: { select: { user_name: true } },
+        Request_status: { select: { status: true } },
+        Route_Request: {
+          include: {
+            Route: {
+              include: {
+                destinationCountry: { select: { country_name: true } },
+              },
+            },
+          },
+        }
+      },
+      orderBy: { creation_date: 'asc' },
+      ...(limit > 0 ? { take: limit } : {}),
+    });
 
-    if (limit > 0) {
-      query += ` LIMIT ?`;
-    }
-
-    try {
-      conn = await pool.getConnection();
-      const params = limit > 0 ? [user_id, limit] : [user_id];
-      const rows = await conn.query(query, params);
-      return rows;
-
-    } catch (error) {
-      console.error('Error getting pending requests:', error);
-      throw error;
-
-    } finally {
-      if (conn) conn.release();
-    }
+    // Aggregate beginning/ending dates and destination_country
+    return requests.map(r => {
+      const allRoutes = r.Route_Request?.map(rr => rr.Route).filter(route => !!route) || [];
+      const beginning_date = allRoutes.length > 0 ? allRoutes.reduce((min, route) => route.beginning_date && (!min || route.beginning_date < min) ? route.beginning_date : min, null) : null;
+      const ending_date = allRoutes.length > 0 ? allRoutes.reduce((max, route) => route.ending_date && (!max || route.ending_date > max) ? route.ending_date : max, null) : null;
+      const destination_country = allRoutes.length > 0 && allRoutes[0].destinationCountry ? allRoutes[0].destinationCountry.country_name : null;
+      return {
+        request_id: r.request_id,
+        user_id: r.user_id,
+        requester_name: r.requester?.user_name ?? null,
+        request_status_id: r.request_status_id,
+        request_status: r.Request_status?.status ?? null,
+        assigned_to: r.assigned_to,
+        authorization_level: r.authorization_level,
+        requested_fee: r.requested_fee,
+        notes: r.notes,
+        creation_date: r.creation_date,
+        last_mod_date: r.last_mod_date,
+        destination_country,
+        beginning_date,
+        ending_date,
+      };
+    });
   },
 
-  // Legacy getAlerts method - kept for backward compatibility but uses new hierarchical logic
-  async getAlerts(user_id, status_id, n) {
-    let conn;
-    const query = `
-      SELECT 
-        Request.request_id,
-        User.user_name,
-        Request.request_id as alert_id,
-        Request_status.status as message_text,
-        DATE(Request.creation_date) AS alert_date,
-        TIME(Request.creation_date) AS alert_time
-      FROM Request
-      INNER JOIN User ON Request.user_id = User.user_id
-      INNER JOIN Request_status ON Request.request_status_id = Request_status.request_status_id
-      WHERE Request.assigned_to = ? AND Request.active = true
-      ORDER BY Request.creation_date DESC
-      ${n > 0 ? 'LIMIT ?' : ''}
-    `;
-
-    try {
-      conn = await pool.getConnection();
-      const params = n > 0 ? [user_id, n] : [user_id];
-      const rows = await conn.query(query, params);
-      return rows;
-
-    } catch (error) {
-      console.error('Error getting alerts:', error);
-      throw error;
-
-    } finally {
-      if (conn) conn.release();
-    }
+  // getAlerts: fetches alerts from the Alert table, including the real message and request info
+  async getAlerts(user_id, status_id = null, n = 0) {
+    // Fetch alerts related to requests assigned to the user
+    const alerts = await prisma.alert.findMany({
+      where: {
+        Request: {
+          assigned_to: user_id,
+          active: true,
+          ...(status_id ? { request_status_id: status_id } : {}),
+        },
+      },
+      include: {
+        AlertMessage: true,
+        Request: {
+          select: {
+            request_id: true,
+            creation_date: true,
+            requester: { select: { user_name: true } },
+          },
+        },
+      },
+      orderBy: { alert_date: 'desc' },
+      ...(n > 0 ? { take: n } : {}),
+    });
+    return alerts.map(a => ({
+      alert_id: a.alert_id,
+      request_id: a.request_id,
+      user_name: a.Request?.requester?.user_name ?? null,
+      message_text: a.AlertMessage?.message_text ?? null,
+      alert_date: a.alert_date ? a.alert_date.toISOString().slice(0, 10) : null,
+      alert_time: a.alert_date ? a.alert_date.toISOString().slice(11, 19) : null,
+    }));
   },
   
   // Get user role by user ID
   async getUserRole(user_id) {
-    let conn;
-    const query = `
-      SELECT role_id FROM User WHERE user_id = ?
-    `;
-
-    try {
-      conn = await pool.getConnection();
-      const rows = await conn.query(query, [user_id]);
-      if (rows.length > 0) {
-        return rows[0].role_id;
-      } else {
-        return null;
-      }
-
-    } catch (error) {
-      console.error('Error getting user role:', error);
-      throw error;
-
-    } finally {
-      if (conn) conn.release();
-    }
+    const user = await prisma.user.findUnique({
+      where: { user_id },
+      select: { role_id: true },
+    });
+    return user ? user.role_id : null;
   },
   
   async authorizeTravelRequest(request_id, status_id) {
-    let conn;
-    const query = `
-      UPDATE Request
-      SET request_status_id = ?
-      WHERE request_id = ?
-    `;
-
-    try {
-      conn = await pool.getConnection();
-      const rows = await conn.query(query, [status_id, request_id]);
-      return rows;
-
-    } catch (error) {
-      console.error('Error getting completed requests:', error);
-      throw error;
-
-    } finally {
-      if (conn) {
-        conn.release();
-      }
-    }
+    return prisma.request.updateMany({
+      where: { request_id },
+      data: { request_status_id: status_id },
+    });
   },
   
   // Decline a travel request
   async declineTravelRequest(request_id, connection = null) {
-    let conn;
-    const query = `
-      UPDATE Request
-      SET request_status_id = 9
-      WHERE request_id = ?
-    `;
-
-    try {
-      conn = connection || (await pool.getConnection());
-      const rows = await conn.query(query, [request_id]);
-      return true;
-
-    } catch (error) {
-      console.error('Error getting completed requests:', error);
-      throw error;
-      
-    } finally {
-      if (conn) {
-        if (!connection) conn.release();
-      }
-    }
+    await prisma.request.updateMany({
+      where: { request_id },
+      data: { request_status_id: 9 },
+    });
+    return true;
   },
 
   // Get request details with assigned_to user
   async getRequestWithDetails(request_id) {
-    let conn;
-    const query = `
-      SELECT 
-        request_id,
-        user_id,
-        request_status_id,
-        assigned_to,
-        authorization_level,
-        authorization_rule_id,
-        notes,
-        requested_fee,
-        imposed_fee,
-        request_days,
-        creation_date,
-        last_mod_date,
-        active
-      FROM Request
-      WHERE request_id = ?
-    `;
-
-    try {
-      conn = await pool.getConnection();
-      const rows = await conn.query(query, [request_id]);
-      return rows.length > 0 ? rows[0] : null;
-
-    } catch (error) {
-      console.error('Error getting request details:', error);
-      throw error;
-
-    } finally {
-      if (conn) conn.release();
-    }
+    return prisma.request.findUnique({
+      where: { request_id },
+      select: {
+        request_id: true,
+        user_id: true,
+        request_status_id: true,
+        assigned_to: true,
+        authorization_level: true,
+        authorization_rule_id: true,
+        notes: true,
+        requested_fee: true,
+        imposed_fee: true,
+        request_days: true,
+        creation_date: true,
+        last_mod_date: true,
+        active: true,
+      },
+    });
   },
 
   // Get user with boss_id
   async getUserWithBoss(user_id) {
-    let conn;
-    const query = `
-      SELECT 
-        user_id,
-        role_id,
-        department_id,
-        boss_id,
-        user_name
-      FROM User
-      WHERE user_id = ?
-    `;
-
-    try {
-      conn = await pool.getConnection();
-      const rows = await conn.query(query, [user_id]);
-      return rows.length > 0 ? rows[0] : null;
-
-    } catch (error) {
-      console.error('Error getting user with boss:', error);
-      throw error;
-
-    } finally {
-      if (conn) conn.release();
-    }
+    return prisma.user.findUnique({
+      where: { user_id },
+      select: {
+        user_id: true,
+        role_id: true,
+        department_id: true,
+        boss_id: true,
+        user_name: true,
+        Society: {
+          select: {
+            society_group_id: true,
+          },
+        },
+      },
+    }).then(user => user ? {
+      ...user,
+      society_group_id: user.Society?.society_group_id || null,
+      Society: undefined,
+    } : null);
   },
 
   // Update request routing
   async updateRequestRouting(request_id, assigned_to, authorization_level, status_id = null, connection = null) {
-    let conn;
-    let query;
-    let params;
-
+    // Update request routing, optionally status
+    const data = { assigned_to, authorization_level };
     if (status_id !== null) {
-      query = `
-        UPDATE Request
-        SET assigned_to = ?, authorization_level = ?, request_status_id = ?
-        WHERE request_id = ?
-      `;
-      params = [assigned_to, authorization_level, status_id, request_id];
-    } else {
-      query = `
-        UPDATE Request
-        SET assigned_to = ?, authorization_level = ?
-        WHERE request_id = ?
-      `;
-      params = [assigned_to, authorization_level, request_id];
+      data.request_status_id = status_id;
     }
-
-    try {
-      conn = connection || (await pool.getConnection());
-      const result = await conn.query(query, params);
-      return result;
-
-    } catch (error) {
-      console.error('Error updating request routing:', error);
-      throw error;
-
-    } finally {
-      if (!connection && conn) conn.release();
-    }
+    return prisma.request.updateMany({
+      where: { request_id },
+      data,
+    });
   },
 
   /**
@@ -277,28 +187,19 @@ const Authorizer = {
    * @returns {boolean} true if any route needs flight or hotel, false otherwise
    */
   async requiresTravelAgencyServices(request_id) {
-    let conn;
-    const query = `
-      SELECT COUNT(*) as services_needed
-      FROM Route_Request rr
-      INNER JOIN Route r ON rr.route_id = r.route_id
-      WHERE rr.request_id = ? AND (r.plane_needed = true OR r.hotel_needed = true)
-    `;
-
-    try {
-      conn = await pool.getConnection();
-      const rows = await conn.query(query, [request_id]);
-      
-      // If any route needs plane or hotel, return true
-      return rows.length > 0 && rows[0].services_needed > 0;
-
-    } catch (error) {
-      console.error('Error checking if trip requires travel agency services:', error);
-      throw error;
-
-    } finally {
-      if (conn) conn.release();
-    }
+    // Check if any route for this request needs plane or hotel
+    const count = await prisma.route_Request.count({
+      where: {
+        request_id,
+        Route: {
+          OR: [
+            { plane_needed: true },
+            { hotel_needed: true },
+          ],
+        },
+      },
+    });
+    return count > 0;
   },
 };
 

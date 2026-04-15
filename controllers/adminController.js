@@ -13,11 +13,9 @@ import * as adminService from "../services/adminService.js";
 import Admin from "../models/adminModel.js";
 import userModel from "../models/userModel.js";
 import AuditLogService from "../services/auditLogService.js";
-import pool from "../database/config/db.js";
 
-// XML data parsing
-import { parseXmlData } from '../services/xmlParserService.js';
-import { extractExternalData } from '../services/orgParserService.js';
+// Data parsing (JSON)
+import { extractExternalDataFromJSON } from '../services/orgParserService.js';
 
 /**
 * Get list of all users
@@ -27,7 +25,12 @@ import { extractExternalData } from '../services/orgParserService.js';
 */
 export const getUserList = async (req, res) => {
   try {
-    const users = await adminService.getUserList();
+    // If user is Administrador with society_group_id, get all users in the group
+    // Otherwise, get users from their specific society
+    const filterBy = req.user.society_group_id 
+      ? { society_group_id: req.user.society_group_id } 
+      : { society_id: req.user.society_id };
+    const users = await adminService.getUserList(filterBy);
     if (!users) {
       return res.status(404).json({error: "No users found"});
     }
@@ -71,12 +74,9 @@ export const createMultipleUsers = async (req, res) => {
 * @returns {Object} JSON response with created user data
 */
 export const createUser = async (req, res) => {
-  let connection;
   try {
     const userData = req.body;
-    connection = await pool.getConnection();
-    await connection.beginTransaction();
-    const createdUser = await adminService.createUser(userData, { connection });
+    const createdUser = await adminService.createUser(userData);
     await AuditLogService.recordAuditLogFromRequest(req, {
       actionType: 'USER_CREATED',
       entityType: 'User',
@@ -86,26 +86,19 @@ export const createUser = async (req, res) => {
         role_id: createdUser.role_id,
         department_id: createdUser.department_id,
       },
-    }, { connection });
-    await connection.commit();
+    });
     return res.status(201).json({ message: 'User created succesfully'});
   } catch (error) {
-    if (connection) await connection.rollback();
     console.error('Error creating user:', error.message);
     return res.status(500).json({ error: 'Internal server error' });
-  } finally {
-    if (connection) connection.release();
   }
 }
 
 // Update existing user information
 export const updateUser = async (req, res) => {
-  let connection;
   try {
     const userId = req.params.user_id;
-    connection = await pool.getConnection();
-    await connection.beginTransaction();
-    const result = await adminService.updateUserData(userId, req.body, { connection });
+    const result = await adminService.updateUserData(userId, req.body);
     if (result.updated_fields) {
       await AuditLogService.recordAuditLogFromRequest(req, {
         actionType: 'USER_UPDATED',
@@ -114,23 +107,18 @@ export const updateUser = async (req, res) => {
         metadata: {
           updated_fields: result.updated_fields,
         },
-      }, { connection });
+      });
     }
-    await connection.commit();
     return res.status(200).json(result);
     
   } catch (error) {
-    if (connection) await connection.rollback();
     console.error('An error occurred updating the user:', error);
     return res.status(error.status || 500).json({ error: error.message || 'Internal server error' });
-  } finally {
-    if (connection) connection.release();
   }
 };
 
 // Deactivate user account (soft delete)
 export const deactivateUser = async (req, res) => {
-  let connection;
   try {
     const user_id = parseInt(req.params.user_id);
     
@@ -139,9 +127,7 @@ export const deactivateUser = async (req, res) => {
       return res.status(404).json({error: "User not found"});
     }
     
-    connection = await pool.getConnection();
-    await connection.beginTransaction();
-    const result = await Admin.deactivateUserById(user_id, connection);
+    const result = await Admin.deactivateUserById(user_id);
     if (result) {
       await AuditLogService.recordAuditLogFromRequest(req, {
         actionType: 'USER_DEACTIVATED',
@@ -150,9 +136,8 @@ export const deactivateUser = async (req, res) => {
         metadata: {
           active: false,
         },
-      }, { connection });
+      });
     }
-    await connection.commit();
     
     return res.status(200).json({
       message: "User successfully deactivated",
@@ -160,20 +145,17 @@ export const deactivateUser = async (req, res) => {
       active: false
     });
   } catch (err) {
-    if (connection) await connection.rollback();
     console.error("Error in deactivateUser:", err);
     return res.status(500).json({
       error: "Unexpected error while deactivating user"
     });
-  } finally {
-    if (connection) connection.release();
   }
 }
 
 // Get list of all departments
 export const getDepartments = async (req, res) => {
   try {
-    const departments = await adminService.getDepartments();
+    const departments = await adminService.getDepartments(req.user.society_group_id);
     res.status(200).json(departments);
   } catch (error) {
     console.error('Error getting departments:', error.message);
@@ -184,7 +166,7 @@ export const getDepartments = async (req, res) => {
 // Get list of all roles
 export const getRoles = async (req, res) => {
   try {
-    const roles = await adminService.getRoles();
+    const roles = await adminService.getRoles(req.user.society_group_id);
     res.status(200).json(roles);
   } catch (error) {
     console.error('Error getting roles:', error.message);
@@ -210,7 +192,7 @@ export const getAuthRuleById = async (req, res) => {
 // Get list of all auth rules
 export const getAuthRules = async (req, res) => {
   try {
-    const rules = await adminService.getAuthRules();
+    const rules = await adminService.getAuthRules(req.user.society_group_id);
     console.log('Retrieved auth rules:', rules);
     res.status(200).json(rules);
   } catch (error) {
@@ -223,7 +205,7 @@ export const getAuthRules = async (req, res) => {
 export const createAuthRule = async (req, res) => {
   try {
     const ruleData = req.body;
-    await adminService.createAuthRule(ruleData);
+    await adminService.createAuthRule(ruleData, req.user.society_group_id);
     return res.status(201).json({ success: true, message: 'Authorization rule created successfully' });
   } catch (error) {
     console.error('Error creating auth rule:', error.message);
@@ -235,7 +217,7 @@ export const createAuthRule = async (req, res) => {
 export const updateAuthRule = async (req, res) => {
   try {
     const ruleId = req.params.rule_id;
-    const result = await adminService.updateAuthRule(ruleId, req.body);
+    const result = await adminService.updateAuthRule(ruleId, req.body, req.user.society_group_id);
     return res.status(200).json(result);
   } catch (error) {
     console.error('Error updating auth rule:', error.message);
@@ -247,7 +229,7 @@ export const updateAuthRule = async (req, res) => {
 export const deleteAuthRule = async (req, res) => {
   try {
     const ruleId = req.params.rule_id;
-    await adminService.deleteAuthRule(ruleId);
+    await adminService.deleteAuthRule(ruleId, req.user.society_group_id);
     return res.status(200).json({ message: 'Authorization rule deleted successfully' });
   } catch (error) {
     console.error('Error deleting auth rule:', error.message);
@@ -267,29 +249,52 @@ export const getBossList = async (req, res) => {
   }
 };
 
-// Import data from XML file
+// Import data from JSON file
 export const importData = async (req, res) => {
   if (!req.file) {
-    return res.status(400).json({ error: 'No XML file uploaded' });
+    return res.status(400).json({ error: 'No JSON file uploaded' });
   }
 
   if (!req.file.buffer) {
     return res.status(400).json({ error: 'File buffer not available - upload failed' });
   }
 
-  try {
-    // Convert buffer to UTF-8 string
-    const xmlContent = req.file.buffer.toString('utf-8');
+  // Verify that admin has a society_group_id
+  if (!req.user.society_group_id) {
+    return res.status(403).json({ error: 'User does not have a valid society group assigned' });
+  }
 
-    if (!xmlContent || xmlContent.trim() === '') {
-      return res.status(400).json({ error: 'XML file is empty' });
+  try {
+    const fileContent = req.file.buffer.toString('utf-8');
+
+    if (!fileContent || fileContent.trim() === '') {
+      return res.status(400).json({ error: 'File is empty' });
     }
 
-    const xmlData = await parseXmlData(xmlContent);
-    const xmlObj = await extractExternalData(xmlData);
+    // Parse as JSON
+    let jsonObj;
+    try {
+      jsonObj = JSON.parse(fileContent);
+    } catch (parseError) {
+      return res.status(400).json({ error: 'Invalid JSON format: ' + parseError.message });
+    }
+
+    // Extract data from JSON with admin's society_group_id
+    const extractedData = await extractExternalDataFromJSON(
+      jsonObj,
+      req.user.society_group_id
+    );
+
+    // Check if there were parsing errors
+    if (extractedData.errors && extractedData.errors.length > 0) {
+      return res.status(400).json({
+        error: 'Data contains parsing errors',
+        errors: extractedData.errors
+      });
+    }
 
     // Process the extracted data and store it in the database
-    const result = await adminService.createDataFromXml(xmlObj);
+    const result = await adminService.createDataFromJson(extractedData);
 
     res.status(200).json(result);
   }

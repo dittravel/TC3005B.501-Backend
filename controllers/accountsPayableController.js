@@ -14,7 +14,7 @@ import AccountsPayable from "../models/accountsPayableModel.js";
 import AccountsPayableService from '../services/accountsPayableService.js';
 import RequestService from '../services/requestService.js';
 import AuditLogService from "../services/auditLogService.js";
-import pool from "../database/config/db.js";
+import ReimbursementPolicyService from "../services/reimbursementPolicyService.js";
 import { sendEmails } from "../services/email/emailService.js";
 
 // Process authorized travel requests and handle fee assignment
@@ -22,7 +22,6 @@ import { sendEmails } from "../services/email/emailService.js";
 const attendTravelRequest = async (req, res) => {
   const requestId = req.params.request_id;
   const imposedFee = req.body.imposed_fee;
-  let connection;
   
   try {
     // Check if request exists
@@ -37,10 +36,7 @@ const attendTravelRequest = async (req, res) => {
     // Status 3 (Cotización del Viaje) -> Status 5 (Comprobación)
     if (current_status == 3){
       const new_status = 5;  // Transition to receipts validation
-      
-      connection = await pool.getConnection();
-      await connection.beginTransaction();
-      
+
       // Use RequestService to update status, fee, and assign back to applicant
       await RequestService.updateRequest(
         requestId,
@@ -48,8 +44,7 @@ const attendTravelRequest = async (req, res) => {
           status_id: new_status,
           imposed_fee: imposedFee,
           assigned_to: request.user_id
-        },
-        { connection }
+        }
       );
       
       await AuditLogService.recordAuditLogFromRequest(req, {
@@ -60,8 +55,7 @@ const attendTravelRequest = async (req, res) => {
           imposed_fee: imposedFee,
           new_status,
         },
-      }, { connection });
-      await connection.commit();
+      });
       try {
         // Send email notifications
         await sendEmails(requestId);
@@ -79,25 +73,17 @@ const attendTravelRequest = async (req, res) => {
       res.status(404).json({ error: "This request cannot be attended by accounts payable" });
     }
   } catch (err) {
-    if (connection) await connection.rollback();
     console.error("Error in attendTravelRequest controller:", err);
     res.status(500).json({ error: "Internal Server Error" });
-  } finally {
-    if (connection) connection.release();
   }
 };
 
 // Validate all receipts for a travel request and update status
 const validateReceiptsHandler = async (req, res) => {
   const requestId = req.params.request_id;
-  let connection;
   
   try {
-    connection = await pool.getConnection();
-    await connection.beginTransaction();
-    const result = await AccountsPayableService.validateReceiptsAndUpdateStatus(requestId, {
-      connection,
-    });
+    const result = await AccountsPayableService.validateReceiptsAndUpdateStatus(requestId);
     if (result.updatedStatus !== null) {
       await AuditLogService.recordAuditLogFromRequest(req, {
         actionType: 'REQUEST_RECEIPTS_VALIDATED',
@@ -107,9 +93,8 @@ const validateReceiptsHandler = async (req, res) => {
           updated_status: result.updatedStatus,
           message: result.message,
         },
-      }, { connection });
+      });
     }
-    await connection.commit();
     try {
       // Send email notifications
       await sendEmails(requestId);
@@ -118,11 +103,8 @@ const validateReceiptsHandler = async (req, res) => {
     }
     res.status(200).json(result);
   } catch (err) {
-    if (connection) await connection.rollback();
     console.error('Error in validateReceiptsHandler:', err);
     res.status(500).json({ error: 'Internal server error' });
-  } finally {
-    if (connection) connection.release();
   }
 };
 
@@ -130,11 +112,10 @@ const validateReceiptsHandler = async (req, res) => {
 const validateReceipt = async (req, res) => {
   const receiptId = req.params.receipt_id;
   const approval = req.body.approval;
-  let connection;
-  
-  if (approval !== 0 && approval !== 1) {
+  // Only accept 'Aprobado' or 'Rechazado' as valid values
+  if (approval !== "Aprobado" && approval !== "Rechazado") {
     return res.status(400).json({
-      error: "Invalid input (only values 0 or 1 accepted for approval)"
+      error: "Invalid input (only values 'Aprobado' or 'Rechazado' accepted for approval)"
     });
   }
   
@@ -149,27 +130,44 @@ const validateReceipt = async (req, res) => {
     if(receipt.validation != "Pendiente"){
       return res.status(404).json({ error: "Receipt already approved or rejected" });
     }
-    
-    /**
-     * Since the "rejected" state is 3 and the "approved" state
-     * is 2, by subtracting the approval value (1 or 0) we can send
-     * the desired value for the validation (3 for rejected or 2 for
-     * approved 
-     */
-    connection = await pool.getConnection();
-    await connection.beginTransaction();
-    const updated = await AccountsPayable.validateReceipt(receiptId, 3 - approval, connection);
-    
-    if(!updated){
-      await connection.rollback();
-      connection.release();
-      connection = null;
-      return res
-      .status(400)
-      .json({ error: "Failed to update travel request status" });
+
+    // Enforce reimbursement policy before approving
+    let policyWarnings = null;
+    if (approval === "Aprobado") {
+      try {
+        const evaluation = await ReimbursementPolicyService.evaluateRequest(
+          receipt.request_id,
+          req.user
+        );
+        const receiptEval = evaluation.receipts.find(r => r.receipt_id === Number(receiptId));
+        if (receiptEval) {
+          if (receiptEval.evaluation_status === 'REJECTED') {
+            return res.status(422).json({
+              error: 'Receipt cannot be approved: policy violations detected',
+              violations: receiptEval.violations,
+            });
+          }
+          if (receiptEval.evaluation_status === 'WARNING') {
+            policyWarnings = receiptEval.violations;
+          }
+        }
+      } catch (policyError) {
+        // 404 means no active policy is configured for this department — allow approval
+        if (!policyError.status || policyError.status !== 404) {
+          throw policyError;
+        }
+      }
     }
-    
-    if (approval == 0){
+
+  const updated = await AccountsPayable.validateReceipt(receiptId, approval);
+
+    if(!updated){
+      return res
+        .status(400)
+        .json({ error: "Failed to update travel request status" });
+    }
+
+    if (approval === "Rechazado"){
       await AuditLogService.recordAuditLogFromRequest(req, {
         actionType: 'RECEIPT_REJECTED',
         entityType: 'Receipt',
@@ -177,8 +175,7 @@ const validateReceipt = async (req, res) => {
         metadata: {
           new_status: 'Rechazado',
         },
-      }, { connection });
-      await connection.commit();
+      });
       return res.status(200).json({
         summary: "Receipt rejected",
         value: {
@@ -188,32 +185,51 @@ const validateReceipt = async (req, res) => {
         }
       });
     }
-    else if (approval == 1){
+    else if (approval === "Aprobado"){
       await AuditLogService.recordAuditLogFromRequest(req, {
         actionType: 'RECEIPT_APPROVED',
         entityType: 'Receipt',
         entityId: receiptId,
         metadata: {
           new_status: 'Aprobado',
+          policy_warnings: policyWarnings,
         },
-      }, { connection });
-      await connection.commit();
+      });
       return res.status(200).json({
         summary: "Receipt approved",
         value: {
           receipt_id: receiptId,
           new_status: "Aprobado",
-          message: "Receipt has been approved." 
+          message: "Receipt has been approved.",
+          ...(policyWarnings && { policy_warnings: policyWarnings }),
         }
       });
     }
     
   } catch (err) {
-    if (connection) await connection.rollback();
     console.error("Error in attendTravelRequest controller:", err);
     res.status(500).json({ error: "Internal Server Error" });
-  } finally {
-    if (connection) connection.release();
+  }
+};
+
+// Search receipts across requests by applicant user_id, date range, and/or validation status
+const searchReceipts = async (req, res) => {
+  const { user_id, start_date, end_date, validation, limit, offset } = req.query;
+
+  try {
+    const result = await AccountsPayable.searchReceipts({
+      userId: user_id,
+      startDate: start_date,
+      endDate: end_date,
+      validation,
+      societyId: req.user.society_id,
+      limit,
+      offset,
+    });
+    return res.status(200).json(result);
+  } catch (err) {
+    console.error('Error in searchReceipts controller:', err);
+    res.status(500).json({ error: 'Internal Server Error' });
   }
 };
 
@@ -254,4 +270,5 @@ export default {
   validateReceiptsHandler,
   validateReceipt,
   getExpenseValidations,
+  searchReceipts,
 };

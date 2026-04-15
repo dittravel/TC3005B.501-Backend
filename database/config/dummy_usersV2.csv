@@ -1,0 +1,7 @@
+role_name,department_name,user_name,password,workstation,email,phone_number,boss_id
+Autorizador,Finanzas,laura.flores,123,WS104,laura.flores@empresa.com,555-1004,
+Autorizador,Finanzas,diego.hernandez,123,WS105,diego.hernandez@empresa.com,555-1005,1
+Solicitante,Finanzas,andres.gomez,123,WS101,andres.gomez@empresa.com,555-1001,2
+Agencia de viajes,Finanzas,paula.martinez,123,WS102,paula.martinez@empresa.com,555-1002,
+Cuentas por pagar,Finanzas,carlos.ramos,123,WS103,carlos.ramos@empresa.com,555-1003,
+Administrador,Admin,admin,123,WS000,admin@empresa.com,555-0000,
