@@ -12,6 +12,8 @@ const duffel = new Duffel({
   token: process.env.DUFFEL_TOKEN
 });
 
+const DEFAULT_FLIGHT_SEARCH_PAGE_SIZE = Number.parseInt(process.env.FLIGHT_SEARCH_PAGE_SIZE, 10) || 10;
+
 /**
  * Search available flight offers from Duffel API
  * Supports one-way and round-trip searches with cabin class preferences.
@@ -34,12 +36,21 @@ export const searchFlights = async ({
   returnDate,
   tripType,
   cabinClass = "economy",
-  passengerName
+  passengerName,
+  page = 1,
+  pageSize,
+  limit,
 }) => {
   try {
     if (!process.env.DUFFEL_TOKEN) {
       throw new Error("DUFFEL_TOKEN is not configured");
     }
+
+    const normalizedPage = Number.isInteger(page) && page > 0 ? page : 1;
+    const requestedPageSize = pageSize ?? limit ?? DEFAULT_FLIGHT_SEARCH_PAGE_SIZE;
+    const normalizedPageSize = Number.isInteger(requestedPageSize) && requestedPageSize > 0
+      ? requestedPageSize
+      : DEFAULT_FLIGHT_SEARCH_PAGE_SIZE;
 
     // Construct Duffel API slices based on trip type
     const slices = tripType === "round"
@@ -59,7 +70,7 @@ export const searchFlights = async ({
     });
 
     // Transform Duffel API response to simplified offer format
-    const offers = response.data.offers.map(offer => ({
+    const allOffers = response.data.offers.map(offer => ({
       id: offer.id,
       owner: offer.owner?.name || null,
       price: offer.total_amount,
@@ -79,21 +90,39 @@ export const searchFlights = async ({
       )
     }));
 
+    const totalOffers = allOffers.length;
+    const totalPages = Math.max(1, Math.ceil(totalOffers / normalizedPageSize));
+    const safePage = Math.min(normalizedPage, totalPages);
+    const startIndex = (safePage - 1) * normalizedPageSize;
+    const paginatedOffers = allOffers.slice(startIndex, startIndex + normalizedPageSize);
+
     return {
       passenger: {
         name: passengerName || "Unknown passenger",
         type: "adult"
       },
       search: {
+        tripType,
         origin,
         destination,
         departureDate,
         returnDate: tripType === "round" ? returnDate : null,
-        tripType,
-        cabinClass
+        cabinClass,
+        page: safePage,
+        pageSize: normalizedPageSize
       },
-      totalOffers: offers.length,
-      offers
+      pagination: {
+        page: safePage,
+        pageSize: normalizedPageSize,
+        totalOffers,
+        totalPages,
+        hasNextPage: safePage < totalPages,
+        hasPreviousPage: safePage > 1,
+        nextPage: safePage < totalPages ? safePage + 1 : null,
+        previousPage: safePage > 1 ? safePage - 1 : null,
+      },
+      totalOffers,
+      offers: paginatedOffers
     };
 
   } catch (error) {

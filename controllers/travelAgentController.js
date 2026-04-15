@@ -109,6 +109,8 @@ const completeServiceAssignment = async (req, res) => {
  * @param {string} req.body.tripType - Trip type: 'one_way' or 'round'
  * @param {string} [req.body.returnDate] - Return date for round trips
  * @param {string} [req.body.cabinClass] - Cabin class preference (default: economy)
+ * @param {number} [req.body.page=1] - Page number for pagination
+ * @param {number} [req.body.pageSize] - Number of offers per page
  * @param {Object} res - Express response object
  * @returns {void} Sends JSON with offers and search metadata or error
  */
@@ -121,12 +123,14 @@ const searchFlightOffers = async (req, res) => {
     }
 
     const {
+      tripType,
       origin,
       destination,
       departureDate,
-      tripType,
       returnDate,
-      cabinClass
+      cabinClass,
+      page,
+      pageSize,
     } = req.body;
 
     const userData = await getUserById(userId);
@@ -139,17 +143,9 @@ const searchFlightOffers = async (req, res) => {
       returnDate,
       tripType,
       cabinClass,
-      passengerName
-    });
-
-    console.log("Duffel flight search completed", {
-      userId,
       passengerName,
-      origin,
-      destination,
-      tripType,
-      cabinClass,
-      totalOffers: offersResult.totalOffers
+      page,
+      pageSize
     });
 
     return res.status(200).json(offersResult);
