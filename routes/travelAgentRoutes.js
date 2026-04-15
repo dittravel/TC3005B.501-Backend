@@ -8,8 +8,6 @@
 import express from "express";
 import travelAgentController from "../controllers/travelAgentController.js";
 import { validateId, validateInputs, validateFlightSearch } from "../middleware/validation.js";
-import { authenticateToken, authorizeRole } from "../middleware/auth.js";
-import { validateId, validateInputs } from "../middleware/validation.js";
 import { authenticateToken, authorizeRole, validateSocietyAccess } from "../middleware/auth.js";
 import { generalRateLimiter } from "../middleware/rateLimiters.js";
 
