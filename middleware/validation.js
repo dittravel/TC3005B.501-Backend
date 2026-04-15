@@ -766,6 +766,66 @@ export const validateAuditLogQuery = [
     .withMessage('offset must be a non-negative integer'),
 ];
 
+/**
+ * Validate Duffel flight search request payload
+ * Ensures required fields are present, properly formatted, and logically consistent.
+ * Validates IATA codes, date formats, and trip type constraints.
+ */
+export const validateFlightSearch = [
+  body('tripType')
+    .isIn(['one_way', 'round'])
+    .withMessage('tripType must be "one_way" or "round"'),
+  body('returnDate')
+    .optional({ nullable: true })
+    .isISO8601({ strict: true, strictSeparator: true })
+    .withMessage('returnDate must be in YYYY-MM-DD format'),
+  body('origin')
+    .isString()
+    .trim()
+    .isLength({ min: 3, max: 3 })
+    .matches(/^[A-Za-z]{3}$/)
+    .withMessage('origin must be a 3-letter IATA code (e.g., MEX, JFK)'),
+  body('destination')
+    .isString()
+    .trim()
+    .isLength({ min: 3, max: 3 })
+    .matches(/^[A-Za-z]{3}$/)
+    .withMessage('destination must be a 3-letter IATA code (e.g., CUN, ATL)'),
+  body('departureDate')
+    .isISO8601({ strict: true, strictSeparator: true })
+    .withMessage('departureDate must be in YYYY-MM-DD format'),
+  body('cabinClass')
+    .optional()
+    .isIn(['economy', 'premium_economy', 'business', 'first'])
+    .withMessage('cabinClass must be economy, premium_economy, business, or first'),
+  body('page')
+    .optional()
+    .isInt({ min: 1 })
+    .toInt()
+    .withMessage('page must be an integer greater than 0'),
+  body('pageSize')
+    .optional()
+    .isInt({ min: 1, max: 50 })
+    .toInt()
+    .withMessage('pageSize must be an integer between 1 and 50'),
+  // Custom validation: ensure round trips have return date and one-way trips do not
+  body().custom((value) => {
+    if (!value || !value.tripType) {
+      return true;
+    }
+
+    if (value.tripType === 'round' && !value.returnDate) {
+      throw new Error('returnDate is required when tripType is "round"');
+    }
+
+    if (value.tripType === 'one_way' && value.returnDate !== undefined && value.returnDate !== null && value.returnDate !== '') {
+      throw new Error('returnDate must not be sent when tripType is "one_way"');
+    }
+
+    return true;
+  })
+];
+
 // Validate forgot-password request body
 export const validateForgotPassword = [
   body('email')
@@ -837,6 +897,7 @@ export default {
   validateOutOfOffice,
   validateReimbursementPolicyPayload,
   validateERPEmployeeQuery,
-  validateAuditLogQuery
+  validateAuditLogQuery,
+  validateFlightSearch
 };
 

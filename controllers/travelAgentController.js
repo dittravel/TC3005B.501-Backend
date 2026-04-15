@@ -1,20 +1,29 @@
 /**
-* Travel Agent Controller
-* 
-* This module handles business logic and booking operations for the
-* "Agencia de viajes" role. It manages travel booking, reservation management,
-* hotel and flight arrangements, and communication with external travel providers
-* for approved business travel requests.
-* 
-* Role-based access control ensures only authorized travel agency personnel
-* can access assigned travel requests and update booking information.
-*/
+ * Travel Agent Controller
+ *
+ * This module handles business logic and booking operations for the
+ * "Agencia de viajes" role. It manages travel booking, reservation management,
+ * hotel and flight arrangements, and communication with external travel providers
+ * for approved business travel requests.
+ *
+ * Role-based access control ensures only authorized travel agency personnel
+ * can access assigned travel requests and update booking information.
+ */
 
 import TravelAgent from "../models/travelAgentModel.js";
 import TravelAgentService from "../services/travelAgentService.js";
+import { searchFlights } from "../services/travelAgency/flightService.js";
+import { getUserById } from "../services/userService.js";
 import { sendEmails } from "../services/email/emailService.js";
 
-// Process travel requests requiring hotel/flight arrangements
+/**
+ * Attend a travel request and update its status
+ * Updates the travel request status when flight/hotel arrangements are needed.
+ *
+ * @param {Object} req - Express request object with request_id in params
+ * @param {Object} res - Express response object
+ * @returns {void} Sends JSON response with updated status or error
+ */
 const attendTravelRequest = async (req, res) => {
   const requestId = req.params.request_id;
   
@@ -50,28 +59,32 @@ const attendTravelRequest = async (req, res) => {
 
 /**
  * Complete service assignment and route to Accounts Payable for quoting
- * Handles transition from status 4 (Atención Agencia) to status 5 (Cotización)
+ * Handles transition from status 4 (Atención Agencia) to status 5 (Cotización).
+ *
+ * @param {Object} req - Express request object with request_id in params and authenticated user
+ * @param {Object} res - Express response object
+ * @returns {void} Sends JSON response with assignment details or error
  */
 const completeServiceAssignment = async (req, res) => {
-  const { request_id } = req.params;
-  const user_id = req.user?.user_id;
+  const { request_id: requestId } = req.params;
+  const userId = req.user?.user_id;
 
   try {
     if (!user_id) {
       return res.status(401).json({ error: "User not authenticated" });
     }
 
-    const result = await TravelAgentService.completeServiceAssignment(request_id, user_id);
+    const result = await TravelAgentService.completeServiceAssignment(requestId, userId);
 
     // Send email notifications
     await sendEmails(request_id);
     
     return res.status(200).json({
       message: result.message,
-      new_assigned_to: result.new_assigned_to,
-      new_assigned_to_name: result.new_assigned_to_name,
-      new_status_id: result.new_status_id,
-      new_status_name: result.new_status_name,
+      newAssignedTo: result.new_assigned_to,
+      newAssignedToName: result.new_assigned_to_name,
+      newStatusId: result.new_status_id,
+      newStatusName: result.new_status_name
     });
 
   } catch (err) {
@@ -84,8 +97,71 @@ const completeServiceAssignment = async (req, res) => {
   }
 };
 
+/**
+ * Search available flight offers in Duffel (read-only, no booking)
+ * Retrieves flight offers based on search parameters, using the authenticated user
+ * as the passenger. Supports one-way and round-trip searches.
+ *
+ * @param {Object} req - Express request object with authenticated user and search params in body
+ * @param {string} req.body.origin - IATA code for departure airport
+ * @param {string} req.body.destination - IATA code for arrival airport
+ * @param {string} req.body.departureDate - Departure date in YYYY-MM-DD format
+ * @param {string} req.body.tripType - Trip type: 'one_way' or 'round'
+ * @param {string} [req.body.returnDate] - Return date for round trips
+ * @param {string} [req.body.cabinClass] - Cabin class preference (default: economy)
+ * @param {number} [req.body.page=1] - Page number for pagination
+ * @param {number} [req.body.pageSize] - Number of offers per page
+ * @param {Object} res - Express response object
+ * @returns {void} Sends JSON with offers and search metadata or error
+ */
+const searchFlightOffers = async (req, res) => {
+  try {
+    const userId = req.user?.user_id;
+
+    if (!userId) {
+      return res.status(401).json({ error: "User not authenticated" });
+    }
+
+    const {
+      tripType,
+      origin,
+      destination,
+      departureDate,
+      returnDate,
+      cabinClass,
+      page,
+      pageSize,
+    } = req.body;
+
+    const userData = await getUserById(userId);
+    const passengerName = userData?.user_name || "Unknown passenger";
+
+    const offersResult = await searchFlights({
+      origin,
+      destination,
+      departureDate,
+      returnDate,
+      tripType,
+      cabinClass,
+      passengerName,
+      page,
+      pageSize
+    });
+
+    return res.status(200).json(offersResult);
+  } catch (err) {
+    console.error("Error in searchFlightOffers controller:", err);
+
+    return res.status(500).json({
+      error: "Failed to search flights",
+      details: err?.message || "Unknown error"
+    });
+  }
+};
+
 // Export travel agent controller functions for router configuration
 export default {
   attendTravelRequest,
   completeServiceAssignment,
+  searchFlightOffers,
 };
