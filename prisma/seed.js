@@ -84,6 +84,7 @@ async function seedDefaultAuthorizationRule(defaultSocietyGroupId) {
       num_levels: 2,
       automatic: true,
       travel_type: 'Todos',
+      days_to_validate: 5,
       society_group_id: defaultSocietyGroupId,
     },
   });

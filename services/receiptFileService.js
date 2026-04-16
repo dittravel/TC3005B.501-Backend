@@ -21,6 +21,7 @@ import { prisma } from '../lib/prisma.js';
 // XML parsing functions
 import { parseXmlData, extractXmlData } from './xmlParserService.js';
 
+
 // Upload both PDF and XML files for a receipt
 export async function uploadReceiptFiles(receiptId, pdfFile, xmlFile, existingConn = null) {
   try {
@@ -50,12 +51,12 @@ export async function uploadReceiptFiles(receiptId, pdfFile, xmlFile, existingCo
     let cfdiData = {};
     if (xmlFile) {
       try {
-        // Convert XML buffer to string
         const xmlString = xmlFile.buffer.toString('utf8');
         const parsedXml = await parseXmlData(xmlString);
         cfdiData = extractXmlData(parsedXml);
+        console.log('[Receipt] Datos CFDI extraídos del XML:', cfdiData);
       } catch (err) {
-        console.warn('Error parsing XML file:', err);
+        console.warn('[Receipt] Error parseando XML:', err);
       }
     }
 
@@ -92,7 +93,7 @@ export async function uploadReceiptFiles(receiptId, pdfFile, xmlFile, existingCo
       return {
         pdf: pdfResult,
         xml: xmlResult,
-        cfdiData: cfdiData
+        cfdiData: cfdiData,
       };
     } catch (dbError) {
       // Check for duplicate UUID error (MySQL error 1062)

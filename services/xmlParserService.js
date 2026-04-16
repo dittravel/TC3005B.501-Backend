@@ -43,7 +43,7 @@ export function extractXmlData(xmlObj) {
       rfcEmisor: cfdi.Emisor.$.Rfc,
       nombreEmisor: cfdi.Emisor.$.Nombre,
       rfcReceptor: cfdi.Receptor.$.Rfc,
-      impuestos: cfdi.Impuestos.$.TotalImpuestosTrasladados,
+      impuestos: cfdi.Impuestos?.$.TotalImpuestosTrasladados ?? null,
       uuid: cfdi.Complemento.TimbreFiscalDigital.$.UUID,
     };
     return data;

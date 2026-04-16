@@ -220,7 +220,14 @@ const Applicant = {
           authorizationRuleId = applicableRule.rule_id;
           console.log(`Authorization rule selected: ${applicableRule.rule_name} (ID: ${authorizationRuleId})`);
         } else {
-          console.warn("No applicable authorization rule found, proceeding without rule assignment");
+          const defaultRule = await AuthorizationRuleService.getDefaultRule();
+          if (defaultRule) {
+            authorizationRuleId = defaultRule.rule_id;
+            applicableRule = defaultRule;
+            console.log(`No applicable rule found, assigned default rule: ${defaultRule.rule_name} (ID: ${authorizationRuleId})`);
+          } else {
+            console.warn("No applicable or default authorization rule found");
+          }
         }
       } catch (error) {
         console.error("Error selecting authorization rule:", error);
@@ -237,6 +244,7 @@ const Applicant = {
             firstRuleLevel,
             Number(user_id),
             departmentId,
+            role.society_id,
           );
 
           if (!assignedTo) {
@@ -576,6 +584,7 @@ const Applicant = {
         },
         select: {
           request_id: true,
+          creation_date: true,
           assigned_to: true,
           Request_status: {
             select: { status: true },
@@ -594,6 +603,11 @@ const Applicant = {
               },
             },
           },
+          AuthorizationRule: {
+            select: {
+              days_to_validate: true,
+            },
+          }
         },
       });
 
@@ -602,14 +616,18 @@ const Applicant = {
           request.Route_Request.map((row) => row.Route).filter(Boolean),
         )[0] ?? null;
 
+        console.log('Request:', request.request_id, 'Days to validate:', request.AuthorizationRule?.days_to_validate, 'Creation date:', request.creation_date);
+
         return {
           request_id: request.request_id,
           status: request.Request_status?.status ?? null,
           destination_country: firstRoute?.destinationCountry?.country_name ?? null,
           beginning_date: firstRoute?.beginning_date ?? null,
           ending_date: firstRoute?.ending_date ?? null,
+          creation_date: request.creation_date,
           assigned_to: request.assigned_to,
           assigned_to_name: request.assignedUser?.user_name ?? null,
+          days_to_validate: request.AuthorizationRule?.days_to_validate ?? null,
         };
       });
 
@@ -716,6 +734,47 @@ const Applicant = {
 
     } catch (error) {
       console.error("Error in getApplicantRequest:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Get days remaining to validate receipts for a request
+   * @param {number} requestId
+   * @returns {number|null} days remaining to validate receipts
+   */
+  async getDaysToValidateReceipts(requestId) {
+    try {
+      const request = await prisma.request.findUnique({
+        where: { request_id: Number(requestId) },
+        select: {
+          creation_date: true,
+          AuthorizationRule: {
+            select: {
+              days_to_validate: true,
+            },
+          },
+        },
+      });
+
+      if (!request) {
+        throw new Error("Request not found");
+      }
+
+      const daysToValidate = request.AuthorizationRule?.days_to_validate ?? null;
+      if (daysToValidate === null) {
+        return null;
+      }
+
+      const today = new Date();
+      const elapsedTime = today - request.creation_date;
+      const elapsedDays = Math.floor(elapsedTime / (1000 * 60 * 60 * 24));
+      const remainingDays = daysToValidate - elapsedDays;
+
+      return remainingDays;
+
+    } catch (error) {
+      console.error("Error getting days to validate receipts:", error);
       throw error;
     }
   },

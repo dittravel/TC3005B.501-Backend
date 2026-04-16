@@ -33,6 +33,7 @@
     "author": "",
     "license": "ISC",
     "dependencies": {
+        "@duffel/api": "^4.23.0",
         "@prisma/adapter-mariadb": "^7.7.0",
         "@prisma/adapter-pg": "^7.7.0",
         "@prisma/client": "^7.7.0",

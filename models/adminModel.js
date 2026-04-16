@@ -328,6 +328,7 @@ const Admin = {
           max_duration: ruleData.max_duration,
           min_amount: ruleData.min_amount,
           max_amount: ruleData.max_amount,
+          days_to_validate: ruleData.days_to_validate,
           society_group_id: societyGroupId ? Number(societyGroupId) : null,
           levels: {
             create: (Array.isArray(ruleData.levels) ? ruleData.levels : []).map(level => ({
@@ -374,7 +375,8 @@ const Admin = {
           min_duration: ruleData.min_duration,
           max_duration: ruleData.max_duration,
           min_amount: ruleData.min_amount,
-          max_amount: ruleData.max_amount
+          max_amount: ruleData.max_amount,
+          days_to_validate: ruleData.days_to_validate
         }
       });
 

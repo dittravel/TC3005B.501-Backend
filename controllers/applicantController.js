@@ -47,8 +47,10 @@ export const getApplicantRequests = async (req, res) => {
       destination_country: request.destination_country,
       beginning_date: formatDate(request.beginning_date),
       ending_date: formatDate(request.ending_date),
+      creation_date: formatDate(request.creation_date),
       status: request.status,
       assigned_to_name: request.assigned_to_name,
+      days_to_validate: request.days_to_validate,
     }));
 
     res.json(formattedRequests);
@@ -254,6 +256,7 @@ export const createDraftTravelRequest = async (req, res) => {
 
 // Helper function to format dates
 const formatDate = (date) => {
+  if (!date) return null;
   return new Date(date).toISOString().split("T")[0];
 };
 
@@ -447,6 +450,21 @@ export async function createExpenseWithFilesHandler(req, res) {
       }
     }
 
+    // Check remaining validation days for the request
+    const remainingDays = await Applicant.getDaysToValidateReceipts(
+      Number(request_id)
+    );
+
+    if (remainingDays !== null && remainingDays < 0) {
+      // Cancel travel request validation
+      await cancelTravelRequestValidation(Number(request_id));
+      return res.status(400).json({
+        error: "Submission window closed. Request cancelled automatically.",
+        request_id: Number(request_id),
+        remainingDays
+      });
+    }
+
     // Create the expense and upload files
     const result = await Applicant.createExpenseWithFiles({
       receipt_type_id: Number(receipt_type_id),
@@ -490,12 +508,14 @@ export async function createExpenseWithFilesHandler(req, res) {
 export const getDeadlineStatus = async (req, res) => {
   const requestId = Number(req.params.request_id);
   try {
-    const status = await ReimbursementPolicyService.getRequestDeadlineStatus(requestId);
+    const daysRemaining = await Applicant.getDaysToValidateReceipts(requestId);
+    const status = {
+      request_id: requestId,
+      days_remaining: daysRemaining,
+      is_within_deadline: daysRemaining > 0,
+    };
     return res.status(200).json(status);
   } catch (err) {
-    if (err.status === 404) {
-      return res.status(404).json({ error: err.message });
-    }
     console.error('Error in getDeadlineStatus controller:', err);
     return res.status(500).json({ error: 'Internal server error' });
   }

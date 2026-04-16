@@ -4,7 +4,7 @@
   */
 
 import dotenv from 'dotenv';
-import mariadb from 'mariadb';
+import * as mariadb from 'mariadb';
 
 dotenv.config();
 

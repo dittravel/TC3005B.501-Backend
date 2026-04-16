@@ -53,6 +53,7 @@ model AuthorizationRule {
   min_amount        Float?                         @db.Float
   max_amount        Float?                         @db.Float
   society_group_id  Int?
+  days_to_validate  Int?                           @default(5)
   SocietyGroup      SocietyGroup?                  @relation(fields: [society_group_id], references: [id])
   levels            AuthorizationRuleLevel[]
   Request           Request[]
