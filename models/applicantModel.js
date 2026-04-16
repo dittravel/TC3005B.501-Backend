@@ -595,6 +595,11 @@ const Applicant = {
               },
             },
           },
+          AuthorizationRule: {
+            select: {
+              days_to_validate: true,
+            },
+          }
         },
       });
 
@@ -602,6 +607,8 @@ const Applicant = {
         const firstRoute = sortRoutesByIndex(
           request.Route_Request.map((row) => row.Route).filter(Boolean),
         )[0] ?? null;
+
+        console.log('Request:', request.request_id, 'Days to validate:', request.AuthorizationRule?.days_to_validate);
 
         return {
           request_id: request.request_id,
@@ -611,6 +618,7 @@ const Applicant = {
           ending_date: firstRoute?.ending_date ?? null,
           assigned_to: request.assigned_to,
           assigned_to_name: request.assignedUser?.user_name ?? null,
+          days_to_validate: request.AuthorizationRule?.days_to_validate ?? null,
         };
       });
 

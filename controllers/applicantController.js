@@ -49,6 +49,7 @@ export const getApplicantRequests = async (req, res) => {
       ending_date: formatDate(request.ending_date),
       status: request.status,
       assigned_to_name: request.assigned_to_name,
+      days_to_validate: request.days_to_validate,
     }));
 
     res.json(formattedRequests);
