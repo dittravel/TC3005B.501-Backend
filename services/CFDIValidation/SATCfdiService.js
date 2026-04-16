@@ -11,7 +11,7 @@
  */
 
 import axios from 'axios';
-import { parseXmlData } from './xmlParserService.js';
+import { parseXmlData } from '../xmlParserService.js';
 
 // Base URL of the SAT's CFDI consultation SOAP service
 const SAT_SOAP_URL = 'https://consultaqr.facturaelectronica.sat.gob.mx/ConsultaCFDIService.svc';

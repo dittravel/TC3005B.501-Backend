@@ -17,7 +17,7 @@
  * This service is the single entry point for the /api/cfdi/validate endpoint.
  */
 
-import { parseXmlData, extractXmlData } from './xmlParserService.js';
+import { parseXmlData, extractXmlData } from '../xmlParserService.js';
 import { validateCFDI } from './validaCfdiService.js';
 import { validateCFDIviaSAT } from './SATCfdiService.js';
 
