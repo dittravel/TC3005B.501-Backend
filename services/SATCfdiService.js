@@ -4,11 +4,6 @@
  * Fallback service for CFDI validation using the SAT's official SOAP web service.
  * Used when the primary ValidaCFDI REST API is unavailable (for example when the rate limit is reached).
  *
- * Validation is split across three services, each with a single responsibility:
- *   - validaCfdiService.js  → communicates with the ValidaCFDI REST API (primary)
- *   - SATCfdiService.js     → communicates with the SAT SOAP service (fallback, this file)
- *   - cfdiValidationService.js → orchestrates both: parses the XML and decides which service to call
- *
  * No authentication required — this is a public SAT endpoint.
  *
  * SAT SOAP endpoint:
@@ -72,8 +67,6 @@ export async function validateCFDIviaSAT(uuid, rfcEmisor, rfcReceptor, total) {
   // Build the SOAP XML body for this request
   const envelope = buildSoapEnvelope(rfcEmisor, rfcReceptor, total, uuid);
 
-  console.log('[SAT SOAP] Iniciando consulta fallback para UUID:', uuid);
-
   // Send the SOAP request to the SAT endpoint
   // Content-Type must be text/xml
   // SOAPAction tells the server which operation we want to call
@@ -85,17 +78,12 @@ export async function validateCFDIviaSAT(uuid, rfcEmisor, rfcReceptor, total) {
     },
   });
 
-  console.log('[SAT SOAP] Respuesta recibida, status:', response.status);
-
   // The SAT responds with XML — parse it into a JavaScript object
   const parsed = await parseXmlData(response.data);
 
   // Navigate the parsed XML tree to reach the actual result fields
   // Structure: Envelope > Body > ConsultaResponse > ConsultaResult
   const result = parsed.Envelope.Body.ConsultaResponse.ConsultaResult;
-
-  console.log('[SAT SOAP] Estado CFDI:', result.Estado);
-  console.log('[SAT SOAP] Código estatus:', result.CodigoEstatus);
 
   // CodigoEstatus starts with "S -" when the request was successful
   // Estado tells us the actual CFDI status: Vigente, Cancelado, or No Encontrado
