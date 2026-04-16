@@ -101,6 +101,7 @@ const DUMMY_USERS = [
     phone_number: '555-1004',
     boss_user_name: null,
     society_id: 1,
+    supplier: 20000000008,
   },
   {
     role_name: 'Autorizador',
@@ -112,6 +113,7 @@ const DUMMY_USERS = [
     phone_number: '555-1005',
     boss_user_name: 'laura.flores',
     society_id: 1,
+    supplier: 20000000009,
   },
   {
     role_name: 'Solicitante',
@@ -123,6 +125,7 @@ const DUMMY_USERS = [
     phone_number: '555-1001',
     boss_user_name: 'diego.hernandez',
     society_id: 1,
+    supplier: 20000000013,
   },
   {
     role_name: 'Agencia de viajes',
@@ -134,6 +137,7 @@ const DUMMY_USERS = [
     phone_number: '555-1002',
     boss_user_name: null,
     society_id: 1,
+    supplier: 20000000010,
   },
   {
     role_name: 'Cuentas por pagar',
@@ -145,6 +149,7 @@ const DUMMY_USERS = [
     phone_number: '555-1003',
     boss_user_name: null,
     society_id: 1,
+    supplier: 20000000011,
   },
   {
     role_name: 'Administrador',
@@ -156,6 +161,7 @@ const DUMMY_USERS = [
     phone_number: '555-0000',
     boss_user_name: null,
     society_id: 1,
+    supplier: 20000000012,
   },
   // Tec society group users (society_id: 3 = Tec Servicios)
   {
@@ -168,6 +174,7 @@ const DUMMY_USERS = [
     phone_number: '555-0000',
     boss_user_name: null,
     society_id: 3,
+    supplier: 20000000014,
   },
   {
     role_name: 'Autorizador',
@@ -179,6 +186,7 @@ const DUMMY_USERS = [
     phone_number: '555-2004',
     boss_user_name: null,
     society_id: 3,
+    supplier: 20000000015,
   },
   {
     role_name: 'Autorizador',
@@ -190,6 +198,7 @@ const DUMMY_USERS = [
     phone_number: '555-2005',
     boss_user_name: 'maria.santos',
     society_id: 3,
+    supplier: 20000000016,
   },
   {
     role_name: 'Solicitante',
@@ -201,6 +210,7 @@ const DUMMY_USERS = [
     phone_number: '555-2001',
     boss_user_name: 'juan.torres',
     society_id: 3,
+    supplier: 20000000017,
   },
   {
     role_name: 'Agencia de viajes',
@@ -212,6 +222,7 @@ const DUMMY_USERS = [
     phone_number: '555-2002',
     boss_user_name: null,
     society_id: 3,
+    supplier: 20000000018,
   },
   {
     role_name: 'Cuentas por pagar',
@@ -223,16 +234,15 @@ const DUMMY_USERS = [
     phone_number: '555-2003',
     boss_user_name: null,
     society_id: 3,
+    supplier: 20000000019,
   },
 ];
 
 const ACCOUNTS = [
-  { account_code: '1000', account_name: 'Caja',          account_type: 'Activo' },
-  { account_code: '1001', account_name: 'Bancos',        account_type: 'Activo' },
-  { account_code: '2000', account_name: 'Proveedores',   account_type: 'Pasivo' },
-  { account_code: '3000', account_name: 'Gastos de Viaje',       account_type: 'Gasto' },
-  { account_code: '3001', account_name: 'Gastos de Alimentación', account_type: 'Gasto' },
-  { account_code: '3002', account_name: 'Gastos de Transporte',  account_type: 'Gasto' },
+  { account_code: '1000', account_name: 'Anticipo', account_type: 'Activo' },
+  { account_code: '1001', account_name: 'Cuenta x pagar Empleado', account_type: 'Pasivo' },
+  { account_code: '1002', account_name: 'Gasto de Viaje', account_type: 'Activo', cost_center_id: 3 },
+  { account_code: '1003', account_name: 'Iva Acreditable  ', account_type: 'Pasivo' },
 ];
 
 const RECEIPT_TYPES = [
@@ -248,10 +258,10 @@ const TAXES = [
 ];
 
 const RECEIPT_TYPE_TO_ACCOUNT = {
-  'Hotel':      '3000',
-  'Alimentos':  '3001',
-  'Taxi':       '3002',
-  'Hospedaje':  '3000',
+  Hotel: '1002',
+  Alimentos: '1002',
+  Taxi: '1002',
+  Hospedaje: '1002',
 };
 
 const SOCIETY_GROUPS = [
@@ -265,6 +275,169 @@ const SOCIETIES = [
   { id: 3, description: 'Tec Servicios', local_currency: 'USD', society_group_id: 2 },
   { id: 4, description: 'Tec Gestión', local_currency: 'USD', society_group_id: 2 },
 ]
+
+const DOCUMENT_TYPES = [
+  {document_id: 'AV', description: 'Anticipo de Viaje'},
+  {document_id: 'GV', description: 'Gasto de Viaje'},
+];
+
+const DUMMY_RECEIPTS = [
+  {
+    requestIndex: 0,
+    routeIndex: 0,                  
+    receipt_type_name: 'Hotel',
+    amount: 1250.00,
+    currency: 'MXN',
+    refund: true,
+    submission_date: '2025-05-10T14:30:00',
+    validation: 'Aprobado',
+    validation_date: '2025-05-12T10:15:00',
+    description: 'Hospedaje Hotel Majestic Barcelona 3 noches',
+    receipt_number: 'FAC-2025-78412',
+    supplier_name: 'Hotel Majestic SA de CV',
+    pdf_file_name: 'hotel_majestic_78412.pdf',
+    xml_file_name: 'CFDI_Hotel_78412.xml',
+    xml_uuid: 'E5345672-0AF6-4746-87F5-5EFE0409B9D3',
+    xml_rfc_emisor: 'HMA050612P76',
+    xml_rfc_receptor: 'DITT010101000', 
+    xml_nombre_emisor: 'Hotel Majestic SA de CV',
+    xml_fecha: '2025-05-08T18:45:00',
+    xml_total: 1250.00,
+    xml_subtotal: 1033.06,
+    xml_impuestos: 216.94,
+    xml_moneda: 'MXN',
+  },
+
+  {
+    requestIndex: 1,
+    routeIndex: 0,
+    receipt_type_name: 'Alimentos',
+    amount: 285.50,
+    currency: 'USD',
+    refund: true,
+    submission_date: '2025-05-10T15:00:00',
+    validation: 'Aprobado',
+    validation_date: '2025-05-12T10:20:00',
+    description: 'Comidas durante conferencia en Barcelona',
+    receipt_number: 'TKT-45892',
+    supplier_name: 'Restaurante La Fonda',
+    pdf_file_name: 'alimentos_fonda_45892.pdf',
+    xml_file_name: 'CFDI_Alimentos_45892.xml',
+    xml_uuid: 'A1B2C3D4-E5F6-7890-ABCD-EF1234567890',
+    xml_rfc_emisor: 'FON070415K32',
+    xml_rfc_receptor: 'DITT010101000',
+    xml_nombre_emisor: 'Restaurante La Fonda SA',
+    xml_fecha: '2025-05-09T13:20:00',
+    xml_total: 285.50,
+    xml_subtotal: 235.95,
+    xml_impuestos: 49.55,
+    xml_moneda: 'USD',
+  },
+
+  {
+    requestIndex: 2,
+    routeIndex: 0,
+    receipt_type_name: 'Taxi',
+    amount: 420.75,
+    currency: 'MXN',
+    refund: true,
+    submission_date: '2025-05-10T15:10:00',
+    validation: 'Aprobado',
+    validation_date: '2025-05-12T10:25:00',
+    description: 'Traslado aeropuerto - hotel Barcelona',
+    receipt_number: 'TAXI-33901',
+    supplier_name: 'Taxi Oficial Barcelona',
+    pdf_file_name: 'taxi_barcelona_33901.pdf',
+    xml_file_name: null,
+    xml_uuid: null,
+    xml_rfc_emisor: null,
+    xml_rfc_receptor: null,
+    xml_nombre_emisor: null,
+    xml_fecha: null,
+    xml_total: 420.75,
+    xml_subtotal: 347.73,
+    xml_impuestos: 73.02,
+    xml_moneda: null,
+  },
+
+  {
+    requestIndex: 3,
+    routeIndex: null,         
+    receipt_type_name: 'Taxi',
+    amount: 320.00,
+    currency: 'MXN',
+    refund: true,
+    submission_date: '2025-04-16T09:45:00',
+    validation: 'Aprobado',
+    validation_date: '2025-04-18T11:30:00',
+    description: 'Traslados locales CDMX',
+    receipt_number: 'APP-20250415-784',
+    supplier_name: 'Uber México',
+    pdf_file_name: 'uber_20250415.pdf',
+    xml_file_name: 'CFDI_Uber_784.xml',
+    xml_uuid: 'F9A8B7C6-D5E4-3210-9876-543210FEDCBA',
+    xml_rfc_emisor: 'UBE180101ABC',
+    xml_rfc_receptor: 'DITT010101000',
+    xml_nombre_emisor: 'Uber Technologies de México SA de CV',
+    xml_fecha: '2025-04-15T17:30:00',
+    xml_total: 320.00,
+    xml_subtotal: 264.46,
+    xml_impuestos: 55.54,
+    xml_moneda: 'MXN',
+  },
+
+  {
+    requestIndex: 4,
+    routeIndex: null,
+    receipt_type_name: 'Hospedaje',
+    amount: 890.00,
+    currency: 'MXN',
+    refund: true,
+    submission_date: '2025-04-11T12:00:00',
+    validation: 'Aprobado',
+    validation_date: '2025-04-13T09:00:00',
+    description: 'Noche de hotel por emergencia médica',
+    receipt_number: 'HOSP-2025-11234',
+    supplier_name: 'Hospital HMG',
+    pdf_file_name: 'hospital_hmg_11234.pdf',
+    xml_file_name: 'CFDI_HMG_11234.xml',
+    xml_uuid: '12345678-90AB-CDEF-1234-567890ABCDEF',
+    xml_rfc_emisor: 'HMG050101P89',
+    xml_rfc_receptor: 'DITT010101000',
+    xml_nombre_emisor: 'Hospital HMG SA de CV',
+    xml_fecha: '2025-04-10T20:15:00',
+    xml_total: 890.00,
+    xml_subtotal: 735.54,
+    xml_impuestos: 154.46,
+    xml_moneda: 'MXN',
+  },
+
+  {
+    requestIndex: 5,
+    routeIndex: 0,
+    receipt_type_name: 'Alimentos',
+    amount: 420.75,
+    currency: 'USD',
+    refund: true,
+    submission_date: '2025-05-13T16:20:00',
+    validation: 'Pendiente',
+    validation_date: null,
+    description: 'Desayuno y comida en congreso internacional',
+    receipt_number: 'FAC-55678',
+    supplier_name: 'Centro de Convenciones Madrid',
+    pdf_file_name: 'alimentos_congreso_55678.pdf',
+    xml_file_name: 'CFDI_Alimentos_55678.xml',
+    xml_uuid: '98765432-1A2B-3C4D-5E6F-7A8B9C0D1E2F',
+    xml_rfc_emisor: 'CCM120101ABC',
+    xml_rfc_receptor: 'DITT010101000',
+    xml_nombre_emisor: 'Centro de Convenciones SA',
+    xml_fecha: '2025-05-12T14:00:00',
+    xml_total: 420.75,
+    xml_subtotal: 347.73,
+    xml_impuestos: 73.02,
+    xml_moneda: 'USD',
+  },
+];
 
 async function seedDummyCostCenters() {
   console.log('Creating dummy cost centers...');
@@ -388,6 +561,7 @@ async function seedDummyUsers() {
         boss_id: null,
         active: true,
         society_id: userData.society_id,
+        supplier: userData.supplier,
       },
       update: {
         password: hashedPassword,
@@ -398,6 +572,7 @@ async function seedDummyUsers() {
         department_id: department.department_id,
         active: true,
         society_id: userData.society_id,
+        supplier: userData.supplier,
       },
     });
   }
@@ -479,16 +654,24 @@ async function seedDummyTravelFixtures() {
     }
   }
 
+  for (const document of DOCUMENT_TYPES) {
+    await prisma.document.upsert({
+      where: { document_id: document.document_id },
+      create: document,
+      update: document,
+    });
+  }
+
   const requestsData = [
-    { notes: 'Solicito viaticos para viaje a conferencia en Barcelona.', requested_fee: 1500.0, imposed_fee: null, request_days: 3.0, status: 'Borrador', assigned_to: null },
-    { notes: 'Reembolso por gastos medicos durante viaje.', requested_fee: 800.0, imposed_fee: null, request_days: 1.0, status: 'Revision', assigned_to: authorizer.user_id },
-    { notes: 'Solicitud de apoyo economico para capacitacion online.', requested_fee: 500.0, imposed_fee: null, request_days: 0.0, status: 'Cotizacion del Viaje', assigned_to: accountsPayable.user_id },
-    { notes: 'Viaticos para taller de liderazgo en Madrid.', requested_fee: 1200.0, imposed_fee: null, request_days: 2.0, status: 'Atencion Agencia de Viajes', assigned_to: agency.user_id },
-    { notes: 'Reembolso de transporte.', requested_fee: 300.0, imposed_fee: 250.0, request_days: 0.5, status: 'Comprobacion gastos del viaje', assigned_to: accountsPayable.user_id },
-    { notes: 'Apoyo para participacion en congreso internacional.', requested_fee: 2000.0, imposed_fee: 1800.0, request_days: 4.0, status: 'Validacion de comprobantes', assigned_to: accountsPayable.user_id },
-    { notes: 'Gastos operativos extraordinarios.', requested_fee: 650.0, imposed_fee: 600.0, request_days: 0.0, status: 'Finalizado', assigned_to: accountsPayable.user_id },
-    { notes: 'Viaje urgente por representacion institucional.', requested_fee: 1750.0, imposed_fee: 1500.0, request_days: 3.5, status: 'Cancelado', assigned_to: accountsPayable.user_id },
-    { notes: 'Solicito anticipo para mision tecnica en el extranjero.', requested_fee: 2200.0, imposed_fee: 2000.0, request_days: 5.0, status: 'Rechazado', assigned_to: accountsPayable.user_id },
+    { notes: 'Solicito viaticos para viaje a conferencia en Barcelona.', requested_fee: 1500.0, imposed_fee: null, request_days: 3.0, status: 'Finalizado', assigned_to: null, document_id: 'AV' },
+    { notes: 'Reembolso por gastos medicos durante viaje.', requested_fee: 800.0, imposed_fee: null, request_days: 1.0, status: 'Revision', assigned_to: authorizer.user_id, document_id: 'GV' },
+    { notes: 'Solicitud de apoyo economico para capacitacion online.', requested_fee: 500.0, imposed_fee: null, request_days: 0.0, status: 'Cotizacion del Viaje', assigned_to: accountsPayable.user_id, document_id: 'AV' },
+    { notes: 'Viaticos para taller de liderazgo en Madrid.', requested_fee: 1200.0, imposed_fee: null, request_days: 2.0, status: 'Atencion Agencia de Viajes', assigned_to: agency.user_id, document_id: 'AV' },
+    { notes: 'Reembolso de transporte.', requested_fee: 300.0, imposed_fee: 250.0, request_days: 0.5, status: 'Comprobacion gastos del viaje', assigned_to: accountsPayable.user_id, document_id: 'GV' },
+    { notes: 'Apoyo para participacion en congreso internacional.', requested_fee: 2000.0, imposed_fee: 1800.0, request_days: 4.0, status: 'Validacion de comprobantes', assigned_to: accountsPayable.user_id, document_id: 'AV' },
+    { notes: 'Gastos operativos extraordinarios.', requested_fee: 650.0, imposed_fee: 600.0, request_days: 0.0, status: 'Finalizado', assigned_to: accountsPayable.user_id, document_id: 'GV' },
+    { notes: 'Viaje urgente por representacion institucional.', requested_fee: 1750.0, imposed_fee: 1500.0, request_days: 3.5, status: 'Cancelado', assigned_to: accountsPayable.user_id, document_id: 'AV' },
+    { notes: 'Solicito anticipo para mision tecnica en el extranjero.', requested_fee: 2200.0, imposed_fee: 2000.0, request_days: 5.0, status: 'Finalizado', assigned_to: accountsPayable.user_id, document_id: 'AV' },
   ];
 
   const createdRequests = [];
@@ -504,6 +687,7 @@ async function seedDummyTravelFixtures() {
         requested_fee: requestData.requested_fee,
         imposed_fee: requestData.imposed_fee,
         request_days: requestData.request_days,
+        document_id: requestData.document_id,
         active: true,
       },
       select: { request_id: true },
@@ -573,20 +757,101 @@ async function seedDummyTravelFixtures() {
     });
   }
 
-  const hospedajeType = await prisma.receipt_Type.findUnique({
-    where: { receipt_type_name: 'Hospedaje' },
-    select: { receipt_type_id: true },
+    const receiptTypeMap = new Map(
+    (
+      await prisma.receipt_Type.findMany({
+        select: {
+          receipt_type_id: true,
+          receipt_type_name: true,
+        },
+      })
+    ).map((type) => [type.receipt_type_name, type.receipt_type_id])
+  );
+
+  const routeRequestMap = new Map();
+
+  const routeRequestRelations = await prisma.route_Request.findMany({
+    select: {
+      request_id: true,
+      route_id: true,
+    },
   });
 
-  if (hospedajeType && createdRequests.length > 0) {
+  for (const relation of routeRequestRelations) {
+    if (!routeRequestMap.has(relation.request_id)) {
+      routeRequestMap.set(relation.request_id, []);
+    }
+    routeRequestMap.get(relation.request_id).push(relation.route_id);
+  }
+
+  for (const dummyReceipt of DUMMY_RECEIPTS) {
+    const requestId = createdRequests[dummyReceipt.requestIndex];
+
+    if (!requestId) {
+      console.warn(
+        `Skipping receipt because requestIndex ${dummyReceipt.requestIndex} does not exist`
+      );
+      continue;
+    }
+
+    const receiptTypeId = receiptTypeMap.get(
+      dummyReceipt.receipt_type_name
+    );
+
+    if (!receiptTypeId) {
+      console.warn(
+        `Skipping receipt because receipt type ${dummyReceipt.receipt_type_name} does not exist`
+      );
+      continue;
+    }
+
+    let routeId = null;
+
+    if (dummyReceipt.routeIndex !== null) {
+      const requestRoutes = routeRequestMap.get(requestId) || [];
+      routeId = requestRoutes[dummyReceipt.routeIndex] || null;
+    }
+
     await prisma.receipt.create({
       data: {
-        receipt_type_id: hospedajeType.receipt_type_id,
-        request_id: createdRequests[0],
-        society_id: 1,
-        validation: 'Pendiente',
-        amount: 300.0,
-        validation_date: new Date('2025-04-19T09:00:00'),
+        Receipt_Type: {
+          connect: { receipt_type_id: receiptTypeId },
+        },
+        Request: {
+          connect: { request_id: requestId },
+        },
+        Route: routeId
+          ? {
+              connect: { route_id: routeId },
+            }
+          : undefined,
+        Society: {
+          connect: { id: 1 },
+        },
+
+        validation: dummyReceipt.validation,
+        validation_date: dummyReceipt.validation_date
+          ? new Date(dummyReceipt.validation_date)
+          : null,
+        amount: dummyReceipt.amount,
+        currency: dummyReceipt.currency,
+        refund: dummyReceipt.refund,
+        submission_date: dummyReceipt.submission_date
+          ? new Date(dummyReceipt.submission_date)
+          : null,
+        pdf_file_name: dummyReceipt.pdf_file_name,
+        xml_file_name: dummyReceipt.xml_file_name,
+        xml_uuid: dummyReceipt.xml_uuid,
+        xml_rfc_emisor: dummyReceipt.xml_rfc_emisor,
+        xml_rfc_receptor: dummyReceipt.xml_rfc_receptor,
+        xml_nombre_emisor: dummyReceipt.xml_nombre_emisor,
+        xml_fecha: dummyReceipt.xml_fecha
+          ? new Date(dummyReceipt.xml_fecha)
+          : null,
+        xml_total: dummyReceipt.xml_total,
+        xml_subtotal: dummyReceipt.xml_subtotal,
+        xml_impuestos: dummyReceipt.xml_impuestos,
+        xml_moneda: dummyReceipt.xml_moneda,
       },
     });
   }
@@ -756,8 +1021,8 @@ async function seedDummyLocationsAndUsers() {
   await seedDummyCountries();
   await seedDummyCities();
   await seedDummyUsers();
-  await seedDummyTravelFixtures();
   await seedDummyAccountability();
+  await seedDummyTravelFixtures();
 }
 
 async function main() {
