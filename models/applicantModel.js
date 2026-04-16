@@ -237,6 +237,7 @@ const Applicant = {
             firstRuleLevel,
             Number(user_id),
             departmentId,
+            role.society_id,
           );
 
           if (!assignedTo) {
