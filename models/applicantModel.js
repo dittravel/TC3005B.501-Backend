@@ -616,8 +616,6 @@ const Applicant = {
           request.Route_Request.map((row) => row.Route).filter(Boolean),
         )[0] ?? null;
 
-        console.log('Request:', request.request_id, 'Days to validate:', request.AuthorizationRule?.days_to_validate, 'Creation date:', request.creation_date);
-
         return {
           request_id: request.request_id,
           status: request.Request_status?.status ?? null,
