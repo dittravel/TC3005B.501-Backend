@@ -1,9 +1,7 @@
 /**
  * SAT CFDI Service
  *
- * Fallback service for CFDI validation using the SAT's official SOAP web service.
- * Used when the primary ValidaCFDI REST API is unavailable (for example when the rate limit is reached).
- *
+ * Handles CFDI validation using the SAT's official public SOAP web service.
  * No authentication required — this is a public SAT endpoint.
  *
  * SAT SOAP endpoint:
@@ -95,6 +93,6 @@ export async function validateCFDIviaSAT(uuid, rfcEmisor, rfcReceptor, total) {
     codigoEstatus: result.CodigoEstatus,
     esCancelable: result.EsCancelable,
     valid: esValido, // matches the field name expected by the frontend
-    source: 'sat-soap', // indicates this result came from the SAT fallback, not ValidaCFDI
+    source: 'sat-soap',
   };
 }
