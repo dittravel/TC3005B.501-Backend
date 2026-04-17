@@ -531,7 +531,6 @@ function buildReimbursementPolicyService({
         }
 
         const amountInBaseCurrency = roundMoney(receipt.amount * conversion.rate);
-        console.log(`[Receipt] ${receipt.receipt_id}: ${receipt.amount} ${receipt.currency} × ${conversion.rate} = ${amountInBaseCurrency} ${normalizedBaseCurrency}`);
 
         if (!receipt.refund || !rule.refundable) {
           violations.push('NOT_REFUNDABLE');
