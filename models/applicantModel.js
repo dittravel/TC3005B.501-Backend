@@ -220,7 +220,14 @@ const Applicant = {
           authorizationRuleId = applicableRule.rule_id;
           console.log(`Authorization rule selected: ${applicableRule.rule_name} (ID: ${authorizationRuleId})`);
         } else {
-          console.warn("No applicable authorization rule found, proceeding without rule assignment");
+          const defaultRule = await AuthorizationRuleService.getDefaultRule();
+          if (defaultRule) {
+            authorizationRuleId = defaultRule.rule_id;
+            applicableRule = defaultRule;
+            console.log(`No applicable rule found, assigned default rule: ${defaultRule.rule_name} (ID: ${authorizationRuleId})`);
+          } else {
+            console.warn("No applicable or default authorization rule found");
+          }
         }
       } catch (error) {
         console.error("Error selecting authorization rule:", error);
@@ -237,6 +244,7 @@ const Applicant = {
             firstRuleLevel,
             Number(user_id),
             departmentId,
+            role.society_id,
           );
 
           if (!assignedTo) {
@@ -576,6 +584,7 @@ const Applicant = {
         },
         select: {
           request_id: true,
+          creation_date: true,
           assigned_to: true,
           Request_status: {
             select: { status: true },
@@ -594,6 +603,11 @@ const Applicant = {
               },
             },
           },
+          AuthorizationRule: {
+            select: {
+              days_to_validate: true,
+            },
+          }
         },
       });
 
@@ -608,8 +622,10 @@ const Applicant = {
           destination_country: firstRoute?.destinationCountry?.country_name ?? null,
           beginning_date: firstRoute?.beginning_date ?? null,
           ending_date: firstRoute?.ending_date ?? null,
+          creation_date: request.creation_date,
           assigned_to: request.assigned_to,
           assigned_to_name: request.assignedUser?.user_name ?? null,
+          days_to_validate: request.AuthorizationRule?.days_to_validate ?? null,
         };
       });
 
@@ -716,6 +732,47 @@ const Applicant = {
 
     } catch (error) {
       console.error("Error in getApplicantRequest:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Get days remaining to validate receipts for a request
+   * @param {number} requestId
+   * @returns {number|null} days remaining to validate receipts
+   */
+  async getDaysToValidateReceipts(requestId) {
+    try {
+      const request = await prisma.request.findUnique({
+        where: { request_id: Number(requestId) },
+        select: {
+          creation_date: true,
+          AuthorizationRule: {
+            select: {
+              days_to_validate: true,
+            },
+          },
+        },
+      });
+
+      if (!request) {
+        throw new Error("Request not found");
+      }
+
+      const daysToValidate = request.AuthorizationRule?.days_to_validate ?? null;
+      if (daysToValidate === null) {
+        return null;
+      }
+
+      const today = new Date();
+      const elapsedTime = today - request.creation_date;
+      const elapsedDays = Math.floor(elapsedTime / (1000 * 60 * 60 * 24));
+      const remainingDays = daysToValidate - elapsedDays;
+
+      return remainingDays;
+
+    } catch (error) {
+      console.error("Error getting days to validate receipts:", error);
       throw error;
     }
   },
@@ -922,6 +979,7 @@ const Applicant = {
         amount: receipt.amount,
         currency: receipt.currency,
         submission_date: receipt.submission_date,
+        receipt_date: receipt.receipt_date,
         receipt_type_name: receipt.Receipt_Type?.receipt_type_name ?? null,
         pdf_id: receipt.pdf_file_id,
         pdf_name: receipt.pdf_file_name,
@@ -957,20 +1015,28 @@ const Applicant = {
           throw new Error("Invalid receipt type");
         }
 
+        const updateData = {
+          route_id: Number(data.route_id),
+          receipt_type_id: receiptType.receipt_type_id,
+          amount: Number(data.amount),
+          local_amount: Number(data.local_amount || data.amount),
+          currency: data.currency,
+          receipt_date: new Date(data.receipt_date),
+        };
+
+        if (data.validation) {
+          updateData.validation = data.validation;
+        }
+
         await tx.receipt.update({
           where: { receipt_id: Number(receiptId) },
-          data: {
-            route_id: Number(data.route_id),
-            receipt_type_id: receiptType.receipt_type_id,
-            amount: Number(data.amount),
-            currency: data.currency,
-          },
+          data: updateData,
         });
       });
-      
+
       // Return the updated receipt
       return this.getReceipt(receiptId);
-      
+
     } catch (error) {
       console.error('Error updating receipt:', error);
       throw error;
@@ -1013,7 +1079,9 @@ const Applicant = {
       request_id,
       route_id,
       amount,
+      local_amount,
       currency,
+      receipt_date,
       pdfFile,
       xmlFile
     } = data;
@@ -1035,7 +1103,9 @@ const Applicant = {
           request_id: Number(request_id),
           route_id: Number(route_id),
           amount: Number(amount),
+          local_amount: Number(local_amount || amount),
           currency,
+          receipt_date: receipt_date || null,
           society_id: request.society_id,
         },
         select: { receipt_id: true },

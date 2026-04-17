@@ -27,6 +27,20 @@ export async function getSocietyById(req, res) {
   }
 }
 
+export async function getCurrentUserSociety(req, res) {
+  try {
+    const societyId = req.user.society_id;
+    if (!societyId) {
+      return res.status(404).json({ error: 'User has no associated society' });
+    }
+    const society = await SocietyService.getSocietyById(societyId, req.user);
+    return res.status(200).json(society);
+  } catch (error) {
+    console.error('Error getting user society:', error);
+    return res.status(error.status || 500).json({ error: error.message || 'Internal server error' });
+  }
+}
+
 export async function createSociety(req, res) {
   try {
     const society = await SocietyService.createSociety(req.body, req.user);

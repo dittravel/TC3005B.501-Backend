@@ -323,9 +323,13 @@ const ReimbursementPolicyModel = {
       select: {
         request_id: true,
         user_id: true,
+        society_id: true,
         creation_date: true,
         requester: {
           select: { department_id: true },
+        },
+        Society: {
+          select: { local_currency: true },
         },
       },
     });
@@ -369,6 +373,7 @@ const ReimbursementPolicyModel = {
         currency: true,
         refund: true,
         submission_date: true,
+        receipt_date: true,
         xml_file_id: true,
         xml_file_name: true,
         xml_uuid: true,
@@ -385,6 +390,8 @@ const ReimbursementPolicyModel = {
       request: {
         request_id: request.request_id,
         user_id: request.user_id,
+        society_id: request.society_id,
+        local_currency: request.Society?.local_currency,
         creation_date: request.creation_date,
         department_id: request.requester?.department_id,
       },
@@ -399,6 +406,7 @@ const ReimbursementPolicyModel = {
         currency: receipt.currency,
         refund: Boolean(receipt.refund),
         submission_date: receipt.submission_date,
+        receipt_date: receipt.receipt_date,
         xml_file_id: receipt.xml_file_id,
         xml_file_name: receipt.xml_file_name,
         xml_uuid: receipt.xml_uuid,
