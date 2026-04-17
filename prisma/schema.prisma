@@ -147,6 +147,7 @@ model Receipt {
   society_id          Int?
   validation          Receipt_validation?   @default(Pendiente)
   amount              Float                 @db.Float
+  local_amount        Float?                @db.Float
   currency            String?               @db.VarChar(6)
   refund              Boolean?              @default(true)
   submission_date     DateTime?             @default(now()) @db.Timestamp(0)

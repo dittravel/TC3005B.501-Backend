@@ -350,7 +350,7 @@ export const getReceipt = async (req, res) => {
 // Update receipt details
 export const updateReceipt = async (req, res) => {
   const { receipt_id } = req.params;
-  const { route_id, receipt_type_name, amount, currency, receipt_date } = req.body;
+  const { route_id, receipt_type_name, amount, currency, receipt_date, validation, local_amount } = req.body;
 
   try {
     // Validate required fields
@@ -358,18 +358,25 @@ export const updateReceipt = async (req, res) => {
       return res.status(400).json({ error: "Missing required fields" });
     }
 
-    const updatedReceipt = await Applicant.updateReceipt(Number(receipt_id), {
+    const updateData = {
       route_id,
       receipt_type_name,
       amount,
+      local_amount: local_amount || amount,
       currency,
       receipt_date
-    });
-    
+    };
+
+    if (validation) {
+      updateData.validation = validation;
+    }
+
+    const updatedReceipt = await Applicant.updateReceipt(Number(receipt_id), updateData);
+
     if (!updatedReceipt) {
       return res.status(404).json({ error: "Receipt not found" });
     }
-    
+
     return res.status(200).json({
       message: "Receipt updated successfully",
       receipt: updatedReceipt
@@ -421,7 +428,7 @@ export async function createExpenseWithFilesHandler(req, res) {
     }
 
     // Extract receipt details from request body
-    const { receipt_type_id, request_id, route_id, amount, currency, receipt_date } = req.body;
+    const { receipt_type_id, request_id, route_id, amount, currency, receipt_date, local_amount } = req.body;
 
     // Validate required fields
     if (!receipt_type_id || !request_id || !route_id || amount === undefined || !currency) {
@@ -471,6 +478,7 @@ export async function createExpenseWithFilesHandler(req, res) {
       request_id: Number(request_id),
       route_id: Number(route_id),
       amount: parseFloat(amount),
+      local_amount: parseFloat(local_amount || amount),
       currency: currency,
       receipt_date: new Date(receipt_date),
       pdfFile: req.files.pdf[0],

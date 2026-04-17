@@ -1017,21 +1017,28 @@ const Applicant = {
           throw new Error("Invalid receipt type");
         }
 
+        const updateData = {
+          route_id: Number(data.route_id),
+          receipt_type_id: receiptType.receipt_type_id,
+          amount: Number(data.amount),
+          local_amount: Number(data.local_amount || data.amount),
+          currency: data.currency,
+          receipt_date: new Date(data.receipt_date),
+        };
+
+        if (data.validation) {
+          updateData.validation = data.validation;
+        }
+
         await tx.receipt.update({
           where: { receipt_id: Number(receiptId) },
-          data: {
-            route_id: Number(data.route_id),
-            receipt_type_id: receiptType.receipt_type_id,
-            amount: Number(data.amount),
-            currency: data.currency,
-            receipt_date: new Date(data.receipt_date),
-          },
+          data: updateData,
         });
       });
-      
+
       // Return the updated receipt
       return this.getReceipt(receiptId);
-      
+
     } catch (error) {
       console.error('Error updating receipt:', error);
       throw error;
@@ -1074,6 +1081,7 @@ const Applicant = {
       request_id,
       route_id,
       amount,
+      local_amount,
       currency,
       receipt_date,
       pdfFile,
@@ -1097,6 +1105,7 @@ const Applicant = {
           request_id: Number(request_id),
           route_id: Number(route_id),
           amount: Number(amount),
+          local_amount: Number(local_amount || amount),
           currency,
           receipt_date: receipt_date || null,
           society_id: request.society_id,
