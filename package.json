@@ -15,6 +15,8 @@
         "test:audit": "node --test tests/auditLog*.test.js",
         "prisma:generate": "prisma generate",
         "prisma:migrate:deploy": "prisma migrate deploy",
+        "prisma:migrate:deploy:docker": "docker compose exec backend npx prisma migrate deploy",
+        "prisma:migrate:status:docker": "docker compose exec backend npx prisma migrate status",
         "prisma:seed": "npx prisma migrate reset && npx prisma generate && node prisma/seed.js",
         "prisma:seed:dummy": "npx prisma migrate reset && npx prisma generate && node prisma/seedDummy.js",
         "prisma:seed:ci": "npx prisma migrate reset --force && npx prisma generate && node prisma/seedDummy.js",
