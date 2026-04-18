@@ -18,18 +18,15 @@ const DEFAULT_HOTEL_SEARCH_PAGE_SIZE = Number.parseInt(process.env.HOTEL_SEARCH_
  * @param {string} params.checkInDate - Check-in date in YYYY-MM-DD.
  * @param {string} params.checkOutDate - Check-out date in YYYY-MM-DD.
  * @param {number} params.guests - Number of guests.
- * @param {number} [params.rating] - Hotel rating filter (7, 8, 9 in SerpApi).
- * @param {string} params.address - Destination/city text used for search.
  * @param {number} [params.page=1] - Internal page number for API consumers.
  * @param {number} [params.pageSize] - Number of hotels per page in response.
  * @param {string} [params.nextPageToken] - SerpApi next page token.
- * @returns {Promise<Object>} Paginated hotel results and metadata.
+ * @returns {Promise<Object>} Paginated and sorted hotel results by rating and price.
  */
 export const searchHotels = async ({
   checkInDate,
   checkOutDate,
   guests,
-  rating,
   address,
   page = 1,
   pageSize,
@@ -54,10 +51,6 @@ export const searchHotels = async ({
     api_key: process.env.SERPAPI_API_KEY,
   };
 
-  if (rating !== undefined && rating !== null) {
-    requestParams.rating = rating;
-  }
-
   if (nextPageToken) {
     requestParams.next_page_token = nextPageToken;
   }
@@ -66,10 +59,21 @@ export const searchHotels = async ({
 
   // SerpApi returns hotel cards under response.data.properties
   const properties = Array.isArray(response.data?.properties) ? response.data.properties : [];
-  const allHotels = properties.map((hotel) => ({
-    rating: hotel.overall_rating || null,
-    address: hotel.address || null,
-  }));
+  const allHotels = properties
+    .map((hotel) => ({
+      rating: hotel.overall_rating || null,
+      installation: hotel.room_type || hotel.type || hotel.hotel_class || null,
+      cost: hotel.rate_per_night?.extracted_lowest || hotel.total_rate?.extracted_lowest || null,
+      name: hotel.name || "No name provided",
+    }))
+    .sort((a, b) => {
+      // Sort by rating descending (higher first)
+      if ((b.rating || 0) !== (a.rating || 0)) {
+        return (b.rating || 0) - (a.rating || 0);
+      }
+      // Then sort by cost ascending (lower price first)
+      return (a.cost || 0) - (b.cost || 0);
+    });
 
   const totalHotels = allHotels.length;
   const totalPages = Math.max(1, Math.ceil(totalHotels / normalizedPageSize));
@@ -82,7 +86,6 @@ export const searchHotels = async ({
       checkInDate,
       checkOutDate,
       guests,
-      rating: rating ?? null,
       address,
       page: safePage,
       pageSize: normalizedPageSize,

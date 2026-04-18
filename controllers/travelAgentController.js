@@ -168,13 +168,12 @@ const searchFlightOffers = async (req, res) => {
  * @param {string} req.body.checkInDate - Check-in date in YYYY-MM-DD format
  * @param {string} req.body.checkOutDate - Check-out date in YYYY-MM-DD format
  * @param {number} req.body.guests - Number of guests
- * @param {number} [req.body.rating] - Rating filter (7, 8, 9)
  * @param {string} req.body.address - Destination or address text
  * @param {number} [req.body.page=1] - Internal page number
  * @param {number} [req.body.pageSize] - Number of hotels per page
  * @param {string} [req.body.nextPageToken] - SerpApi next page token
  * @param {Object} res - Express response object
- * @returns {void} Sends JSON with hotels and search metadata or error
+ * @returns {void} Sends JSON with hotels sorted by rating and price, or error
  */
 const searchHotelOffers = async (req, res) => {
   try {
@@ -188,7 +187,6 @@ const searchHotelOffers = async (req, res) => {
       checkInDate,
       checkOutDate,
       guests,
-      rating,
       address,
       page,
       pageSize,
@@ -199,7 +197,6 @@ const searchHotelOffers = async (req, res) => {
       checkInDate,
       checkOutDate,
       guests,
-      rating,
       address,
       page,
       pageSize,

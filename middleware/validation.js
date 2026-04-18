@@ -840,12 +840,7 @@ export const validateHotelSearch = [
   body("guests")
     .isInt({ min: 1, max: 5 })
     .toInt()
-    .withMessage("guests must be an integer between 1 and 10"),
-  body("rating")
-    .optional()
-    .isInt({ min: 7, max: 9 })
-    .toInt()
-    .withMessage("rating must be one of 7 (3.5+), 8 (4.0+), or 9 (4.5+)"),
+    .withMessage("guests must be an integer between 1 and 5"),
   body("address")
     .isString()
     .trim()
