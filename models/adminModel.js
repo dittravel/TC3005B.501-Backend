@@ -6,6 +6,72 @@
 
 import { prisma } from '../lib/prisma.js';
 
+const toPermissionKey = (permissionName) =>
+  String(permissionName || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_|_$/g, '');
+
+const normalizeSocietyGroupId = (societyGroupId) => {
+  if (societyGroupId === null || societyGroupId === undefined || societyGroupId === '') {
+    return null;
+  }
+  const id = Number(societyGroupId);
+  return Number.isNaN(id) ? null : id;
+};
+
+const ensureSocietyGroupExists = async (societyGroupId) => {
+  const id = normalizeSocietyGroupId(societyGroupId);
+  if (!id) return null;
+
+  const group = await prisma.societyGroup.findUnique({
+    where: { id },
+    select: { id: true },
+  });
+
+  if (!group) {
+    throw new Error(`Invalid society_group_id: ${id}. Create or assign a valid SocietyGroup first.`);
+  }
+
+  return id;
+};
+
+const findOrCreatePermissionId = async (permissionName, societyGroupId) => {
+  const permissionKey = toPermissionKey(permissionName);
+
+  const existingPermission = await prisma.permission.findFirst({
+    where: {
+      permission_key: permissionKey,
+      society_group_id: societyGroupId,
+    },
+    select: { permission_id: true },
+  });
+
+  if (existingPermission) {
+    await prisma.permission.update({
+      where: { permission_id: existingPermission.permission_id },
+      data: { permission_name: permissionName },
+    });
+    return existingPermission.permission_id;
+  }
+
+  const createdPermission = await prisma.permission.create({
+    data: {
+      permission_key: permissionKey,
+      permission_name: permissionName,
+      module: 'custom',
+      action: 'custom',
+      description: `Permission ${permissionName}`,
+      society_group_id: societyGroupId,
+    },
+    select: { permission_id: true },
+  });
+
+  return createdPermission.permission_id;
+};
+
 const Admin = {
   // Get all active users with full information
   async getUserList(filterBy = {}) {
@@ -264,6 +330,136 @@ const Admin = {
       console.error('Error getting roles:', error);
       throw error;
     }
+  },
+
+  // Get role details by ID, including assigned permissions
+  async getRoleById(roleId, societyGroupId = null) {
+    const id = Number(roleId);
+    const role = await prisma.role.findUnique({
+      where: { role_id: id },
+      include: {
+        Role_Permission: {
+          include: {
+            Permission: {
+              select: {
+                permission_name: true,
+                permission_key: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!role) return null;
+
+    if (societyGroupId && role.society_group_id !== Number(societyGroupId)) {
+      throw new Error('Unauthorized: Role does not belong to your society group');
+    }
+
+    return {
+      role_id: role.role_id,
+      name: role.role_name,
+      description: role.description,
+      permissions: role.Role_Permission.map((rp) => rp.Permission.permission_name),
+    };
+  },
+
+  // Create role and optionally assign permissions
+  async createRole(roleData, societyGroupId = null) {
+    const validSocietyGroupId = await ensureSocietyGroupExists(societyGroupId);
+
+    const role = await prisma.role.create({
+      data: {
+        role_name: roleData.name,
+        description: roleData.description || null,
+        society_group_id: validSocietyGroupId,
+        active: true,
+      },
+    });
+
+    const permissionNames = Array.isArray(roleData.permissions) ? roleData.permissions : [];
+    if (permissionNames.length > 0) {
+      const permissionIds = [];
+
+      for (const name of permissionNames) {
+        const permissionId = await findOrCreatePermissionId(name, validSocietyGroupId);
+        permissionIds.push(permissionId);
+      }
+
+      await prisma.role_Permission.createMany({
+        data: permissionIds.map((permissionId) => ({
+          role_id: role.role_id,
+          permission_id: permissionId,
+        })),
+        skipDuplicates: true,
+      });
+    }
+
+    return role;
+  },
+
+  // Update role and replace its permissions
+  async updateRole(roleId, roleData, societyGroupId = null) {
+    const id = Number(roleId);
+    const validSocietyGroupId = await ensureSocietyGroupExists(societyGroupId);
+    const existingRole = await prisma.role.findUnique({ where: { role_id: id } });
+    if (!existingRole) return null;
+
+    if (validSocietyGroupId && existingRole.society_group_id !== validSocietyGroupId) {
+      throw new Error('Unauthorized: Role does not belong to your society group');
+    }
+
+    await prisma.role.update({
+      where: { role_id: id },
+      data: {
+        role_name: roleData.name,
+        description: roleData.description || null,
+      },
+    });
+
+    await prisma.role_Permission.deleteMany({ where: { role_id: id } });
+
+    const permissionNames = Array.isArray(roleData.permissions) ? roleData.permissions : [];
+    if (permissionNames.length > 0) {
+      const permissionIds = [];
+
+      for (const name of permissionNames) {
+        const permissionId = await findOrCreatePermissionId(name, validSocietyGroupId);
+        permissionIds.push(permissionId);
+      }
+
+      await prisma.role_Permission.createMany({
+        data: permissionIds.map((permissionId) => ({
+          role_id: id,
+          permission_id: permissionId,
+        })),
+        skipDuplicates: true,
+      });
+    }
+
+    return true;
+  },
+
+  // Delete role after checking dependencies
+  async deleteRole(roleId, societyGroupId = null) {
+    const id = Number(roleId);
+    const role = await prisma.role.findUnique({ where: { role_id: id } });
+    if (!role) return false;
+
+    if (societyGroupId && role.society_group_id !== Number(societyGroupId)) {
+      throw new Error('Unauthorized: Role does not belong to your society group');
+    }
+
+    const assignedUsers = await prisma.user.count({ where: { role_id: id, active: true } });
+    if (assignedUsers > 0) {
+      throw new Error('Cannot delete role: there are active users assigned to this role');
+    }
+
+    await prisma.role_Permission.deleteMany({ where: { role_id: id } });
+    await prisma.role.delete({ where: { role_id: id } });
+
+    return true;
   },
 
   // Get an auth rule by ID

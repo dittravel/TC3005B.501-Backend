@@ -60,6 +60,22 @@ router.route("/get-departments")
 router.route("/get-roles")
   .get(generalRateLimiter, authenticateToken, authorizeRole(['Administrador']), adminController.getRoles);
 
+// Get role details by ID
+router.route('/roles/:role_id')
+  .get(generalRateLimiter, authenticateToken, authorizeRole(['Administrador']), adminController.getRoleById);
+
+// Create role
+router.route('/create-role')
+  .post(generalRateLimiter, authenticateToken, authorizeRole(['Administrador']), adminController.createRole);
+
+// Update role
+router.route('/update-role/:role_id')
+  .put(generalRateLimiter, authenticateToken, authorizeRole(['Administrador']), adminController.updateRole);
+
+// Delete role
+router.route('/delete-role/:role_id')
+  .delete(generalRateLimiter, authenticateToken, authorizeRole(['Administrador']), adminController.deleteRole);
+
 // Get an auth rule by ID
 router.route("/auth-rules/:rule_id")
   .get(generalRateLimiter, authenticateToken, authorizeRole(['Administrador']), adminController.getAuthRuleById);

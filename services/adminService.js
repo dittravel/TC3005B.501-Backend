@@ -444,6 +444,46 @@ export const getRoles = async (societyGroupId = null) => {
   }
 }
 
+// Get role details by ID
+export const getRoleById = async (roleId, societyGroupId = null) => {
+  try {
+    const role = await Admin.getRoleById(roleId, societyGroupId);
+    return role;
+  } catch (error) {
+    throw new Error(`Error fetching role: ${error.message}`);
+  }
+};
+
+// Create a new role
+export const createRole = async (roleData, societyGroupId = null) => {
+  try {
+    const role = await Admin.createRole(roleData, societyGroupId);
+    return role;
+  } catch (error) {
+    throw new Error(`Error creating role: ${error.message}`);
+  }
+};
+
+// Update an existing role
+export const updateRole = async (roleId, roleData, societyGroupId = null) => {
+  try {
+    const updated = await Admin.updateRole(roleId, roleData, societyGroupId);
+    return updated;
+  } catch (error) {
+    throw new Error(`Error updating role: ${error.message}`);
+  }
+};
+
+// Delete an existing role
+export const deleteRole = async (roleId, societyGroupId = null) => {
+  try {
+    const deleted = await Admin.deleteRole(roleId, societyGroupId);
+    return deleted;
+  } catch (error) {
+    throw new Error(`Error deleting role: ${error.message}`);
+  }
+};
+
 // Get an auth rule by ID
 export const getAuthRuleById = async (ruleId) => {
   try {
@@ -727,6 +767,10 @@ export default {
   getDepartments,
   // Roles
   getRoles,
+  getRoleById,
+  createRole,
+  updateRole,
+  deleteRole,
   // Auth rules
   getAuthRules,
   createAuthRule,

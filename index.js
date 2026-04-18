@@ -44,9 +44,24 @@ import cookieParser from 'cookie-parser';
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+const toOrigin = (rawUrl) => {
+  if (!rawUrl) return null;
+  try {
+    return new URL(rawUrl).origin;
+  } catch {
+    return null;
+  }
+};
+
+const allowedOrigins = Array.from(new Set([
+  toOrigin(process.env.FRONTEND_URL),
+  'https://localhost:4321',
+  'http://localhost:4321',
+].filter(Boolean)));
+
 // CORS configuration
 app.use(cors({
-  origin: ['https://localhost:4321', 'http://localhost:4321'],
+  origin: allowedOrigins,
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS']
 }));

@@ -15,6 +15,17 @@ import { sendEmails } from '../services/email/emailService.js';
 
 const router = express.Router();
 
+const normalizeFrontendBase = () => {
+  try {
+    const parsed = new URL(process.env.FRONTEND_URL || 'https://localhost:4321');
+    return parsed.origin;
+  } catch {
+    return 'https://localhost:4321';
+  }
+};
+
+const frontendBase = normalizeFrontendBase();
+
 /**
  * Handle email action (approve, decline, view, etc.)
  * GET /email-actions/:action/:token
@@ -28,7 +39,7 @@ router.get('/:action/:token', authenticateTokenFromCookies, async (req, res) => 
     const decoded = verifyToken(token);
     if (!decoded) {
       // Token is invalid or expired - redirect to result page
-      const frontendUrl = `${process.env.FRONTEND_URL}/resultado-accion-email?action=expired`;
+      const frontendUrl = `${frontendBase}/resultado-accion-email?action=expired`;
       return res.redirect(frontendUrl);
     }
 
@@ -37,7 +48,7 @@ router.get('/:action/:token', authenticateTokenFromCookies, async (req, res) => 
     // Validate that action matches token
     if (action !== tokenAction) {
       // Action mismatch - redirect to result page
-      const frontendUrl = `${process.env.FRONTEND_URL}/resultado-accion-email?action=expired`;
+      const frontendUrl = `${frontendBase}/resultado-accion-email?action=expired`;
       return res.redirect(frontendUrl);
     }
 
@@ -46,7 +57,7 @@ router.get('/:action/:token', authenticateTokenFromCookies, async (req, res) => 
         // Only the assigned Autorizador can approve
         if (req.user.role !== 'Autorizador' || parseInt(req.user.user_id) !== parseInt(userId)) {
           console.warn(`Unauthorized approval attempt: user ${req.user.user_id} (role: ${req.user.role}) tried to approve as user ${userId}`);
-          const frontendUrl = `${process.env.FRONTEND_URL}/resultado-accion-email?action=unauthorized`;
+          const frontendUrl = `${frontendBase}/resultado-accion-email?action=unauthorized`;
           return res.redirect(frontendUrl);
         }
 
@@ -84,7 +95,7 @@ router.get('/:action/:token', authenticateTokenFromCookies, async (req, res) => 
           }
           
           // Redirect to success page
-          const frontendUrl = `${process.env.FRONTEND_URL}/resultado-accion-email?action=approve&requestId=${requestId}&status=${encodeURIComponent(result.new_status)}`;
+          const frontendUrl = `${frontendBase}/resultado-accion-email?action=approve&requestId=${requestId}&status=${encodeURIComponent(result.new_status)}`;
           return res.redirect(frontendUrl);
         } catch (err) {
           throw err;
@@ -95,7 +106,7 @@ router.get('/:action/:token', authenticateTokenFromCookies, async (req, res) => 
         // Only the assigned Autorizador can decline
         if (req.user.role !== 'Autorizador' || parseInt(req.user.user_id) !== parseInt(userId)) {
           console.warn(`Unauthorized decline attempt: user ${req.user.user_id} (role: ${req.user.role}) tried to decline as user ${userId}`);
-          const frontendUrl = `${process.env.FRONTEND_URL}/resultado-accion-email?action=unauthorized`;
+          const frontendUrl = `${frontendBase}/resultado-accion-email?action=unauthorized`;
           return res.redirect(frontendUrl);
         }
 
@@ -133,7 +144,7 @@ router.get('/:action/:token', authenticateTokenFromCookies, async (req, res) => 
           }
           
           // Redirect to success page
-          const frontendUrl = `${process.env.FRONTEND_URL}/resultado-accion-email?action=decline&requestId=${requestId}&status=${encodeURIComponent(result.new_status)}`;
+          const frontendUrl = `${frontendBase}/resultado-accion-email?action=decline&requestId=${requestId}&status=${encodeURIComponent(result.new_status)}`;
           return res.redirect(frontendUrl);
         } catch (err) {
           throw err;
@@ -143,19 +154,19 @@ router.get('/:action/:token', authenticateTokenFromCookies, async (req, res) => 
       case 'view': {
         // Token is valid, redirect to request details page
         // Frontend will handle auth with existing cookies
-        const frontendUrl = `${process.env.FRONTEND_URL}/detalles-solicitud/${requestId}`;
+        const frontendUrl = `${frontendBase}/detalles-solicitud/${requestId}`;
         return res.redirect(frontendUrl);
       }
 
       case 'view_receipts': {
         // Token is valid, redirect to receipts validation page
-        const frontendUrl = `${process.env.FRONTEND_URL}/comprobar-gastos/${requestId}`;
+        const frontendUrl = `${frontendBase}/comprobar-gastos/${requestId}`;
         return res.redirect(frontendUrl);
       }
 
       case 'upload_receipts': {
         // Token is valid, redirect to upload receipts page
-        const frontendUrl = `${process.env.FRONTEND_URL}/resubir-solicitud/${requestId}`;
+        const frontendUrl = `${frontendBase}/resubir-solicitud/${requestId}`;
         return res.redirect(frontendUrl);
       }
 

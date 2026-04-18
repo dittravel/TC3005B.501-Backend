@@ -63,6 +63,119 @@ pnpm install
 npm install
 ```
 
+### Dockerized Setup (Recommended)
+
+For new machines, the recommended way to run this project is with Docker.
+
+#### 1. Install Docker Desktop
+
+1. Download and install [Docker Desktop](https://www.docker.com/products/docker-desktop/).
+2. Open Docker Desktop and verify it is running.
+3. Verify Docker in terminal:
+
+```sh
+docker --version
+docker compose version
+```
+
+#### 2. Prepare environment
+
+From the backend root:
+
+```sh
+cp .env.example .env
+```
+
+Then update at least these variables in `.env`:
+
+- `DB_NAME`
+- `DB_USER`
+- `DB_PASSWORD`
+- `DB_ROOT_PASSWORD`
+- `JWT_SECRET`
+- `AES_SECRET_KEY`
+- `MAIL_USER`
+- `MAIL_PASSWORD`
+- `FRONTEND_URL` (supports values like `https://localhost:4321` or `https://localhost:4321/login`)
+- `BACKEND_URL`
+
+#### 3. Install local dependencies
+
+Even with Docker runtime, keep local dependencies in sync for scripts and lockfile consistency:
+
+```sh
+pnpm install
+```
+
+#### 4. Build and start the stack
+
+```sh
+docker compose up -d --build
+```
+
+This starts:
+
+- `backend` on `https://localhost:3000`
+- `mariadb` on host port `3307`
+- `mongodb` on host port `27017`
+
+#### 5. Apply Prisma migrations (inside Docker)
+
+```sh
+npm run prisma:migrate:deploy:docker
+```
+
+#### 6. Verify services
+
+```sh
+docker compose ps
+```
+
+#### Scripts that run automatically in Docker
+
+The backend container starts with `node docker-start.js` (configured in `Dockerfile`).
+
+#### Database seeding in Docker
+
+
+At startup it automatically runs:
+
+1. `pnpm prisma:generate`
+2. `pnpm prisma:migrate:deploy`
+3. If migration error `P3005` is detected, it auto-baselines latest migration once (`prisma migrate resolve --applied <latest>`), then retries deploy.
+4. `node index.js`
+
+So, Prisma client generation and migration deployment are automatic on container startup.
+
+Seeding is NOT automatic on startup.
+
+The startup process does not run:
+
+- `npm run prisma:seed`
+- `npm run prisma:seed:dummy`
+- `docker compose exec backend npm run prisma:seed`
+- `docker compose exec backend npm run prisma:seed:dummy`
+
+If you need data prepopulation, run seed manually after the stack is up.
+
+#### 7. Seed data manually (optional)
+
+Standard seed (essential initial data):
+
+```sh
+docker compose exec backend npm run prisma:seed
+```
+
+Dummy seed (testing/demo data):
+
+```sh
+docker compose exec backend npm run prisma:seed:dummy
+```
+
+> [!Warning]
+> Both seed scripts execute `prisma migrate reset` first. This drops data and recreates the schema.
+> Use only in development environments.
+
 ### Create HTTPS certificates
 
 To succesfully create the certificates to use the server with HTTPS you will need to follow the next steps:
@@ -197,6 +310,12 @@ To apply any pending migrations to your database:
 npx prisma migrate deploy
 ```
 
+For Dockerized environments (recommended in this repository), run migrations in the backend container:
+
+```sh
+npm run prisma:migrate:deploy:docker
+```
+
 Or to create a new migration file if you've modified the schema:
 
 ```sh
@@ -211,11 +330,26 @@ To populate your database with only essential initial data, run the following:
 npm run prisma:seed
 ```
 
+For Dockerized environments, run inside the backend container:
+
+```sh
+docker compose exec backend npm run prisma:seed
+```
+
 To populate your database with dummy data for testing:
 
 ```sh
 npm run prisma:seed:dummy
 ```
+
+For Dockerized environments, run inside the backend container:
+
+```sh
+docker compose exec backend npm run prisma:seed:dummy
+```
+
+> [!Important]
+> Seeding is always manual. Docker startup does not auto-run seed scripts.
 
 #### 5. Reset the Database
 
@@ -236,6 +370,8 @@ npx prisma migrate reset
 | `npm run prisma:seed:dummy` | Run the seed script with dummy data |
 | `npx prisma migrate dev --name <name>` | Create a new migration |
 | `npx prisma migrate deploy` | Apply pending migrations |
+| `npm run prisma:migrate:deploy:docker` | Apply pending migrations inside backend container |
+| `npm run prisma:migrate:status:docker` | Show migration status inside backend container |
 | `npx prisma migrate reset` | Reset the database |
 
 ### Environment Variables
@@ -333,6 +469,44 @@ npm run dev
 ```
 
 And you're good to go! `nodemon` should start and you should be able to start sending requests to your specified `PORT` on `localhost` as well as a confirmation message of connection to the file database!
+
+#### Running with Docker
+
+Use this in most development setups:
+
+```sh
+docker compose up -d --build
+```
+
+Then migrate with:
+
+```sh
+npm run prisma:migrate:deploy:docker
+```
+
+If you also want seed data (manual step):
+
+```sh
+docker compose exec backend npm run prisma:seed
+```
+
+Or for dummy data:
+
+```sh
+docker compose exec backend npm run prisma:seed:dummy
+```
+
+Tail logs:
+
+```sh
+docker compose logs -f backend
+```
+
+Stop services:
+
+```sh
+docker compose down
+```
 
 ### System Endpoints
 

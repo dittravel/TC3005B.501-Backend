@@ -174,6 +174,83 @@ export const getRoles = async (req, res) => {
   }
 };
 
+// Get role details by role ID
+export const getRoleById = async (req, res) => {
+  try {
+    const roleId = req.params.role_id;
+    const role = await adminService.getRoleById(roleId, req.user.society_group_id);
+    if (!role) {
+      return res.status(404).json({ error: 'Role not found' });
+    }
+    res.status(200).json(role);
+  } catch (error) {
+    console.error('Error getting role by ID:', error.message);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+// Create a new role
+export const createRole = async (req, res) => {
+  try {
+    const role = await adminService.createRole(req.body, req.user.society_group_id);
+    await AuditLogService.recordAuditLogFromRequest(req, {
+      actionType: 'ROLE_CREATED',
+      entityType: 'Role',
+      entityId: role.role_id,
+      metadata: {
+        role_name: role.role_name,
+      },
+    });
+    return res.status(201).json({ success: true, role_id: role.role_id });
+  } catch (error) {
+    console.error('Error creating role:', error.message);
+    return res.status(500).json({ error: error.message || 'Internal server error' });
+  }
+};
+
+// Update role
+export const updateRole = async (req, res) => {
+  try {
+    const roleId = req.params.role_id;
+    const updated = await adminService.updateRole(roleId, req.body, req.user.society_group_id);
+    if (!updated) {
+      return res.status(404).json({ error: 'Role not found' });
+    }
+    await AuditLogService.recordAuditLogFromRequest(req, {
+      actionType: 'ROLE_UPDATED',
+      entityType: 'Role',
+      entityId: roleId,
+      metadata: {
+        role_name: req.body.name,
+      },
+    });
+    return res.status(200).json({ success: true });
+  } catch (error) {
+    console.error('Error updating role:', error.message);
+    return res.status(500).json({ error: error.message || 'Internal server error' });
+  }
+};
+
+// Delete role
+export const deleteRole = async (req, res) => {
+  try {
+    const roleId = req.params.role_id;
+    const deleted = await adminService.deleteRole(roleId, req.user.society_group_id);
+    if (!deleted) {
+      return res.status(404).json({ error: 'Role not found' });
+    }
+    await AuditLogService.recordAuditLogFromRequest(req, {
+      actionType: 'ROLE_DELETED',
+      entityType: 'Role',
+      entityId: roleId,
+    });
+    return res.status(200).json({ success: true });
+  } catch (error) {
+    console.error('Error deleting role:', error.message);
+    return res.status(400).json({ error: error.message || 'Internal server error' });
+  }
+};
+
 // Get an auth rule by ID
 export const getAuthRuleById = async (req, res) => {
   try {
@@ -314,6 +391,10 @@ export default {
   getDepartments,
   // Roles
   getRoles,
+  getRoleById,
+  createRole,
+  updateRole,
+  deleteRole,
   // Auth rules
   getAuthRules,
   createAuthRule,
