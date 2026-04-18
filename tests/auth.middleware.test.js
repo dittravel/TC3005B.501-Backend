@@ -11,7 +11,7 @@
  *   - validateSocietyAccess — requires a live DB; covered by integration tests in CI
  */
 
-import { describe, it, before } from 'node:test';
+import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import jwt from 'jsonwebtoken';
 
@@ -67,11 +67,17 @@ describe('authenticateToken', () => {
 
   it('responds 403 when token is invalid', async () => {
     const req = makeReq({ headers: { authorization: 'Bearer bad.token.value' } });
-    const res = makeRes();
+    // Resolve the promise as soon as res.json() is called (jwt.verify callback fires)
+    let resolveOnResponse;
+    const responded = new Promise(r => { resolveOnResponse = r; });
+    const res = {
+      _status: null, _body: null,
+      status(code) { this._status = code; return this; },
+      json(body)  { this._body  = body; resolveOnResponse(); return this; },
+    };
 
-    // next() is never called for invalid tokens; wait a tick for jwt.verify callback
     authenticateToken(req, res, () => { throw new Error('next() must not be called'); });
-    await new Promise(resolve => setImmediate(resolve));
+    await responded;
 
     assert.equal(res._status, 403);
   });

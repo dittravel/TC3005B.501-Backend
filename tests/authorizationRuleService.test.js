@@ -12,7 +12,7 @@
  *   - getAllRules, getRuleById — thin model passthroughs with no business logic
  */
 
-import { describe, it, beforeEach } from 'node:test';
+import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { buildAuthorizationRuleService } from '../services/authorizationRuleService.js';
 
@@ -175,6 +175,21 @@ describe('getNextApproverForRuleLevel', () => {
     assert.equal(result, null);
   });
 
+  it('returns null when all retries are exhausted and result is still the requester', async () => {
+    const service = buildAuthorizationRuleService({
+      userModel: makeUserModel({
+        // Always returns the requester — simulates a single-person department
+        async getRandomUserByRoleName() { return { user_id: 10 }; },
+      }),
+    });
+
+    const result = await service.getNextApproverForRuleLevel(
+      makeRuleLevel({ level_type: 'Aleatorio' }), 10, 2, 1
+    );
+
+    assert.equal(result, null);
+  });
+
   it('traverses N levels up for level_type "Nivel_Superior"', async () => {
     const service = buildAuthorizationRuleService({
       userModel: makeUserModel({
@@ -262,7 +277,11 @@ describe('getNLevelsUp', () => {
 });
 
 describe('isAuthorizationComplete', () => {
-  const { isAuthorizationComplete } = buildAuthorizationRuleService();
+  // Pure function — inject empty mocks to avoid any DB-layer side effects
+  const { isAuthorizationComplete } = buildAuthorizationRuleService({
+    ruleModel: makeRuleModel(),
+    userModel: makeUserModel(),
+  });
 
   it('returns true when current level equals total levels', () => {
     assert.equal(isAuthorizationComplete(3, 3), true);
@@ -278,7 +297,10 @@ describe('isAuthorizationComplete', () => {
 });
 
 describe('getNextAuthorizationLevel', () => {
-  const { getNextAuthorizationLevel } = buildAuthorizationRuleService();
+  const { getNextAuthorizationLevel } = buildAuthorizationRuleService({
+    ruleModel: makeRuleModel(),
+    userModel: makeUserModel(),
+  });
 
   it('increments the current level by one', () => {
     assert.equal(getNextAuthorizationLevel(1, 3), 2);

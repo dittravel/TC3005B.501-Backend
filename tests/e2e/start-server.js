@@ -12,5 +12,5 @@ const server = http.createServer(app);
 
 server.listen(PORT, () => {
   // Playwright's webServer waits for this exact output
-  console.log(`E2E test server ready on http://localhost:${PORT}`);
+  console.log(`E2E test server ready on http://localhost:${PORT}/`);
 });

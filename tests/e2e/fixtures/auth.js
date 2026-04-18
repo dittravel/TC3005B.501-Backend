@@ -8,6 +8,18 @@
  */
 import { test as base, expect } from '@playwright/test';
 
+function requireEnv(name) {
+  const value = process.env[name];
+  if (!value) {
+    throw new Error(
+      `E2E fixture: ${name} is not set. ` +
+      'Set it via the TEST_* env vars (see .env.example). ' +
+      'In CI these come from repository variables or the seed defaults.',
+    );
+  }
+  return value;
+}
+
 async function loginAs(request, username, password) {
   const resp = await request.post('/api/user/login', {
     data: { username, password },
@@ -21,8 +33,8 @@ export const test = base.extend({
   adminToken: async ({ request }, use) => {
     const token = await loginAs(
       request,
-      process.env.TEST_ADMIN_USER || 'admin',
-      process.env.TEST_ADMIN_PASS || '123',
+      requireEnv('TEST_ADMIN_USER'),
+      requireEnv('TEST_ADMIN_PASS'),
     );
     await use(token);
   },
@@ -30,8 +42,8 @@ export const test = base.extend({
   userToken: async ({ request }, use) => {
     const token = await loginAs(
       request,
-      process.env.TEST_USER_USER || 'diego.hernandez',
-      process.env.TEST_USER_PASS || '123',
+      requireEnv('TEST_USER_USER'),
+      requireEnv('TEST_USER_PASS'),
     );
     await use(token);
   },

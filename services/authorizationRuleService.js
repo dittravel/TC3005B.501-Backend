@@ -102,12 +102,11 @@ export function buildAuthorizationRuleService({ ruleModel = AuthorizationRuleMod
             }
           }
 
-          if (randomAuthorizer) {
-            return randomAuthorizer.user_id;
-          } else {
-            // No authorizer found in department
-            return null;
-          }
+          // If retries exhausted and result is still the requester, treat as no authorizer found
+        if (!randomAuthorizer || randomAuthorizer.user_id === requesterUserId) {
+          return null;
+        }
+        return randomAuthorizer.user_id;
         } else if (ruleLevel.level_type === 'Nivel_Superior' || ruleLevel.level_type === 'Nivel Superior') {
           // N levels up the hierarchy
           const levelsUp = ruleLevel.superior_level_number || 1;
@@ -133,13 +132,9 @@ export function buildAuthorizationRuleService({ ruleModel = AuthorizationRuleMod
       try {
         let currentUserId = userId;
         let currentLevel = 0;
-        console.log(`[getNLevelsUp] Start: userId=${userId}, levels=${levels}`);
         while (currentLevel < levels) {
           const nextBossId = await userModel.getBossId(currentUserId);
-          console.log(`[getNLevelsUp] Level ${currentLevel + 1}: currentUserId=${currentUserId}, nextBossId=${nextBossId}`);
           if (!nextBossId) {
-            // No more bosses available, return the current highest boss
-            console.log(`[getNLevelsUp] No more bosses at level ${currentLevel + 1}, or boss is requester. Returning null.`);
             return currentUserId === userId ? null : currentUserId; // If we never moved up, return null
           }
           currentUserId = nextBossId;
