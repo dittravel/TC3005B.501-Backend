@@ -13,6 +13,7 @@
         "test:policy": "node --test tests/reimbursementPolicyService.test.js",
         "test:erp": "node --test tests/integration*.test.js",
         "test:audit": "node --test tests/auditLog*.test.js",
+        "test:auth": "node --test tests/authorizationRuleService.test.js tests/auth.middleware.test.js",
         "prisma:generate": "prisma generate",
         "prisma:migrate:deploy": "prisma migrate deploy",
         "prisma:seed": "npx prisma migrate reset && npx prisma generate && node prisma/seed.js",
