@@ -102,7 +102,7 @@ const AuthorizationRuleService = {
           // No authorizer found in department
           return null;
         }
-      } else if (ruleLevel.level_type === 'Nivel_Superior' || ruleLevel.level_type === 'Nivel_Superior') {
+      } else if (ruleLevel.level_type === 'Nivel_Superior' || ruleLevel.level_type === 'Nivel Superior') {
         // N levels up the hierarchy
         const levelsUp = ruleLevel.superior_level_number || 1;
         const superiorUserId = await this.getNLevelsUp(requesterUserId, levelsUp);

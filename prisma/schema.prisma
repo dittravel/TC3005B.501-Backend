@@ -53,6 +53,7 @@ model AuthorizationRule {
   min_amount        Float?                         @db.Float
   max_amount        Float?                         @db.Float
   society_group_id  Int?
+  days_to_validate  Int?                           @default(5)
   SocietyGroup      SocietyGroup?                  @relation(fields: [society_group_id], references: [id])
   levels            AuthorizationRuleLevel[]
   Request           Request[]
@@ -146,9 +147,11 @@ model Receipt {
   society_id          Int?
   validation          Receipt_validation?   @default(Pendiente)
   amount              Float                 @db.Float
+  local_amount        Float?                @db.Float
   currency            String?               @db.VarChar(6)
   refund              Boolean?              @default(true)
   submission_date     DateTime?             @default(now()) @db.Timestamp(0)
+  receipt_date        DateTime?             @db.Date
   validation_date     DateTime?             @db.Timestamp(0)
   pdf_file_id         String?               @db.VarChar(24)
   pdf_file_name       String?               @db.VarChar(255)

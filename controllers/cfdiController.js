@@ -6,7 +6,7 @@
  * cfdiValidationService, and returns a structured JSON response.
  */
 
-import { validateCFDIFromXml } from '../services/cfdiValidationService.js';
+import { validateCFDIFromXml } from '../services/CFDIValidation/cfdiValidationService.js';
 
 /**
  * Validate a CFDI from an uploaded XML file.

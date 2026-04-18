@@ -202,8 +202,11 @@ function getRuleForReceipt(rules, receiptTypeId, tripScope) {
   );
 }
 
-async function getConversionData(currency, conversionCache, seriesResolver, exchangeRateResolver) {
+async function getConversionData(currency, conversionCache, seriesResolver, exchangeRateResolver, receiptDate = null, baseCurrency = 'MXN') {
   const normalizedCurrency = currency ? String(currency).trim().toUpperCase() : null;
+  const normalizedBaseCurrency = baseCurrency ? String(baseCurrency).trim().toUpperCase() : 'MXN';
+
+  console.log(`[ConversionData] Receipt currency: ${normalizedCurrency}, Base currency: ${normalizedBaseCurrency}, Date: ${receiptDate}`);
 
   if (!normalizedCurrency) {
     return {
@@ -213,7 +216,9 @@ async function getConversionData(currency, conversionCache, seriesResolver, exch
     };
   }
 
-  if (normalizedCurrency === 'MXN') {
+  // If receipt currency matches the society's base currency, no conversion needed
+  if (normalizedCurrency === normalizedBaseCurrency) {
+    console.log(`[ConversionData] Currencies match! No conversion needed. Rate = 1`);
     return {
       ok: true,
       currency: normalizedCurrency,
@@ -224,9 +229,12 @@ async function getConversionData(currency, conversionCache, seriesResolver, exch
     };
   }
 
-  if (!conversionCache.has(normalizedCurrency)) {
+  // Create cache key that includes the date for historical rates
+  const cacheKey = receiptDate ? `${normalizedCurrency}_${receiptDate.toISOString().split('T')[0]}` : normalizedCurrency;
+
+  if (!conversionCache.has(cacheKey)) {
     conversionCache.set(
-      normalizedCurrency,
+      cacheKey,
       (async () => {
         const series = await seriesResolver(normalizedCurrency);
         if (!series || !series.id) {
@@ -238,11 +246,27 @@ async function getConversionData(currency, conversionCache, seriesResolver, exch
         }
 
         try {
-          const rateData = await exchangeRateResolver(series.id);
+          const rateData = await exchangeRateResolver(series.id, receiptDate);
+
+          // If base currency is MXN, use rate directly
+          // Otherwise, need cross-rate conversion: Receipt -> MXN -> BaseCurrency
+          let finalRate = Number(rateData.rate);
+          if (normalizedBaseCurrency !== 'MXN') {
+            // Get the base currency's rate against MXN
+            const baseSeries = await seriesResolver(normalizedBaseCurrency);
+            if (baseSeries && baseSeries.id) {
+              const baseRateData = await exchangeRateResolver(baseSeries.id, receiptDate);
+              // Cross rate: (ReceiptCurrency / MXN) / (BaseCurrency / MXN)
+              finalRate = Number(rateData.rate) / Number(baseRateData.rate);
+              console.log(`[ConversionData] Cross-rate: ${normalizedCurrency}/${normalizedBaseCurrency} = ${rateData.rate} / ${baseRateData.rate} = ${finalRate}`);
+            }
+          }
+
+          console.log(`[ConversionData] Got exchange rate: ${normalizedCurrency} = ${finalRate} ${normalizedBaseCurrency} (Source: ${rateData.source})`);
           return {
             ok: true,
             currency: normalizedCurrency,
-            rate: Number(rateData.rate),
+            rate: finalRate,
             source: rateData.source,
             series_id: series.id,
             timestamp: rateData.timestamp || null,
@@ -258,7 +282,7 @@ async function getConversionData(currency, conversionCache, seriesResolver, exch
     );
   }
 
-  return conversionCache.get(normalizedCurrency);
+  return conversionCache.get(cacheKey);
 }
 
 function evaluateXmlRequirement(receipt, rule, tripScope) {
@@ -449,6 +473,8 @@ function buildReimbursementPolicyService({
       }
 
       const tripScope = deriveTripScope(evaluationContext.routes);
+      const baseCurrency = evaluationContext.request.local_currency || 'MXN';
+      console.log(`[ReimbursementPolicy] Evaluating request ${requestId}. Base Currency (Society): ${baseCurrency}`);
       const conversionCache = new Map();
       const evaluatedReceipts = [];
 
@@ -478,7 +504,9 @@ function buildReimbursementPolicyService({
           receipt.currency,
           conversionCache,
           seriesResolver,
-          exchangeRateResolver
+          exchangeRateResolver,
+          receipt.receipt_date,
+          baseCurrency
         );
 
         if (!conversion.ok) {
@@ -502,7 +530,7 @@ function buildReimbursementPolicyService({
           continue;
         }
 
-        const amountMxn = roundMoney(receipt.amount * conversion.rate);
+        const amountInBaseCurrency = roundMoney(receipt.amount * conversion.rate);
 
         if (!receipt.refund || !rule.refundable) {
           violations.push('NOT_REFUNDABLE');
@@ -518,14 +546,14 @@ function buildReimbursementPolicyService({
           violations.push(xmlViolation);
         }
 
-        if (amountMxn > rule.max_amount_mxn) {
+        if (amountInBaseCurrency > rule.max_amount_mxn) {
           violations.push('AMOUNT_EXCEEDS_POLICY_CAP');
         }
 
         const hasBlockingViolation = violations.some((violation) => BLOCKING_VIOLATIONS.has(violation));
         const reimbursableAmount = hasBlockingViolation
           ? 0
-          : roundMoney(Math.min(amountMxn, rule.max_amount_mxn));
+          : roundMoney(Math.min(amountInBaseCurrency, rule.max_amount_mxn));
 
         evaluatedReceipts.push({
           receipt_id: receipt.receipt_id,
@@ -534,12 +562,12 @@ function buildReimbursementPolicyService({
           route_id: receipt.route_id,
           amount: roundMoney(receipt.amount),
           currency: receipt.currency ? String(receipt.currency).trim().toUpperCase() : null,
-          amount_mxn: amountMxn,
+          amount_mxn: amountInBaseCurrency,
           rule: serializeRule(rule),
           evaluation_status: hasBlockingViolation ? 'REJECTED' : violations.length > 0 ? 'WARNING' : 'OK',
           violations,
           reimbursable_mxn: reimbursableAmount,
-          non_reimbursable_mxn: roundMoney(amountMxn - reimbursableAmount),
+          non_reimbursable_mxn: roundMoney(amountInBaseCurrency - reimbursableAmount),
           exchange_rate: conversion.rate,
           conversion_source: conversion.source,
           conversion_series_id: conversion.series_id,

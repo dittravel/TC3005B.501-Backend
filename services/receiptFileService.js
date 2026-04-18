@@ -62,23 +62,32 @@ export async function uploadReceiptFiles(receiptId, pdfFile, xmlFile, existingCo
 
     try {
       const tx = existingConn || prisma;
+      const updateData = {
+        pdf_file_id: pdfResult.fileId,
+        pdf_file_name: pdfResult.fileName,
+        xml_file_id: xmlResult ? xmlResult.fileId : null,
+        xml_file_name: xmlResult ? xmlResult.fileName : null,
+        xml_uuid: cfdiData.uuid || null,
+        xml_rfc_emisor: cfdiData.rfcEmisor || null,
+        xml_rfc_receptor: cfdiData.rfcReceptor || null,
+        xml_nombre_emisor: cfdiData.nombreEmisor || null,
+        xml_fecha: cfdiData.fecha ? new Date(cfdiData.fecha) : null,
+        xml_total: cfdiData.total ?? null,
+        xml_subtotal: cfdiData.subtotal ?? null,
+        xml_impuestos: cfdiData.impuestos ?? null,
+        xml_moneda: cfdiData.moneda || null,
+      };
+
+      // If XML exists and has a date, and receipt_date is not yet set, use XML date
+      if (cfdiData.fecha) {
+        // Temporarily set receipt_date from XML if it hasn't been set manually
+        // This will be overridden if user provided a manual receipt_date
+        updateData.receipt_date = new Date(cfdiData.fecha);
+      }
+
       await tx.receipt.update({
         where: { receipt_id: Number(safeReceiptId) },
-        data: {
-          pdf_file_id: pdfResult.fileId,
-          pdf_file_name: pdfResult.fileName,
-          xml_file_id: xmlResult ? xmlResult.fileId : null,
-          xml_file_name: xmlResult ? xmlResult.fileName : null,
-          xml_uuid: cfdiData.uuid || null,
-          xml_rfc_emisor: cfdiData.rfcEmisor || null,
-          xml_rfc_receptor: cfdiData.rfcReceptor || null,
-          xml_nombre_emisor: cfdiData.nombreEmisor || null,
-          xml_fecha: cfdiData.fecha ? new Date(cfdiData.fecha) : null,
-          xml_total: cfdiData.total ?? null,
-          xml_subtotal: cfdiData.subtotal ?? null,
-          xml_impuestos: cfdiData.impuestos ?? null,
-          xml_moneda: cfdiData.moneda || null,
-        },
+        data: updateData,
       });
 
       return {

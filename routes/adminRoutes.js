@@ -9,7 +9,11 @@ import express from "express";
 import multer from "multer";
 import * as adminController from "../controllers/adminController.js";
 import { authenticateToken, authorizeRole, validateSocietyAccess } from "../middleware/auth.js";
-import { validateCreateUser, validateInputs } from "../middleware/validation.js";
+import {
+  validateCreateUser,
+  validateInputs,
+  validateAuthorizationRule
+} from "../middleware/validation.js";
 import { generalRateLimiter } from "../middleware/rateLimiters.js";
 
 const router = express.Router();
@@ -70,11 +74,25 @@ router.route("/get-auth-rules")
 
 // Create auth rule
 router.route("/create-auth-rule")
-  .post(generalRateLimiter, authenticateToken, authorizeRole(['Administrador']), adminController.createAuthRule);
+  .post(
+    generalRateLimiter,
+    authenticateToken,
+    authorizeRole(['Administrador']),
+    validateAuthorizationRule,
+    validateInputs,
+    adminController.createAuthRule
+  );
 
 // Update auth rule
 router.route("/update-auth-rule/:rule_id")
-  .put(generalRateLimiter, authenticateToken, authorizeRole(['Administrador']), adminController.updateAuthRule);
+  .put(
+    generalRateLimiter,
+    authenticateToken,
+    authorizeRole(['Administrador']),
+    validateAuthorizationRule,
+    validateInputs,
+    adminController.updateAuthRule
+  );
 
 // Delete auth rule
 router.route("/delete-auth-rule/:rule_id")

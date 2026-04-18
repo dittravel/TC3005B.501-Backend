@@ -71,14 +71,14 @@ const completeServiceAssignment = async (req, res) => {
   const userId = req.user?.user_id;
 
   try {
-    if (!user_id) {
+    if (!userId) {
       return res.status(401).json({ error: "User not authenticated" });
     }
 
     const result = await TravelAgentService.completeServiceAssignment(requestId, userId);
 
     // Send email notifications
-    await sendEmails(request_id);
+    await sendEmails(requestId);
     
     return res.status(200).json({
       message: result.message,
