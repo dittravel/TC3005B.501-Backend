@@ -1,4 +1,7 @@
 import { defineConfig } from '@playwright/test';
+import { config } from 'dotenv';
+
+config(); // load .env so TEST_* vars are available to fixtures
 
 const E2E_PORT = process.env.E2E_PORT || '3001';
 const BASE_URL  = process.env.E2E_BASE_URL || `http://localhost:${E2E_PORT}`;
@@ -22,6 +25,7 @@ export default defineConfig({
     command: `node tests/e2e/start-server.js`,
     url: `http://localhost:${E2E_PORT}/`,
     reuseExistingServer: !process.env.CI,
+    env: { SKIP_RATE_LIMIT: 'true' },
     stdout: 'pipe',
     stderr: 'pipe',
     timeout: 30000,

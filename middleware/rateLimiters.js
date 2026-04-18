@@ -16,11 +16,18 @@ export var generalRateLimiter = RateLimit({
 });
 
 // Rate limiter specifically for login attempts
-export var loginRateLimiter = RateLimit({
+const _loginRateLimiter = RateLimit({
     windowMs: 1 * 60 * 1000, // 1 minute
-    max: 5, // Limit each IP to 5 login attempts per windowMs
+    max: 5,
     message: 'Too many login attempts from this IP, please try again after a minute',
 });
+// Skip rate limiting in test/CI so E2E suites are not throttled.
+// Checks SKIP_RATE_LIMIT explicitly because dotenv({ override: true }) in lib/prisma.js
+// will overwrite NODE_ENV from .env before this middleware is ever called.
+export const loginRateLimiter = (req, res, next) => {
+    if (process.env.SKIP_RATE_LIMIT === 'true' || process.env.CI) return next();
+    return _loginRateLimiter(req, res, next);
+};
 
 // Rate limiter for file uploads and expensive operations
 export var fileUploadRateLimiter = RateLimit({

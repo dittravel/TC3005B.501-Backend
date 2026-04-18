@@ -1,12 +1,15 @@
 /**
  * Reusable authentication fixture for E2E tests.
- * Extends the base Playwright test with pre-authenticated API contexts.
+ * Tokens are scoped to the worker so login is called once per worker,
+ * not once per test — avoids hitting the login rate limiter.
  *
- * Credentials come from env vars so CI and local dev can use different seeds:
- *   TEST_ADMIN_USER / TEST_ADMIN_PASS   (default: admin / 123)
- *   TEST_USER_USER  / TEST_USER_PASS   (default: diego.hernandez / 123)
+ * Credentials come from env vars:
+ *   TEST_ADMIN_USER / TEST_ADMIN_PASS
+ *   TEST_USER_USER  / TEST_USER_PASS
  */
-import { test as base, expect } from '@playwright/test';
+import { test as base, expect, request as baseRequest } from '@playwright/test';
+
+const BASE_URL = process.env.E2E_BASE_URL || `http://localhost:${process.env.E2E_PORT || '3001'}`;
 
 function requireEnv(name) {
   const value = process.env[name];
@@ -20,33 +23,29 @@ function requireEnv(name) {
   return value;
 }
 
-async function loginAs(request, username, password) {
-  const resp = await request.post('/api/user/login', {
-    data: { username, password },
-  });
-  expect(resp.status(), `login as ${username} should succeed`).toBe(200);
-  const body = await resp.json();
-  return body.token;
+async function loginAs(username, password) {
+  const ctx = await baseRequest.newContext({ baseURL: BASE_URL });
+  try {
+    const resp = await ctx.post('/api/user/login', { data: { username, password } });
+    expect(resp.status(), `login as ${username} should succeed`).toBe(200);
+    const body = await resp.json();
+    return body.token;
+  } finally {
+    await ctx.dispose();
+  }
 }
 
 export const test = base.extend({
-  adminToken: async ({ request }, use) => {
-    const token = await loginAs(
-      request,
-      requireEnv('TEST_ADMIN_USER'),
-      requireEnv('TEST_ADMIN_PASS'),
-    );
+  // scope: 'worker' — login runs once per worker process, token is reused across tests
+  adminToken: [async ({ }, use) => {
+    const token = await loginAs(requireEnv('TEST_ADMIN_USER'), requireEnv('TEST_ADMIN_PASS'));
     await use(token);
-  },
+  }, { scope: 'worker' }],
 
-  userToken: async ({ request }, use) => {
-    const token = await loginAs(
-      request,
-      requireEnv('TEST_USER_USER'),
-      requireEnv('TEST_USER_PASS'),
-    );
+  userToken: [async ({ }, use) => {
+    const token = await loginAs(requireEnv('TEST_USER_USER'), requireEnv('TEST_USER_PASS'));
     await use(token);
-  },
+  }, { scope: 'worker' }],
 });
 
 export { expect };
