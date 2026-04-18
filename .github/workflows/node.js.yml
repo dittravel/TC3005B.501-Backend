@@ -98,6 +98,8 @@ jobs:
         echo "JWT_SECRET=test_jwt_secret_key_for_github_actions" >> .env
         echo "MAIL_USER=test.mail@outlook.com" >> .env
         echo "MAIL_PASSWORD=test_password" >> .env
+        echo "AES_IV=1234567890123456" >> .env
+        echo "ENFORCE_TOKEN_IP_BINDING=false" >> .env
     
     - name: Wait for MariaDB
       run: |
@@ -121,3 +123,24 @@ jobs:
     
     - name: Run Unit Tests
       run: npm test
+
+    - name: Install Playwright (no browsers — API tests only)
+      run: npx playwright install --with-deps chromium
+
+    - name: Run E2E Tests
+      run: npm run test:e2e
+      env:
+        E2E_PORT: 3001
+        TEST_ADMIN_USER: admin
+        TEST_ADMIN_PASS: '123'
+        TEST_USER_USER: diego.hernandez
+        TEST_USER_PASS: '123'
+        ENFORCE_TOKEN_IP_BINDING: 'false'
+
+    - name: Upload Playwright report
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: playwright-report
+        path: playwright-report/
+        retention-days: 14
