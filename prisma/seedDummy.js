@@ -662,17 +662,17 @@ async function seedDummyTravelFixtures() {
     });
   }
 
-  const requestsData = [
-    { notes: 'Solicito viaticos para viaje a conferencia en Barcelona.', requested_fee: 1500.0, imposed_fee: null, request_days: 3.0, status: 'Finalizado', assigned_to: null, document_id: 'AV' },
-    { notes: 'Reembolso por gastos medicos durante viaje.', requested_fee: 0, imposed_fee: 0, request_days: 1.0, status: 'Revision', assigned_to: authorizer.user_id, document_id: 'GV' },
-    { notes: 'Solicitud de apoyo economico para capacitacion online.', requested_fee: 500.0, imposed_fee: null, request_days: 0.0, status: 'Cotizacion del Viaje', assigned_to: accountsPayable.user_id, document_id: 'AV' },
-    { notes: 'Viaticos para taller de liderazgo en Madrid.', requested_fee: 1200.0, imposed_fee: null, request_days: 2.0, status: 'Atencion Agencia de Viajes', assigned_to: agency.user_id, document_id: 'AV' },
-    { notes: 'Reembolso de transporte.', requested_fee: 300.0, imposed_fee: 250.0, request_days: 0.5, status: 'Comprobacion gastos del viaje', assigned_to: accountsPayable.user_id, document_id: 'GV' },
-    { notes: 'Apoyo para participacion en congreso internacional.', requested_fee: 2000.0, imposed_fee: 1800.0, request_days: 4.0, status: 'Validacion de comprobantes', assigned_to: accountsPayable.user_id, document_id: 'AV' },
-    { notes: 'Gastos operativos extraordinarios.', requested_fee: 650.0, imposed_fee: 600.0, request_days: 0.0, status: 'Finalizado', assigned_to: accountsPayable.user_id, document_id: 'GV' },
-    { notes: 'Viaje urgente por representacion institucional.', requested_fee: 1750.0, imposed_fee: 1500.0, request_days: 3.5, status: 'Cancelado', assigned_to: accountsPayable.user_id, document_id: 'AV' },
-    { notes: 'Solicito anticipo para mision tecnica en el extranjero.', requested_fee: 2200.0, imposed_fee: 2000.0, request_days: 5.0, status: 'Finalizado', assigned_to: accountsPayable.user_id, document_id: 'AV' },
-  ];
+const requestsData = [
+  { notes: 'Solicito viaticos para viaje a conferencia en Barcelona.', requested_fee: 1500.0, imposed_fee: null, request_days: 3.0, status: 'Finalizado', assigned_to: null, document_id: 'AV', authorization_rule_id: 1 },
+  { notes: 'Reembolso por gastos medicos durante viaje.', requested_fee: 800.0, imposed_fee: 0, request_days: 1.0, status: 'Revision', assigned_to: authorizer.user_id, document_id: 'GV', authorization_rule_id: 1 },
+  { notes: 'Solicitud de apoyo economico para capacitacion online.', requested_fee: 500.0, imposed_fee: null, request_days: 0.0, status: 'Cotizacion del Viaje', assigned_to: accountsPayable.user_id, document_id: 'AV', authorization_rule_id: 1 },
+  { notes: 'Viaticos para taller de liderazgo en Madrid.', requested_fee: 1200.0, imposed_fee: null, request_days: 2.0, status: 'Atencion Agencia de Viajes', assigned_to: agency.user_id, document_id: 'AV', authorization_rule_id: 1 },
+  { notes: 'Reembolso de transporte.', requested_fee: 300.0, imposed_fee: 250.0, request_days: 0.5, status: 'Comprobacion gastos del viaje', assigned_to: accountsPayable.user_id, document_id: 'GV', authorization_rule_id: 1 },
+  { notes: 'Apoyo para participacion en congreso internacional.', requested_fee: 2000.0, imposed_fee: 1800.0, request_days: 4.0, status: 'Validacion de comprobantes', assigned_to: accountsPayable.user_id, document_id: 'AV', authorization_rule_id: 1 },
+  { notes: 'Gastos operativos extraordinarios.', requested_fee: 650.0, imposed_fee: 600.0, request_days: 0.0, status: 'Finalizado', assigned_to: accountsPayable.user_id, document_id: 'GV', authorization_rule_id: 1 },
+  { notes: 'Viaje urgente por representacion institucional.', requested_fee: 1750.0, imposed_fee: 1500.0, request_days: 3.5, status: 'Cancelado', assigned_to: accountsPayable.user_id, document_id: 'AV', authorization_rule_id: 1 },
+  { notes: 'Solicito anticipo para mision tecnica en el extranjero.', requested_fee: 2200.0, imposed_fee: 2000.0, request_days: 5.0, status: 'Finalizado', assigned_to: accountsPayable.user_id, document_id: 'AV', authorization_rule_id: 1 },
+];
 
   const createdRequests = [];
   for (const requestData of requestsData) {
@@ -682,6 +682,7 @@ async function seedDummyTravelFixtures() {
         request_status_id: statusMap.get(requestData.status),
         assigned_to: requestData.assigned_to,
         authorization_level: requestData.assigned_to ? 1 : 0,
+        authorization_rule_id: requestData.authorization_rule_id,
         society_id: 1,
         notes: requestData.notes,
         requested_fee: requestData.requested_fee,

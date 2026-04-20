@@ -47,8 +47,10 @@ export const getApplicantRequests = async (req, res) => {
       destination_country: request.destination_country,
       beginning_date: formatDate(request.beginning_date),
       ending_date: formatDate(request.ending_date),
+      creation_date: formatDate(request.creation_date),
       status: request.status,
       assigned_to_name: request.assigned_to_name,
+      days_to_validate: request.days_to_validate,
     }));
 
     res.json(formattedRequests);
@@ -254,6 +256,7 @@ export const createDraftTravelRequest = async (req, res) => {
 
 // Helper function to format dates
 const formatDate = (date) => {
+  if (!date) return null;
   return new Date(date).toISOString().split("T")[0];
 };
 
@@ -347,25 +350,33 @@ export const getReceipt = async (req, res) => {
 // Update receipt details
 export const updateReceipt = async (req, res) => {
   const { receipt_id } = req.params;
-  const { route_id, receipt_type_name, amount, currency } = req.body;
-  
+  const { route_id, receipt_type_name, amount, currency, receipt_date, validation, local_amount } = req.body;
+
   try {
     // Validate required fields
     if (!route_id || !receipt_type_name || amount === undefined || !currency) {
       return res.status(400).json({ error: "Missing required fields" });
     }
-    
-    const updatedReceipt = await Applicant.updateReceipt(Number(receipt_id), {
+
+    const updateData = {
       route_id,
       receipt_type_name,
       amount,
-      currency
-    });
-    
+      local_amount: local_amount || amount,
+      currency,
+      receipt_date
+    };
+
+    if (validation) {
+      updateData.validation = validation;
+    }
+
+    const updatedReceipt = await Applicant.updateReceipt(Number(receipt_id), updateData);
+
     if (!updatedReceipt) {
       return res.status(404).json({ error: "Receipt not found" });
     }
-    
+
     return res.status(200).json({
       message: "Receipt updated successfully",
       receipt: updatedReceipt
@@ -417,7 +428,7 @@ export async function createExpenseWithFilesHandler(req, res) {
     }
 
     // Extract receipt details from request body
-    const { receipt_type_id, request_id, route_id, amount, currency } = req.body;
+    const { receipt_type_id, request_id, route_id, amount, currency, receipt_date, local_amount } = req.body;
 
     // Validate required fields
     if (!receipt_type_id || !request_id || !route_id || amount === undefined || !currency) {
@@ -446,13 +457,30 @@ export async function createExpenseWithFilesHandler(req, res) {
       }
     }
 
+    // Check remaining validation days for the request
+    const remainingDays = await Applicant.getDaysToValidateReceipts(
+      Number(request_id)
+    );
+
+    if (remainingDays !== null && remainingDays < 0) {
+      // Cancel travel request validation
+      await cancelTravelRequestValidation(Number(request_id));
+      return res.status(400).json({
+        error: "Submission window closed. Request cancelled automatically.",
+        request_id: Number(request_id),
+        remainingDays
+      });
+    }
+
     // Create the expense and upload files
     const result = await Applicant.createExpenseWithFiles({
       receipt_type_id: Number(receipt_type_id),
       request_id: Number(request_id),
       route_id: Number(route_id),
       amount: parseFloat(amount),
+      local_amount: parseFloat(local_amount || amount),
       currency: currency,
+      receipt_date: new Date(receipt_date),
       pdfFile: req.files.pdf[0],
       xmlFile: req.files.xml ? req.files.xml[0] : null // Optional XML file
     });
@@ -488,12 +516,14 @@ export async function createExpenseWithFilesHandler(req, res) {
 export const getDeadlineStatus = async (req, res) => {
   const requestId = Number(req.params.request_id);
   try {
-    const status = await ReimbursementPolicyService.getRequestDeadlineStatus(requestId);
+    const daysRemaining = await Applicant.getDaysToValidateReceipts(requestId);
+    const status = {
+      request_id: requestId,
+      days_remaining: daysRemaining,
+      is_within_deadline: daysRemaining > 0,
+    };
     return res.status(200).json(status);
   } catch (err) {
-    if (err.status === 404) {
-      return res.status(404).json({ error: err.message });
-    }
     console.error('Error in getDeadlineStatus controller:', err);
     return res.status(500).json({ error: 'Internal server error' });
   }
