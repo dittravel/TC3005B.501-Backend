@@ -158,7 +158,7 @@ model Receipt {
   society_id          Int?
   validation          Receipt_validation?   @default(Pendiente)
   amount              Float                 @db.Float
-  currency            String?               @db.VarChar(6)
+  currency            String?               @db.VarChar(6) // Por qué hay dos
   refund              Boolean?              @default(true)
   submission_date     DateTime?             @default(now()) @db.Timestamp(0)
   validation_date     DateTime?             @db.Timestamp(0)
@@ -174,7 +174,7 @@ model Receipt {
   xml_total           Decimal?              @db.Decimal(15, 2)
   xml_subtotal        Decimal?              @db.Decimal(15, 2)
   xml_impuestos       Decimal?              @db.Decimal(15, 2)
-  xml_moneda          String?               @db.VarChar(6)
+  xml_moneda          String?               @db.VarChar(6) // Por qué hay dos
   Request             Request?              @relation(fields: [request_id], references: [request_id], onDelete: Restrict, onUpdate: Restrict, map: "fk_receipt_request")
   Route               Route?                @relation(fields: [route_id], references: [route_id], onDelete: Restrict, onUpdate: Restrict, map: "fk_receipt_route")
   Receipt_Type        Receipt_Type?         @relation(fields: [receipt_type_id], references: [receipt_type_id], onDelete: Restrict, onUpdate: Restrict, map: "fk_receipt_type")
@@ -280,6 +280,7 @@ model Request {
   Society               Society?           @relation(fields: [society_id], references: [id], map: "fk_request_society")
   Document              Document?          @relation("fk_request_document", fields: [document_id], references: [document_id], onDelete: Restrict, onUpdate: Restrict, map: "fk_request_document")
   Route_Request         Route_Request[]
+  policyExports         PolicyExport[]
 
   @@index([assigned_to], map: "fk_request_assigned_user")
   @@index([authorization_rule_id], map: "fk_request_auth_rule")
@@ -494,6 +495,17 @@ model Document {
   Request     Request[] @relation("fk_request_document")
 
   @@index([document_id])
+}
+
+model PolicyExport {
+  id          Int       @id @default(autoincrement())
+  request_id  Int
+  is_exported Boolean   @default(false)
+  exported_at DateTime?
+
+  Request Request @relation(fields: [request_id], references: [request_id])
+
+  @@unique([request_id])
 }
 
 // Enums
