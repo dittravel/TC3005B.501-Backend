@@ -158,7 +158,7 @@ const AccountsPayable = {
         Receipt_Type: { select: { receipt_type_name: true } },
         Request: {
           select: {
-            requested_fee: true,
+            imposed_fee: true,
             requester: {
               select: {
                 department: {
@@ -180,7 +180,7 @@ const AccountsPayable = {
     if (receipts.length === 0) {
       return {
         request_id: requestId,
-        requested_fee: null,
+        imposed_fee: null,
         Expenses: []
       };
     }
@@ -193,7 +193,7 @@ const AccountsPayable = {
     // Format the response
     return {
       request_id: requestId,
-      requested_fee: receipts[0].Request?.requested_fee ?? null,
+      imposed_fee: receipts[0].Request?.imposed_fee ?? null,
       status: expense_status,
       department_name: receipts[0].Request?.requester?.department?.department_name ?? null,
       cost_center_name:
@@ -203,6 +203,7 @@ const AccountsPayable = {
         route_id: row.route_id,
         receipt_type_name: row.Receipt_Type?.receipt_type_name ?? null,
         amount: row.amount,
+        local_amount: row.local_amount,
         currency: row.currency,
         validation: row.validation,
         submission_date: row.submission_date,

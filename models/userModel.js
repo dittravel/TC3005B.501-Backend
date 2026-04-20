@@ -511,6 +511,24 @@ const User = {
 
     return substitute || null;
   },
+
+  // Update user's wallet (positive amount adds, negative amount subtracts)
+  async updateWallet(userId, amount) {
+    try {
+      const result = await prisma.user.update({
+        where: { user_id: userId },
+        data: {
+          wallet: {
+            increment: amount,
+          },
+        },
+      });
+      return result;
+    } catch (error) {
+      console.error("Error updating wallet:", error);
+      throw error;
+    }
+  },
 };
 
 export default User;

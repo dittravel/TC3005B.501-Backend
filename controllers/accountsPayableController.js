@@ -11,8 +11,10 @@
 */
 
 import AccountsPayable from "../models/accountsPayableModel.js";
+import User from "../models/userModel.js";
 import AccountsPayableService from '../services/accountsPayableService.js';
 import RequestService from '../services/requestService.js';
+import RefundService from '../services/refundService.js';
 import AuditLogService from "../services/auditLogService.js";
 import ReimbursementPolicyService from "../services/reimbursementPolicyService.js";
 import { sendEmails } from "../services/email/emailService.js";
@@ -46,7 +48,12 @@ const attendTravelRequest = async (req, res) => {
           assigned_to: request.user_id
         }
       );
-      
+
+      // Deduct advance from user's wallet
+      // -imposedFee because we want to reduce the 
+      // wallet balance by the advance amount
+      await User.updateWallet(request.user_id, -imposedFee);
+
       await AuditLogService.recordAuditLogFromRequest(req, {
         actionType: 'REQUEST_QUOTED',
         entityType: 'Request',
@@ -81,9 +88,13 @@ const attendTravelRequest = async (req, res) => {
 // Validate all receipts for a travel request and update status
 const validateReceiptsHandler = async (req, res) => {
   const requestId = req.params.request_id;
-  
+
   try {
     const result = await AccountsPayableService.validateReceiptsAndUpdateStatus(requestId);
+
+    // Get request to retrieve user_id for refund processing
+    const request = await AccountsPayable.requestExists(requestId);
+
     if (result.updatedStatus !== null) {
       await AuditLogService.recordAuditLogFromRequest(req, {
         actionType: 'REQUEST_RECEIPTS_VALIDATED',
@@ -94,7 +105,32 @@ const validateReceiptsHandler = async (req, res) => {
           message: result.message,
         },
       });
+
+      // Process refund when request is finalized
+      if (request && request.user_id) {
+        try {
+          const refundResult = await RefundService.processRefund(requestId, request.user_id);
+          result.refund = refundResult;
+
+          // Log refund in audit
+          await AuditLogService.recordAuditLogFromRequest(req, {
+            actionType: 'Reembolso',
+            entityType: 'Request',
+            entityId: requestId,
+            metadata: {
+              refund_amount: refundResult.refundAmount,
+              refund_type: refundResult.refundType,
+              total_approved: refundResult.totalApproved,
+            },
+          });
+        } catch (refundError) {
+          console.error("Error processing refund:", refundError);
+          // Continue even if refund fails, but log it
+          result.refundError = refundError.message;
+        }
+      }
     }
+
     try {
       // Send email notifications
       await sendEmails(requestId);
