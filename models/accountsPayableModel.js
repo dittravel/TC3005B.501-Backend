@@ -158,6 +158,7 @@ const AccountsPayable = {
         Receipt_Type: { select: { receipt_type_name: true } },
         Request: {
           select: {
+            requested_fee: true,
             requester: {
               select: {
                 department: {
@@ -179,6 +180,7 @@ const AccountsPayable = {
     if (receipts.length === 0) {
       return {
         request_id: requestId,
+        requested_fee: null,
         Expenses: []
       };
     }
@@ -191,6 +193,7 @@ const AccountsPayable = {
     // Format the response
     return {
       request_id: requestId,
+      requested_fee: receipts[0].Request?.requested_fee ?? null,
       status: expense_status,
       department_name: receipts[0].Request?.requester?.department?.department_name ?? null,
       cost_center_name:
