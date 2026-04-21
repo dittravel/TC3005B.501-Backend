@@ -8,7 +8,6 @@
 
 import express from 'express';
 import { verifyToken } from '../services/email/emailTokenService.js';
-import { authenticateTokenFromCookies } from '../middleware/auth.js';
 import authorizerServices from '../services/authorizerService.js';
 import AuditLogService from '../services/auditLogService.js';
 import { sendEmails } from '../services/email/emailService.js';
@@ -20,7 +19,7 @@ const router = express.Router();
  * GET /email-actions/:action/:token
  * Requires user to be authenticated via cookies
  */
-router.get('/:action/:token', authenticateTokenFromCookies, async (req, res) => {
+router.get('/:action/:token', async (req, res) => {
   const { action, token } = req.params;
 
   try {
@@ -43,9 +42,8 @@ router.get('/:action/:token', authenticateTokenFromCookies, async (req, res) => 
 
     switch (action) {
       case 'approve': {
-        // Only the assigned Autorizador can approve
-        if (req.user.role !== 'Autorizador' || parseInt(req.user.user_id) !== parseInt(userId)) {
-          console.warn(`Unauthorized approval attempt: user ${req.user.user_id} (role: ${req.user.role}) tried to approve as user ${userId}`);
+        // Token encodes the authorized approver — no cookie identity needed
+        if (decoded.role !== 'Autorizador') {
           const frontendUrl = `${process.env.FRONTEND_URL}/resultado-accion-email?action=unauthorized`;
           return res.redirect(frontendUrl);
         }
@@ -92,9 +90,8 @@ router.get('/:action/:token', authenticateTokenFromCookies, async (req, res) => 
       }
 
       case 'decline': {
-        // Only the assigned Autorizador can decline
-        if (req.user.role !== 'Autorizador' || parseInt(req.user.user_id) !== parseInt(userId)) {
-          console.warn(`Unauthorized decline attempt: user ${req.user.user_id} (role: ${req.user.role}) tried to decline as user ${userId}`);
+        // Token encodes the authorized approver — no cookie identity needed
+        if (decoded.role !== 'Autorizador') {
           const frontendUrl = `${process.env.FRONTEND_URL}/resultado-accion-email?action=unauthorized`;
           return res.redirect(frontendUrl);
         }

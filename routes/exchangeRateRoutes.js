@@ -12,11 +12,18 @@
 
 import express from 'express';
 import * as exchangeRateController from '../controllers/exchangeRateController.js';
+import { authenticateToken, authorizeRole } from '../middleware/auth.js';
+import { generalRateLimiter } from '../middleware/rateLimiters.js';
 
 const router = express.Router();
 
 router.get('/catalog', exchangeRateController.getCatalog);
 router.get('/', exchangeRateController.getCurrentExchangeRate);
-router.post('/clear-cache', exchangeRateController.clearCache);
+router.post('/clear-cache',
+  generalRateLimiter,
+  authenticateToken,
+  authorizeRole(['Administrador']),
+  exchangeRateController.clearCache
+);
 
 export default router;
