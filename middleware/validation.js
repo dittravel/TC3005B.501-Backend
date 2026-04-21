@@ -826,6 +826,56 @@ export const validateFlightSearch = [
   })
 ];
 
+/**
+ * Validate SerpApi hotel search request payload.
+ * Ensures required fields are present and pagination/localization params are valid.
+ */
+export const validateHotelSearch = [
+  body("checkInDate")
+    .isISO8601({ strict: true, strictSeparator: true })
+    .withMessage("checkInDate must be in YYYY-MM-DD format"),
+  body("checkOutDate")
+    .isISO8601({ strict: true, strictSeparator: true })
+    .withMessage("checkOutDate must be in YYYY-MM-DD format"),
+  body("guests")
+    .isInt({ min: 1, max: 5 })
+    .toInt()
+    .withMessage("guests must be an integer between 1 and 5"),
+  body("address")
+    .isString()
+    .trim()
+    .notEmpty()
+    .isLength({ min: 2, max: 120 })
+    .withMessage("address must be a non-empty string between 2 and 120 characters"),
+  body("page")
+    .optional()
+    .isInt({ min: 1 })
+    .toInt()
+    .withMessage("page must be an integer greater than 0"),
+  body("pageSize")
+    .optional()
+    .isInt({ min: 1, max: 50 })
+    .toInt()
+    .withMessage("pageSize must be an integer between 1 and 50"),
+  body("nextPageToken")
+    .optional({ nullable: true })
+    .isString()
+    .trim()
+    .isLength({ min: 5, max: 500 })
+    .withMessage("nextPageToken must be a valid non-empty string when provided"),
+  body().custom((value) => {
+    if (!value) {
+      return true;
+    }
+
+    if (value.checkInDate && value.checkOutDate && value.checkOutDate <= value.checkInDate) {
+      throw new Error("checkOutDate must be after checkInDate");
+    }
+
+    return true;
+  }),
+];
+
 // Validate forgot-password request body
 export const validateForgotPassword = [
   body('email')
@@ -1015,6 +1065,7 @@ export default {
   validateERPEmployeeQuery,
   validateAuditLogQuery,
   validateFlightSearch,
+  validateHotelSearch,
   validateForgotPassword,
   validateResetPassword,
   validateReceiptSearchQuery,
