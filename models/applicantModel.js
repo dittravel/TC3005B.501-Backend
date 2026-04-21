@@ -603,11 +603,6 @@ const Applicant = {
               },
             },
           },
-          AuthorizationRule: {
-            select: {
-              days_to_validate: true,
-            },
-          }
         },
       });
 
@@ -625,7 +620,6 @@ const Applicant = {
           creation_date: request.creation_date,
           assigned_to: request.assigned_to,
           assigned_to_name: request.assignedUser?.user_name ?? null,
-          days_to_validate: request.AuthorizationRule?.days_to_validate ?? null,
         };
       });
 
@@ -736,47 +730,6 @@ const Applicant = {
     }
   },
 
-  /**
-   * Get days remaining to validate receipts for a request
-   * @param {number} requestId
-   * @returns {number|null} days remaining to validate receipts
-   */
-  async getDaysToValidateReceipts(requestId) {
-    try {
-      const request = await prisma.request.findUnique({
-        where: { request_id: Number(requestId) },
-        select: {
-          creation_date: true,
-          AuthorizationRule: {
-            select: {
-              days_to_validate: true,
-            },
-          },
-        },
-      });
-
-      if (!request) {
-        throw new Error("Request not found");
-      }
-
-      const daysToValidate = request.AuthorizationRule?.days_to_validate ?? null;
-      if (daysToValidate === null) {
-        return null;
-      }
-
-      const today = new Date();
-      const elapsedTime = today - request.creation_date;
-      const elapsedDays = Math.floor(elapsedTime / (1000 * 60 * 60 * 24));
-      const remainingDays = daysToValidate - elapsedDays;
-
-      return remainingDays;
-
-    } catch (error) {
-      console.error("Error getting days to validate receipts:", error);
-      throw error;
-    }
-  },
-  
   /**
   * Inserts multiple receipts using receipt_type_id and amount.
   * @param {Array<{receipt_type_id: number, request_id: number, amount: number}>} receipts

@@ -46,21 +46,20 @@ model Audit_Log {
 
 /// Defines authorization workflows with configurable approval levels
 model AuthorizationRule {
-  rule_id          Int                            @id @default(autoincrement())
-  rule_name        String                         @db.VarChar(50)
-  is_default       Boolean                        @default(false)
-  num_levels       Int
-  automatic        Boolean                        @default(true)
-  travel_type      AuthorizationRule_travel_type?
-  min_duration     Int?
-  max_duration     Int?
-  min_amount       Float?                         @db.Float
-  max_amount       Float?                         @db.Float
-  society_group_id Int?
-  days_to_validate Int?                           @default(5)
-  SocietyGroup     SocietyGroup?                  @relation(fields: [society_group_id], references: [id])
-  levels           AuthorizationRuleLevel[]
-  Request          Request[]
+  rule_id           Int                            @id @default(autoincrement())
+  rule_name         String                         @db.VarChar(50)
+  is_default        Boolean                        @default(false)
+  num_levels        Int
+  automatic         Boolean                        @default(true)
+  travel_type       AuthorizationRule_travel_type?
+  min_duration      Int?
+  max_duration      Int?
+  min_amount        Float?                         @db.Float
+  max_amount        Float?                         @db.Float
+  society_group_id  Int?
+  SocietyGroup      SocietyGroup?                  @relation(fields: [society_group_id], references: [id])
+  levels            AuthorizationRuleLevel[]
+  Request           Request[]
 
   @@index([society_group_id])
 }
@@ -276,6 +275,7 @@ model Request {
   active                Boolean            @default(true)
   Alert                 Alert[]
   Receipt               Receipt[]
+  Refund                Refund[]
   assignedUser          User?              @relation("AssignedUser", fields: [assigned_to], references: [user_id], onDelete: Restrict, onUpdate: Restrict, map: "fk_request_assigned_user")
   AuthorizationRule     AuthorizationRule? @relation(fields: [authorization_rule_id], references: [rule_id], onDelete: Restrict, onUpdate: Restrict, map: "fk_request_auth_rule")
   Request_status        Request_status?    @relation(fields: [request_status_id], references: [request_status_id], onDelete: Restrict, onUpdate: Restrict, map: "fk_request_status")
@@ -372,37 +372,38 @@ model Route_Request {
 
 /// System users with hierarchy and out-of-office delegation
 model User {
-  user_id                  Int                    @id @default(autoincrement())
-  role_id                  Int?
-  department_id            Int?
-  boss_id                  Int?
-  substitute_id            Int?
-  out_of_office_start_date DateTime?              @db.Date
-  out_of_office_end_date   DateTime?              @db.Date
-  user_name                String                 @unique(map: "user_name") @db.VarChar(60)
-  password                 String                 @db.VarChar(60)
-  workstation              String?                @db.VarChar(20)
-  email                    String                 @unique(map: "email") @db.VarChar(254)
-  phone_number             String?                @db.VarChar(254)
-  wallet                   Float?                 @default(0) @db.Float
-  creation_date            DateTime?              @default(now()) @db.Timestamp(0)
-  last_mod_date            DateTime?              @default(now()) @db.Timestamp(0)
-  active                   Boolean                @default(true)
-  password_reset_token     String?                @db.VarChar(64)
-  password_reset_expires   DateTime?              @db.DateTime(0)
-  society_id               Int?                   @db.Int
-  supplier                 BigInt?                @db.BigInt
-  Society                  Society?               @relation(fields: [society_id], references: [id])
-  Audit_Log                Audit_Log[]
-  Reimbursement_Policy     Reimbursement_Policy[]
-  requestsAssigned         Request[]              @relation("AssignedUser")
-  requestsCreated          Request[]              @relation("RequesterUser")
-  boss                     User?                  @relation("UserBoss", fields: [boss_id], references: [user_id], onDelete: Restrict, onUpdate: Restrict, map: "fk_user_boss")
-  subordinates             User[]                 @relation("UserBoss")
-  department               Department?            @relation(fields: [department_id], references: [department_id], onDelete: Restrict, onUpdate: Restrict, map: "fk_user_department")
-  role                     Role?                  @relation(fields: [role_id], references: [role_id], onDelete: Restrict, onUpdate: Restrict, map: "fk_user_role")
-  substitute               User?                  @relation("UserSubstitute", fields: [substitute_id], references: [user_id], onDelete: Restrict, onUpdate: Restrict, map: "fk_user_substitute")
-  substitutedBy            User[]                 @relation("UserSubstitute")
+  user_id                             Int                    @id @default(autoincrement())
+  role_id                             Int?
+  department_id                       Int?
+  boss_id                             Int?
+  substitute_id                       Int?
+  out_of_office_start_date            DateTime?              @db.Date
+  out_of_office_end_date              DateTime?              @db.Date
+  user_name                           String                 @unique(map: "user_name") @db.VarChar(60)
+  password                            String                 @db.VarChar(60)
+  workstation                         String?                @db.VarChar(20)
+  email                               String                 @unique(map: "email") @db.VarChar(254)
+  phone_number                        String?                @db.VarChar(254)
+  wallet                              Float?                 @default(0) @db.Float
+  creation_date                       DateTime?              @default(now()) @db.Timestamp(0)
+  last_mod_date                       DateTime?              @default(now()) @db.Timestamp(0)
+  active                              Boolean                @default(true)
+  password_reset_token                String?                @db.VarChar(64)
+  password_reset_expires              DateTime?              @db.DateTime(0)
+  society_id                          Int?                   @db.Int
+  supplier                            BigInt?                @db.BigInt
+  Society                             Society?               @relation(fields: [society_id], references: [id])
+  Audit_Log                           Audit_Log[]
+  Reimbursement_Policy                Reimbursement_Policy[]
+  Refund                              Refund[]
+  requestsAssigned                    Request[]              @relation("AssignedUser")
+  requestsCreated                     Request[]              @relation("RequesterUser")
+  boss                                User?                  @relation("UserBoss", fields: [boss_id], references: [user_id], onDelete: Restrict, onUpdate: Restrict, map: "fk_user_boss")
+  subordinates                        User[]                 @relation("UserBoss")
+  department                          Department?            @relation(fields: [department_id], references: [department_id], onDelete: Restrict, onUpdate: Restrict, map: "fk_user_department")
+  role                                Role?                  @relation(fields: [role_id], references: [role_id], onDelete: Restrict, onUpdate: Restrict, map: "fk_user_role")
+  substitute                          User?                  @relation("UserSubstitute", fields: [substitute_id], references: [user_id], onDelete: Restrict, onUpdate: Restrict, map: "fk_user_substitute")
+  substitutedBy                       User[]                 @relation("UserSubstitute")
 
   @@index([boss_id], map: "fk_user_boss")
   @@index([department_id], map: "fk_user_department")
@@ -545,4 +546,24 @@ enum AuthorizationRule_travel_type {
   Nacional
   Internacional
   Todos
+}
+
+enum Refund_type {
+  Reembolso
+  Deducción
+}
+
+model Refund {
+  refund_id     Int        @id @default(autoincrement())
+  request_id    Int?
+  user_id       Int?
+  refund_amount Float      @db.Float
+  refund_type   Refund_type
+  created_at    DateTime   @default(now()) @db.Timestamp(0)
+
+  Request       Request?   @relation(fields: [request_id], references: [request_id], onDelete: Restrict, onUpdate: Restrict, map: "fk_refund_request")
+  User          User?      @relation(fields: [user_id], references: [user_id], onDelete: Restrict, onUpdate: Restrict, map: "fk_refund_user")
+
+  @@index([request_id], map: "fk_refund_request")
+  @@index([user_id], map: "fk_refund_user")
 }

@@ -237,17 +237,6 @@ export async function sendReceiptsForValidation(requestId) {
     throw err;
   }
 
-  // Validate submission deadline based on authorization rule days_to_validate
-  const remainingDays = await Applicant.getDaysToValidateReceipts(Number(requestId));
-  if (remainingDays < 0) {
-    await cancelTravelRequestValidation(Number(requestId));
-    const err = new Error(
-      "Submission window closed. Request cancelled automatically due to exceeded deadline."
-    );
-    err.status = 422;
-    throw err;
-  }
-
   // Get society_group_id from request
   const societyGroupId = await Applicant.getRequestSocietyGroupId(requestId);
 
