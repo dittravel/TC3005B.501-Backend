@@ -50,7 +50,6 @@ export const getApplicantRequests = async (req, res) => {
       creation_date: formatDate(request.creation_date),
       status: request.status,
       assigned_to_name: request.assigned_to_name,
-      days_to_validate: request.days_to_validate,
     }));
 
     res.json(formattedRequests);
@@ -457,21 +456,6 @@ export async function createExpenseWithFilesHandler(req, res) {
       }
     }
 
-    // Check remaining validation days for the request
-    const remainingDays = await Applicant.getDaysToValidateReceipts(
-      Number(request_id)
-    );
-
-    if (remainingDays !== null && remainingDays < 0) {
-      // Cancel travel request validation
-      await cancelTravelRequestValidation(Number(request_id));
-      return res.status(400).json({
-        error: "Submission window closed. Request cancelled automatically.",
-        request_id: Number(request_id),
-        remainingDays
-      });
-    }
-
     // Create the expense and upload files
     const result = await Applicant.createExpenseWithFiles({
       receipt_type_id: Number(receipt_type_id),
@@ -513,22 +497,6 @@ export async function createExpenseWithFilesHandler(req, res) {
 }
 
 // Get deadline status for a request — tells frontend if the submission window is still open
-export const getDeadlineStatus = async (req, res) => {
-  const requestId = Number(req.params.request_id);
-  try {
-    const daysRemaining = await Applicant.getDaysToValidateReceipts(requestId);
-    const status = {
-      request_id: requestId,
-      days_remaining: daysRemaining,
-      is_within_deadline: daysRemaining > 0,
-    };
-    return res.status(200).json(status);
-  } catch (err) {
-    console.error('Error in getDeadlineStatus controller:', err);
-    return res.status(500).json({ error: 'Internal server error' });
-  }
-};
-
 export default {
   getApplicantById,
   getApplicantRequests,
@@ -547,5 +515,4 @@ export default {
   updateReceipt,
   updateRequestStatus,
   createExpenseWithFilesHandler,
-  getDeadlineStatus,
 };

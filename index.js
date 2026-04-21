@@ -29,6 +29,8 @@ import cfdiRoutes from './routes/cfdiRoutes.js';
 import accountabilityRoutes from "./routes/accountabilityRoutes.js";
 import societyGroupRoutes from "./routes/societyGroupRoutes.js";
 import societyRoutes from "./routes/societyRoutes.js";
+import refundRoutes from "./routes/refundRoutes.js";
+import requestRoutes from "./routes/requestRoutes.js";
 
 // Import MongoDB connection for file storage
 import { connectMongo } from './services/fileStorage.js';
@@ -74,6 +76,8 @@ app.use("/api/cfdi", cfdiRoutes);
 app.use("/api/accounting/export", accountabilityRoutes);
 app.use("/api/society-groups", societyGroupRoutes);
 app.use("/api/societies", societyRoutes);
+app.use("/api/refunds", refundRoutes);
+app.use("/api/requests", requestRoutes);
 
 // Connect to MongoDB for file storage
 connectMongo().catch(err => console.error('Failed to connect to MongoDB:', err));
