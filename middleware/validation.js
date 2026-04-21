@@ -896,12 +896,7 @@ export const validateAuthorizationRule = [
     .isInt({ min: 1, max: 10 })
     .toInt()
     .withMessage('num_levels must be an integer between 1 and 10'),
-  
-  body('days_to_validate')
-    .isInt({ min: 5, max: 30 })
-    .toInt()
-    .withMessage('days_to_validate must be an integer between 5 and 30'),
-  
+
   body('automatic')
     .isBoolean()
     .toBoolean()

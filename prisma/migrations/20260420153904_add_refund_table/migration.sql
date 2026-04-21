@@ -21,3 +21,6 @@ ALTER TABLE `Refund` ADD CONSTRAINT `fk_refund_user` FOREIGN KEY (`user_id`) REF
 -- Drop wallet triggers - wallet management now handled in application code
 DROP TRIGGER IF EXISTS `DeductFromWalletOnFeeImposed`;
 DROP TRIGGER IF EXISTS `AddToWalletOnReceiptApproved`;
+
+-- Drop days_to_validate column from AuthorizationRule
+ALTER TABLE `AuthorizationRule` DROP COLUMN `days_to_validate`;
