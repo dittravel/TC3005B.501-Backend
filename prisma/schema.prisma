@@ -258,32 +258,33 @@ model Reimbursement_Policy_Rule {
 
 /// Travel requests submitted by users for approval and reimbursement
 model Request {
-  request_id            Int                @id @default(autoincrement())
-  user_id               Int?
-  request_status_id     Int?               @default(1)
-  assigned_to           Int?
-  authorization_level   Int?               @default(0)
-  authorization_rule_id Int?
-  society_id            Int?
-  document_id           String?
-  notes                 String?            @db.LongText
-  requested_fee         Float?             @db.Float
-  imposed_fee           Float?             @db.Float
-  request_days          Float?             @db.Float
-  creation_date         DateTime?          @default(now()) @db.Timestamp(0)
-  last_mod_date         DateTime?          @default(now()) @db.Timestamp(0)
-  active                Boolean            @default(true)
-  Alert                 Alert[]
-  Receipt               Receipt[]
-  Refund                Refund[]
-  assignedUser          User?              @relation("AssignedUser", fields: [assigned_to], references: [user_id], onDelete: Restrict, onUpdate: Restrict, map: "fk_request_assigned_user")
-  AuthorizationRule     AuthorizationRule? @relation(fields: [authorization_rule_id], references: [rule_id], onDelete: Restrict, onUpdate: Restrict, map: "fk_request_auth_rule")
-  Request_status        Request_status?    @relation(fields: [request_status_id], references: [request_status_id], onDelete: Restrict, onUpdate: Restrict, map: "fk_request_status")
-  requester             User?              @relation("RequesterUser", fields: [user_id], references: [user_id], onDelete: Restrict, onUpdate: Restrict, map: "fk_request_user")
-  Society               Society?           @relation(fields: [society_id], references: [id], map: "fk_request_society")
-  Document              Document?          @relation("fk_request_document", fields: [document_id], references: [document_id], onDelete: Restrict, onUpdate: Restrict, map: "fk_request_document")
-  Route_Request         Route_Request[]
-  policyExports         PolicyExport[]
+  request_id              Int                @id @default(autoincrement())
+  user_id                 Int?
+  request_status_id       Int?               @default(1)
+  assigned_to             Int?
+  authorization_level     Int?               @default(0)
+  authorization_rule_id   Int?
+  society_id              Int?
+  document_id             String?
+  notes                   String?            @db.LongText
+  requested_fee           Float?             @db.Float
+  currency                String?            @db.VarChar(6) @default("MXN")
+  imposed_fee             Float?             @db.Float
+  request_days            Float?             @db.Float
+  creation_date           DateTime?          @default(now()) @db.Timestamp(0)
+  last_mod_date           DateTime?          @default(now()) @db.Timestamp(0)
+  active                  Boolean            @default(true)
+  Alert                   Alert[]
+  Receipt                 Receipt[]
+  Refund                  Refund[]
+  assignedUser            User?              @relation("AssignedUser", fields: [assigned_to], references: [user_id], onDelete: Restrict, onUpdate: Restrict, map: "fk_request_assigned_user")
+  AuthorizationRule       AuthorizationRule? @relation(fields: [authorization_rule_id], references: [rule_id], onDelete: Restrict, onUpdate: Restrict, map: "fk_request_auth_rule")
+  Request_status          Request_status?    @relation(fields: [request_status_id], references: [request_status_id], onDelete: Restrict, onUpdate: Restrict, map: "fk_request_status")
+  requester               User?              @relation("RequesterUser", fields: [user_id], references: [user_id], onDelete: Restrict, onUpdate: Restrict, map: "fk_request_user")
+  Society                 Society?           @relation(fields: [society_id], references: [id], map: "fk_request_society")
+  Document                Document?          @relation("fk_request_document", fields: [document_id], references: [document_id], onDelete: Restrict, onUpdate: Restrict, map: "fk_request_document")
+  Route_Request           Route_Request[]
+  policyExports           PolicyExport[]
 
   @@index([assigned_to], map: "fk_request_assigned_user")
   @@index([authorization_rule_id], map: "fk_request_auth_rule")
@@ -391,6 +392,7 @@ model User {
   password_reset_token                String?                @db.VarChar(64)
   password_reset_expires              DateTime?              @db.DateTime(0)
   society_id                          Int?                   @db.Int
+  supplier                            BigInt?                @db.BigInt
   Society                             Society?               @relation(fields: [society_id], references: [id])
   Audit_Log                           Audit_Log[]
   Reimbursement_Policy                Reimbursement_Policy[]
