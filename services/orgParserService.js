@@ -202,7 +202,8 @@ export async function extractExternalDataFromJSON(jsonObj, societyGroupId) {
           department_name: departamento,
           cost_center_id: costCenterId,
           active: emp.Status === 'A' ? true : false,
-          society_id: societyId
+          society_id: societyId,
+          supplier: emp.Proveedor || null
         });
       });
     });
