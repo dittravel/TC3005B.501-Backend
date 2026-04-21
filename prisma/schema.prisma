@@ -391,6 +391,7 @@ model User {
   password_reset_token                String?                @db.VarChar(64)
   password_reset_expires              DateTime?              @db.DateTime(0)
   society_id                          Int?                   @db.Int
+  supplier                            BigInt?                @db.BigInt
   Society                             Society?               @relation(fields: [society_id], references: [id])
   Audit_Log                           Audit_Log[]
   Reimbursement_Policy                Reimbursement_Policy[]
