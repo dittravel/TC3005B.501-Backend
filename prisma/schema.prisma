@@ -6,6 +6,7 @@ datasource db {
   provider = "mysql"
 }
 
+/// Represents system alerts triggered by travel requests
 model Alert {
   alert_id     Int           @id @default(autoincrement())
   request_id   Int?
@@ -18,12 +19,14 @@ model Alert {
   @@index([request_id], map: "fk_alert_request")
 }
 
+/// Predefined alert message templates
 model AlertMessage {
   message_id   Int     @id @default(autoincrement())
   message_text String  @db.VarChar(60)
   Alert        Alert[]
 }
 
+/// Audit trail for tracking user actions and system events
 model Audit_Log {
   audit_log_id    Int       @id @default(autoincrement())
   actor_user_id   Int?
@@ -41,26 +44,28 @@ model Audit_Log {
   @@index([event_timestamp], map: "idx_audit_timestamp")
 }
 
+/// Defines authorization workflows with configurable approval levels
 model AuthorizationRule {
-  rule_id           Int                            @id @default(autoincrement())
-  rule_name         String                         @db.VarChar(50)
-  is_default        Boolean                        @default(false)
-  num_levels        Int
-  automatic         Boolean                        @default(true)
-  travel_type       AuthorizationRule_travel_type?
-  min_duration      Int?
-  max_duration      Int?
-  min_amount        Float?                         @db.Float
-  max_amount        Float?                         @db.Float
-  society_group_id  Int?
-  days_to_validate  Int?                           @default(5)
-  SocietyGroup      SocietyGroup?                  @relation(fields: [society_group_id], references: [id])
-  levels            AuthorizationRuleLevel[]
-  Request           Request[]
+  rule_id          Int                            @id @default(autoincrement())
+  rule_name        String                         @db.VarChar(50)
+  is_default       Boolean                        @default(false)
+  num_levels       Int
+  automatic        Boolean                        @default(true)
+  travel_type      AuthorizationRule_travel_type?
+  min_duration     Int?
+  max_duration     Int?
+  min_amount       Float?                         @db.Float
+  max_amount       Float?                         @db.Float
+  society_group_id Int?
+  days_to_validate Int?                           @default(5)
+  SocietyGroup     SocietyGroup?                  @relation(fields: [society_group_id], references: [id])
+  levels           AuthorizationRuleLevel[]
+  Request          Request[]
 
   @@index([society_group_id])
 }
 
+/// Individual approval levels within an authorization rule
 model AuthorizationRuleLevel {
   id                    Int                               @id @default(autoincrement())
   rule_id               Int
@@ -72,6 +77,7 @@ model AuthorizationRuleLevel {
   @@index([rule_id], map: "fk_authorization_rule")
 }
 
+/// Cities catalog for travel routes
 model City {
   city_id    Int     @id @default(autoincrement())
   city_name  String  @unique(map: "city_name") @db.VarChar(200)
@@ -79,11 +85,12 @@ model City {
   routesFrom Route[] @relation("OriginCity")
 }
 
+/// Cost centers for budget allocation and financial reporting
 model CostCenter {
-  cost_center_id   Int            @id @default(autoincrement())
-  cost_center_name String         @db.VarChar(20)
+  cost_center_id   Int           @id @default(autoincrement())
+  cost_center_name String        @db.VarChar(20)
   society_group_id Int?
-  SocietyGroup     SocietyGroup?  @relation(fields: [society_group_id], references: [id], map: "fk_costcenter_societygroup")
+  SocietyGroup     SocietyGroup? @relation(fields: [society_group_id], references: [id], map: "fk_costcenter_societygroup")
   Department       Department[]
   Account          Account[]
 
@@ -91,6 +98,7 @@ model CostCenter {
   @@index([society_group_id])
 }
 
+/// Countries catalog for travel routes
 model Country {
   country_id   Int     @id @default(autoincrement())
   country_name String  @unique(map: "country_name") @db.VarChar(60)
@@ -98,6 +106,7 @@ model Country {
   routesFrom   Route[] @relation("OriginCountry")
 }
 
+/// Currency definitions with exchange rate metadata
 model Currency {
   currency_id       Int                 @id @default(autoincrement())
   currency_code     String              @unique(map: "currency_code") @db.VarChar(6)
@@ -108,6 +117,7 @@ model Currency {
   active            Boolean             @default(true)
 }
 
+/// Organizational departments for user assignment and policy application
 model Department {
   department_id                   Int                               @id @default(autoincrement())
   department_name                 String                            @db.VarChar(20)
@@ -124,21 +134,23 @@ model Department {
   @@index([society_group_id])
 }
 
+/// System permissions for role-based access control
 model Permission {
-  permission_id   Int               @id @default(autoincrement())
-  permission_key  String            @db.VarChar(50)
-  permission_name String            @db.VarChar(100)
-  module          String            @db.VarChar(50)
-  action          String            @db.VarChar(50)
-  description     String?           @db.VarChar(100)
+  permission_id    Int               @id @default(autoincrement())
+  permission_key   String            @db.VarChar(50)
+  permission_name  String            @db.VarChar(100)
+  module           String            @db.VarChar(50)
+  action           String            @db.VarChar(50)
+  description      String?           @db.VarChar(100)
   society_group_id Int?
-  SocietyGroup    SocietyGroup?     @relation(fields: [society_group_id], references: [id], map: "fk_permission_societygroup")
-  Role_Permission Role_Permission[]
+  SocietyGroup     SocietyGroup?     @relation(fields: [society_group_id], references: [id], map: "fk_permission_societygroup")
+  Role_Permission  Role_Permission[]
 
   @@unique([permission_key, society_group_id])
   @@index([society_group_id])
 }
 
+/// Expense receipts attached to travel requests with XML invoice data
 model Receipt {
   receipt_id          Int                   @id @default(autoincrement())
   receipt_type_id     Int?
@@ -165,7 +177,7 @@ model Receipt {
   xml_total           Decimal?              @db.Decimal(15, 2)
   xml_subtotal        Decimal?              @db.Decimal(15, 2)
   xml_impuestos       Decimal?              @db.Decimal(15, 2)
-  xml_moneda          String?               @db.VarChar(6)
+  xml_moneda          String?               @db.VarChar(6) // Por qué hay dos
   Request             Request?              @relation(fields: [request_id], references: [request_id], onDelete: Restrict, onUpdate: Restrict, map: "fk_receipt_request")
   Route               Route?                @relation(fields: [route_id], references: [route_id], onDelete: Restrict, onUpdate: Restrict, map: "fk_receipt_route")
   Receipt_Type        Receipt_Type?         @relation(fields: [receipt_type_id], references: [receipt_type_id], onDelete: Restrict, onUpdate: Restrict, map: "fk_receipt_type")
@@ -178,6 +190,7 @@ model Receipt {
   @@index([society_id])
 }
 
+/// Categories of expense receipts (e.g., lodging, meals, transportation)
 model Receipt_Type {
   receipt_type_id           Int                         @id @default(autoincrement())
   receipt_type_name         String                      @unique @db.VarChar(20)
@@ -186,6 +199,7 @@ model Receipt_Type {
   Reimbursement_Policy_Rule Reimbursement_Policy_Rule[]
 }
 
+/// Expense reimbursement policies with rules and limits
 model Reimbursement_Policy {
   policy_id                       Int                               @id @default(autoincrement())
   policy_code                     String                            @unique(map: "policy_code") @db.VarChar(40)
@@ -208,6 +222,7 @@ model Reimbursement_Policy {
   @@index([society_group_id])
 }
 
+/// Assignment of reimbursement policies to departments
 model Reimbursement_Policy_Assignment {
   assignment_id        Int                  @id @default(autoincrement())
   policy_id            Int
@@ -221,6 +236,7 @@ model Reimbursement_Policy_Assignment {
   @@index([policy_id], map: "fk_policy_assignment_policy")
 }
 
+/// Specific rules within reimbursement policies (max amounts, deadlines, requirements)
 model Reimbursement_Policy_Rule {
   rule_id                   Int                                  @id @default(autoincrement())
   policy_id                 Int
@@ -241,6 +257,7 @@ model Reimbursement_Policy_Rule {
   @@index([receipt_type_id], map: "fk_policy_rule_receipt_type")
 }
 
+/// Travel requests submitted by users for approval and reimbursement
 model Request {
   request_id            Int                @id @default(autoincrement())
   user_id               Int?
@@ -249,6 +266,7 @@ model Request {
   authorization_level   Int?               @default(0)
   authorization_rule_id Int?
   society_id            Int?
+  document_id           String?
   notes                 String?            @db.LongText
   requested_fee         Float?             @db.Float
   imposed_fee           Float?             @db.Float
@@ -262,38 +280,45 @@ model Request {
   AuthorizationRule     AuthorizationRule? @relation(fields: [authorization_rule_id], references: [rule_id], onDelete: Restrict, onUpdate: Restrict, map: "fk_request_auth_rule")
   Request_status        Request_status?    @relation(fields: [request_status_id], references: [request_status_id], onDelete: Restrict, onUpdate: Restrict, map: "fk_request_status")
   requester             User?              @relation("RequesterUser", fields: [user_id], references: [user_id], onDelete: Restrict, onUpdate: Restrict, map: "fk_request_user")
-  Society              Society?            @relation(fields: [society_id], references: [id], map: "fk_request_society")
+  Society               Society?           @relation(fields: [society_id], references: [id], map: "fk_request_society")
+  Document              Document?          @relation("fk_request_document", fields: [document_id], references: [document_id], onDelete: Restrict, onUpdate: Restrict, map: "fk_request_document")
   Route_Request         Route_Request[]
+  policyExports         PolicyExport[]
 
   @@index([assigned_to], map: "fk_request_assigned_user")
   @@index([authorization_rule_id], map: "fk_request_auth_rule")
   @@index([request_status_id], map: "fk_request_status")
   @@index([user_id], map: "fk_request_user")
   @@index([society_id])
+  @@index([document_id], map: "fk_request_document")
 }
 
+/// Status values for travel requests (pending, approved, rejected, etc.)
 model Request_status {
   request_status_id Int       @id @default(autoincrement())
   status            String    @unique(map: "status") @db.VarChar(30)
+  is_exported       Boolean   @default(false)
   Request           Request[]
 }
 
+/// User roles for permission assignment
 model Role {
-  role_id         Int               @id @default(autoincrement())
-  role_name       String            @db.VarChar(60)
-  description     String?           @db.VarChar(60)
+  role_id          Int               @id @default(autoincrement())
+  role_name        String            @db.VarChar(60)
+  description      String?           @db.VarChar(60)
   society_group_id Int?
-  active          Boolean?          @default(true)
-  updated_at      DateTime?         @default(now()) @db.Timestamp(0)
-  SocietyGroup    SocietyGroup?     @relation(fields: [society_group_id], references: [id], map: "fk_role_societygroup")
-  Role_Permission Role_Permission[]
-  User            User[]
+  active           Boolean?          @default(true)
+  updated_at       DateTime?         @default(now()) @db.Timestamp(0)
+  SocietyGroup     SocietyGroup?     @relation(fields: [society_group_id], references: [id], map: "fk_role_societygroup")
+  Role_Permission  Role_Permission[]
+  User             User[]
 
   @@unique([role_name, society_group_id])
   @@index([active], map: "idx_role_active")
   @@index([society_group_id])
 }
 
+/// Junction table linking roles with permissions
 model Role_Permission {
   role_permission_id Int        @id @default(autoincrement())
   role_id            Int
@@ -306,6 +331,7 @@ model Role_Permission {
   @@index([permission_id], map: "fk_role_permission_permission")
 }
 
+/// Travel itinerary segments with origin/destination and dates
 model Route {
   route_id               Int             @id @default(autoincrement())
   id_origin_country      Int?
@@ -332,6 +358,7 @@ model Route {
   @@index([id_origin_country], map: "fk_route_origin_country")
 }
 
+/// Junction table linking requests with their travel routes
 model Route_Request {
   route_request_id Int      @id @default(autoincrement())
   request_id       Int?
@@ -343,37 +370,39 @@ model Route_Request {
   @@index([route_id], map: "fk_route_request_route")
 }
 
+/// System users with hierarchy and out-of-office delegation
 model User {
-  user_id                             Int                    @id @default(autoincrement())
-  role_id                             Int?
-  department_id                       Int?
-  boss_id                             Int?
-  substitute_id                       Int?
-  out_of_office_start_date            DateTime?              @db.Date
-  out_of_office_end_date              DateTime?              @db.Date
-  user_name                           String                 @unique(map: "user_name") @db.VarChar(60)
-  password                            String                 @db.VarChar(60)
-  workstation                         String?                @db.VarChar(20)
-  email                               String                 @unique(map: "email") @db.VarChar(254)
-  phone_number                        String?                @db.VarChar(254)
-  wallet                              Float?                 @default(0) @db.Float
-  creation_date                       DateTime?              @default(now()) @db.Timestamp(0)
-  last_mod_date                       DateTime?              @default(now()) @db.Timestamp(0)
-  active                              Boolean                @default(true)
-  password_reset_token                String?                @db.VarChar(64)
-  password_reset_expires              DateTime?              @db.DateTime(0)
-  society_id                          Int?                   @db.Int
-  Society                             Society?               @relation(fields: [society_id], references: [id])
-  Audit_Log                           Audit_Log[]
-  Reimbursement_Policy                Reimbursement_Policy[]
-  requestsAssigned                    Request[]              @relation("AssignedUser")
-  requestsCreated                     Request[]              @relation("RequesterUser")
-  boss                                User?                  @relation("UserBoss", fields: [boss_id], references: [user_id], onDelete: Restrict, onUpdate: Restrict, map: "fk_user_boss")
-  subordinates                        User[]                 @relation("UserBoss")
-  department                          Department?            @relation(fields: [department_id], references: [department_id], onDelete: Restrict, onUpdate: Restrict, map: "fk_user_department")
-  role                                Role?                  @relation(fields: [role_id], references: [role_id], onDelete: Restrict, onUpdate: Restrict, map: "fk_user_role")
-  substitute                          User?                  @relation("UserSubstitute", fields: [substitute_id], references: [user_id], onDelete: Restrict, onUpdate: Restrict, map: "fk_user_substitute")
-  substitutedBy                       User[]                 @relation("UserSubstitute")
+  user_id                  Int                    @id @default(autoincrement())
+  role_id                  Int?
+  department_id            Int?
+  boss_id                  Int?
+  substitute_id            Int?
+  out_of_office_start_date DateTime?              @db.Date
+  out_of_office_end_date   DateTime?              @db.Date
+  user_name                String                 @unique(map: "user_name") @db.VarChar(60)
+  password                 String                 @db.VarChar(60)
+  workstation              String?                @db.VarChar(20)
+  email                    String                 @unique(map: "email") @db.VarChar(254)
+  phone_number             String?                @db.VarChar(254)
+  wallet                   Float?                 @default(0) @db.Float
+  creation_date            DateTime?              @default(now()) @db.Timestamp(0)
+  last_mod_date            DateTime?              @default(now()) @db.Timestamp(0)
+  active                   Boolean                @default(true)
+  password_reset_token     String?                @db.VarChar(64)
+  password_reset_expires   DateTime?              @db.DateTime(0)
+  society_id               Int?                   @db.Int
+  supplier                 BigInt?                @db.BigInt
+  Society                  Society?               @relation(fields: [society_id], references: [id])
+  Audit_Log                Audit_Log[]
+  Reimbursement_Policy     Reimbursement_Policy[]
+  requestsAssigned         Request[]              @relation("AssignedUser")
+  requestsCreated          Request[]              @relation("RequesterUser")
+  boss                     User?                  @relation("UserBoss", fields: [boss_id], references: [user_id], onDelete: Restrict, onUpdate: Restrict, map: "fk_user_boss")
+  subordinates             User[]                 @relation("UserBoss")
+  department               Department?            @relation(fields: [department_id], references: [department_id], onDelete: Restrict, onUpdate: Restrict, map: "fk_user_department")
+  role                     Role?                  @relation(fields: [role_id], references: [role_id], onDelete: Restrict, onUpdate: Restrict, map: "fk_user_role")
+  substitute               User?                  @relation("UserSubstitute", fields: [substitute_id], references: [user_id], onDelete: Restrict, onUpdate: Restrict, map: "fk_user_substitute")
+  substitutedBy            User[]                 @relation("UserSubstitute")
 
   @@index([boss_id], map: "fk_user_boss")
   @@index([department_id], map: "fk_user_department")
@@ -381,6 +410,7 @@ model User {
   @@index([substitute_id], map: "fk_user_substitute")
 }
 
+/// Groups of legal entities (societies) for multi-company management
 model SocietyGroup {
   id                   Int                    @id @default(autoincrement())
   description          String?                @db.VarChar(255)
@@ -395,18 +425,20 @@ model SocietyGroup {
   Account              Account[]
 }
 
+/// Legal entities (companies) within a society group
 model Society {
-  id                Int     @id @default(autoincrement())
-  description       String  @db.VarChar(20)
-  local_currency    String  @db.VarChar(6)
-  society_group_id  Int?
-  is_default        Boolean @default(false)
-  SocietyGroup      SocietyGroup? @relation(fields: [society_group_id], references: [id])
-  User              User[]
-  Request           Request[]
-  Receipt           Receipt[]
+  id               Int           @id @default(autoincrement())
+  description      String        @db.VarChar(20)
+  local_currency   String        @db.VarChar(6)
+  society_group_id Int?
+  is_default       Boolean       @default(false)
+  SocietyGroup     SocietyGroup? @relation(fields: [society_group_id], references: [id])
+  User             User[]
+  Request          Request[]
+  Receipt          Receipt[]
 }
 
+/// General ledger accounts for financial classification
 model Account {
   account_id          Int                   @id @default(autoincrement())
   account_code        String                @unique @db.VarChar(20)
@@ -426,6 +458,7 @@ model Account {
   @@index([cost_center_id])
 }
 
+/// Mapping of receipt types to accounting accounts
 model ReceiptType_Account {
   receipttype_account_id Int          @id @default(autoincrement())
   receipt_type_id        Int
@@ -445,6 +478,7 @@ model ReceiptType_Account {
   @@index([taxTax_id], map: "ReceiptType_Account_taxTax_id_fkey")
 }
 
+/// Tax rates and configurations
 model Tax {
   tax_id              Int                   @id @default(autoincrement())
   tax_code            String                @unique @db.VarChar(30)
@@ -457,29 +491,56 @@ model Tax {
   ReceiptType_Account ReceiptType_Account[]
 }
 
+/// Documents associated with travel requests (e.g., authorization forms, justifications)
+model Document {
+  document_id String    @id @default(cuid())
+  description String    @db.VarChar(20)
+  Request     Request[] @relation("fk_request_document")
+
+  @@index([document_id])
+}
+
+model PolicyExport {
+  id          Int       @id @default(autoincrement())
+  request_id  Int
+  is_exported Boolean   @default(false)
+  exported_at DateTime?
+
+  Request Request @relation(fields: [request_id], references: [request_id])
+
+  @@unique([request_id])
+}
+
+// Enums
+
+/// Scope of reimbursement policy rules (National, International, or All)
 enum Reimbursement_Policy_Rule_trip_scope {
   NACIONAL
   INTERNACIONAL
   TODOS
 }
 
+/// Type of authorization level (Boss, Random, or Superior Level)
 enum AuthorizationRuleLevel_level_type {
   Jefe
   Aleatorio
   Nivel_Superior @map("Nivel Superior")
 }
 
+/// Validation status for receipts
 enum Receipt_validation {
   Pendiente
   Aprobado
   Rechazado
 }
 
+/// Frequency of currency exchange rate updates
 enum Currency_frequency {
   daily
   monthly
 }
 
+/// Type of travel for authorization rules
 enum AuthorizationRule_travel_type {
   Nacional
   Internacional

@@ -1,221 +1,357 @@
 /**
  * Accountability Controller
  *
- * This module handles the export of accounting data to a JSON
+ * Handles the export of accounting data as JSON.
+ *
+ * Exports three types of policies:
+ *   1. Póliza de Anticipo de Viaje (advance_given event)
+ *   2. Póliza de Comprobación de Viaje (receipt_uploaded with advance - HAS validated receipts)
+ *   3. Póliza de Gasto sin Anticipo (receipt_uploaded without advance)
+ *
+ * JSON structure:
+ * {
+ *   export_info: { export_date },
+ *   polizas_anticipo:     { total, polizas: [ { header, details } ] },
+ *   polizas_comprobacion: { total, polizas: [ { header, details } ] },
+ *   polizas_sin_anticipo: { total, polizas: [ { header, details } ] },
+ *   summary: { ... }
+ * }
  */
 
 import Accountability from '../models/accountabilityModel.js';
 
 /**
- * Date format "YYYY-MM-DD HH:mm:ss"
+ * Formats a Date as "YYYY-MM-DD HH:mm:ss"
+ * @param {Date|string|null} date
+ * @returns {string|null}
  */
 const formatDate = (date) => {
   if (!date) return null;
-  
   const d = new Date(date);
-  const year = d.getFullYear();
-  const month = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  const hours = String(d.getHours()).padStart(2, '0');
-  const minutes = String(d.getMinutes()).padStart(2, '0');
-  const seconds = String(d.getSeconds()).padStart(2, '0');
-
-  return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+  const pad = (n) => String(n).padStart(2, '0');
+  return (
+    `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ` +
+    `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`
+  );
 };
 
 /**
- * Date format for the data range
+ * Formats BigInt as a String for exporting to JSON
  */
-const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+BigInt.prototype.toJSON = function () {
+  return this.toString();
+};
 
 /**
- * Policy format
+ * Gets the default account
+ * @param {Array} accounts 
+ * @param {boolean} isDefault
+ * @returns {Object|null}
  */
-const buildPolicy = (anticipo, gastos, cuentaBancos, cuentaAcreedores) => {
-  const totalGastos = gastos.reduce((sum, g) => sum + parseFloat(g.amount), 0);
+const getAccount = (accounts, isDefault = true) => {
+  if (!accounts || accounts.length === 0) return null;
+  
+  if (isDefault) {
+    const defaultAccount = accounts.find((a) => a.is_default);
+    if (defaultAccount) return defaultAccount.Account;
+  }
+  
+  return accounts[0]?.Account ?? null;
+};
 
-  const policy = {
-    request_id:  anticipo.request_id,
-    export_date: formatDate(new Date()),
-    status:      anticipo.request_status,
-    notes:       anticipo.notes,
+// ***** Policy Builders ******
 
-    traveler: {
-      user_id:     anticipo.user_id,
-      name:        anticipo.traveler_name,
-      email:       anticipo.traveler_email,
-      department:  anticipo.department_name,
-      cost_center: anticipo.cost_center_name,
+/**
+ * Builds a single "Póliza de Anticipo de Viaje" object.
+ * 
+ * @param {Object} request - Raw request from Accountability.getAnticipoPolicies()
+ * @returns {Object}
+ */
+const buildAnticipo = (request) => {
+  const exportDate = formatDate(new Date());
+  const document = request.Document;
+  const society = request.Society;
+  const requester = request.requester;
+  const firstReceipt = request.Receipt?.[0];
+
+  // Get accounts from first receipt type
+  const accounts = firstReceipt?.Receipt_Type?.ReceiptType_Account || [];
+  const account1 = accounts[0]?.Account?.account_code || null;
+  const account2 = accounts[1]?.Account?.account_code || account1;
+
+  // Build text fields
+  const headerText = `${document?.description ?? 'N/A'} # ${request.request_id}`;
+  const itemText = `${document?.description ?? 'N/A'} # ${request.request_id} #Emp${requester?.user_id ?? ''}`;
+
+  // Get currency and exchange rate
+  const currency = firstReceipt?.xml_moneda || firstReceipt?.currency || society?.local_currency || 'MXN';
+  const exchRate = firstReceipt?.xml_total ? Number(firstReceipt.xml_total) : null;
+  const amount = request.requested_fee || 0;
+
+  return {
+    header: {
+      ID_VIAJE: request.request_id,
+      DOC_TYPE: document?.document_id || null,
+      HEADER_TXT: headerText,
+      COMP_CODE: society?.id || null,
+      PSTNG_DATE: exportDate,
+      CURRENCY: currency,
+      EXCH_RATE: exchRate,
     },
-
-    entries: [
+    details: [
       {
-        type:        'anticipo',
-        description: `Anticipo de viaje — ${anticipo.traveler_name}`,
-        date:        formatDate(anticipo.creation_date),
-        movements: [
-          {
-            movement:     'cargo',
-            account_name: `${cuentaAcreedores.account_name} — ${anticipo.traveler_name}`,
-            amount:       parseFloat(anticipo.amount),
-          },
-          {
-            movement:     'abono',
-            //account_code: cuentaBancos.account_code,
-            account_name: cuentaBancos.account_name,
-            amount:       parseFloat(anticipo.amount),
-          },
-        ],
+        ITEMNO_ACC: 1,
+        SHKZG: 'S', // Debe
+        GL_ACCOUNT: account1,
+        VENDOR_NO: requester?.supplier?.toString() || null,
+        ITEM_TEXT: itemText,
+        AMT_DOCCUR: amount,
+      },
+      {
+        ITEMNO_ACC: 2,
+        SHKZG: 'H', // Haber
+        GL_ACCOUNT: account2,
+        VENDOR_NO: requester?.supplier?.toString() || null,
+        ITEM_TEXT: itemText,
+        AMT_DOCCUR: amount,
       },
     ],
   };
+};
 
-  if (gastos.length > 0) {
-    policy.entries.push({
-      type:        'gasto',
-      description: `Comprobación de viaje — ${anticipo.traveler_name}`,
-      movements: [
-        ...gastos.map(g => ({
-          movement:     'cargo',
-          account_name: g.account_name,
-          amount:       parseFloat(g.amount || 0),
-        })),
-        {
-          movement:     'abono',
-          //account_code: cuentaAcreedores.account_code,
-          account_name: `${cuentaAcreedores.account_name} — ${anticipo.traveler_name}`,
-          amount:       totalGastos,
-        },
-      ],
-      totals: {
-        total_gastos: totalGastos,
-        anticipo:     parseFloat(anticipo.amount || 0),
-        diferencia:   totalGastos - parseFloat(anticipo.amount || 0),
-      },
+/**
+ * Builds a single "Póliza de Comprobación de Viaje" object.
+ * 
+ * @param {Object} request - Raw request from Accountability.getComprobacionPolicies()
+ * @returns {Object}
+ */
+const buildComprobacion = (request) => {
+  const exportDate = formatDate(new Date());
+  const document = request.Document;
+  const society = request.Society;
+  const requester = request.requester;
+  const costCenter = requester?.department?.CostCenter;
+  
+
+  // Filter only approved receipts
+  const validatedReceipts = request.Receipt?.filter((r) => r.validation === 'Aprobado') || [];
+  const firstReceipt = validatedReceipts[0];
+
+  // Build header text
+  const headerText = `${document?.description ?? 'N/A'} # ${request.request_id}`;
+  const currency = firstReceipt?.xml_moneda || firstReceipt?.currency || society?.local_currency || 'MXN';
+  const exchRate = firstReceipt?.xml_total ? Number(firstReceipt.xml_total) : null;
+
+  // Build details from all validated receipts
+  const details = [];
+  let itemCounter = 1;
+
+  validatedReceipts.forEach((receipt) => {
+    // Get accounts from first receipt type
+    const accounts = firstReceipt?.Receipt_Type?.ReceiptType_Account || [];
+    const account1 = accounts[0]?.Account?.account_code || null;
+    const account2 = accounts[1]?.Account?.account_code || account1;
+
+    const receipt_type = receipt.Receipt_Type?.receipt_type_name ?? ''
+
+    const subtotal = receipt.xml_subtotal ? Number(receipt.xml_subtotal) : receipt.amount;
+    const taxes = receipt.xml_impuestos ? Number(receipt.xml_impuestos) : 0;
+    const total = receipt.xml_total ? Number(receipt.xml_total) : receipt.amount;
+
+    // Build item text for this receipt
+    const itemText = `${document?.description ?? 'N/A'} # ${request.request_id} #${requester?.user_id ?? ''}`;
+
+    // Item 1: Gasto (EXPENSE)
+    details.push({
+      ITEMNO_ACC: itemCounter++,
+      SHKZG: 'S',
+      GL_ACCOUNT: account1,
+      COSTCENTER: costCenter?.cost_center_id || null,
+      ITEM_TEXT: `Combrobación ${receipt_type}`,
+      AMT_DOCCUR: subtotal,
     });
-  }
 
-  return policy;
+    // Item 2: IVA (TAX)
+    details.push({
+      ITEMNO_ACC: itemCounter++,
+      SHKZG: 'S',
+      GL_ACCOUNT: account2,
+      ITEM_TEXT: `Combrobación ${receipt_type}`,
+      AMT_DOCCUR: taxes,
+    });
+
+    // Item 3: Total (PAYABLE)
+    details.push({
+      ITEMNO_ACC: itemCounter++,
+      SHKZG: 'H',
+      GL_ACCOUNT: account1,
+      VENDOR_NO: requester?.supplier?.toString() || null,
+      ITEM_TEXT: `Combrobación ${receipt_type}`,
+      AMT_DOCCUR: total,
+    });
+  });
+
+  return {
+    header: {
+      ID_VIAJE: request.request_id,
+      DOC_TYPE: document?.document_id || null,
+      HEADER_TXT: headerText,
+      COMP_CODE: society?.id || null,
+      PSTNG_DATE: exportDate,
+      CURRENCY: currency,
+      EXCH_RATE: exchRate,
+    },
+    details,
+  };
 };
 
 /**
- * Important validations
- */
+ * Builds a single "Póliza de Gasto sin Anticipo" object.
 
-const validateDates = (date_from, date_to) => {
-  if (date_from && !dateRegex.test(date_from))
-    return 'Invalid date_from format. Use YYYY-MM-DD';
-  if (date_to && !dateRegex.test(date_to))
-    return 'Invalid date_to format. Use YYYY-MM-DD';
-  if (date_from && date_to && date_from > date_to)
-    return 'date_from cannot be greater than date_to';
-  return null;
+ * 
+ * @param {Object} request - Raw request from Accountability.getSinAnticipoPolicies()
+ * @returns {Object}
+ */
+const buildSinAnticipo = (request) => {
+  const exportDate = formatDate(new Date());
+  const document = request.Document;
+  const society = request.Society;
+  const requester = request.requester;
+  const costCenter = requester?.department?.CostCenter;
+
+  // Filter only approved receipts
+  const validatedReceipts = request.Receipt?.filter((r) => r.validation === 'Aprobado') || [];
+  const firstReceipt = validatedReceipts[0];
+
+  // Build header text
+  const headerText = `${document?.description ?? 'N/A'} # ${request.request_id}`;
+  const currency = firstReceipt?.xml_moneda || firstReceipt?.currency || society?.local_currency || 'MXN';
+  const exchRate = firstReceipt?.xml_total ? Number(firstReceipt.xml_total) : null;
+
+  // Build details from all validated receipts
+  const details = [];
+  let itemCounter = 1;
+
+  validatedReceipts.forEach((receipt) => {
+    // Get accounts from first receipt type
+    const accounts = firstReceipt?.Receipt_Type?.ReceiptType_Account || [];
+    const account1 = accounts[0]?.Account?.account_code || null;
+    const account2 = accounts[1]?.Account?.account_code || account1;
+
+    const subtotal = receipt.xml_subtotal ? Number(receipt.xml_subtotal) : receipt.amount;
+    const taxes = receipt.xml_impuestos ? Number(receipt.xml_impuestos) : 0;
+    const total = receipt.xml_total ? Number(receipt.xml_total) : receipt.amount;
+
+    // Build item text for this receipt
+    const itemText = `${document?.description ?? 'N/A'} # ${request.request_id} #${requester?.user_id ?? ''}`;
+
+    // Item 1: Gasto (EXPENSE)
+    details.push({
+      ITEMNO_ACC: itemCounter++,
+      SHKZG: 'S',
+      GL_ACCOUNT: account1,
+      COSTCENTER: costCenter?.cost_center_id || null,
+      ITEM_TEXT: itemText,
+      AMT_DOCCUR: subtotal,
+    });
+
+    // Item 2: IVA (TAX)
+    details.push({
+      ITEMNO_ACC: itemCounter++,
+      SHKZG: 'S',
+      GL_ACCOUNT: account2,
+      ITEM_TEXT: itemText,
+      AMT_DOCCUR: taxes,
+    });
+
+    // Item 3: Total (PAYABLE)
+    details.push({
+      ITEMNO_ACC: itemCounter++,
+      SHKZG: 'H',
+      GL_ACCOUNT: account1,
+      VENDOR_NO: requester?.supplier?.toString() || null,
+      ITEM_TEXT: itemText,
+      AMT_DOCCUR: total,
+    });
+  });
+
+  return {
+    header: {
+      ID_VIAJE: request.request_id,
+      DOC_TYPE: document?.document_id || null,
+      HEADER_TXT: headerText,
+      COMP_CODE: society?.id || null,
+      PSTNG_DATE: exportDate,
+      CURRENCY: currency,
+      EXCH_RATE: exchRate,
+    },
+    details,
+  };
 };
 
-const estadosPermitidos = ['Comprobación gastos del viaje', 'Validación de comprobantes', 'Finalizado'];
-
 /**
- * Export accounting report from an specific travel request (filtering by ID)
+ * GET /api/accountability/export
+ * 
+ * Exports ALL three types of policies.
+ * 
+ * @returns {Object} Complete export with all three policy types
  */
-
-export const exportById = async (req, res) => {
-  const { request_id } = req.params;
-
-  if (!request_id || isNaN(request_id)) {
-    return res.status(400).json({ error: 'Invalid request_id' });
-  }
-
+export const exportAllPolicies = async (req, res) => {
   try {
-    // Advance payment data
-    const anticipo = await Accountability.getAnticipoById(Number(request_id));
-
-    if (!anticipo)
-      return res.status(404).json({ error: `Invalid request with id ${request_id}.` });
-
-    if (!estadosPermitidos.includes(anticipo.request_status))
-      return res.status(400).json({ error: `Status not allowed: ${anticipo.request_status}` });
-
-    if (parseFloat(anticipo.amount || 0) <= 0)
-      return res.status(400).json({ error: 'The advance payment must be greater than zero' });
-
-    const [cuentaBancos, cuentaAcreedores] = await Promise.all([
-      Accountability.getAccountByType('Activo'),
-      Accountability.getAccountByType('Pasivo'),
+    // Fetch all three policy types in parallel
+    const [rawAnticipos, rawComprobaciones, rawSinAnticipo] = await Promise.all([
+      Accountability.getAnticipoPolicies(),
+      Accountability.getComprobacionPolicies(),
+      Accountability.getSinAnticipoPolicies(),
     ]);
 
-    if (!cuentaBancos || !cuentaAcreedores)
-      return res.status(500).json({ error: 'Missing account information in the database.' });
+    // Build the formatted policies
+    const polizasAnticipo = rawAnticipos.map(buildAnticipo);
+    const polizasComprobacion = rawComprobaciones.map(buildComprobacion);
+    const polizasSinAnticipo = rawSinAnticipo.map(buildSinAnticipo);
 
-    // Expenses
-    const gastos = await Accountability.getGastosById(Number(request_id));
+    // Calculate totals
+    const totalPolicies = polizasAnticipo.length + polizasComprobacion.length + polizasSinAnticipo.length;
 
-    if (gastos.length > 0) {
-      if (gastos.some(g => parseFloat(g.amount || 0) <= 0))
-        return res.status(400).json({ error: 'Expenses with invalid amount' });
-      if (gastos.every(g => g.validation === 'Pendiente'))
-        return res.status(400).json({ error: 'Some receipts are still under approval' });
-    }
-
-    return res.status(200).json(buildPolicy(anticipo, gastos, cuentaBancos, cuentaAcreedores));
-
-  } catch (error) {
-    console.error('Error exporting accountability data:', error);
-    return res.status(500).json({ error: 'Internal error when generating the accounting report' });
-  }
-};
-
-/**
- * Export accounting report from an specific travel request (filtering by ID)
- */
-export const exportByDateRange = async (req, res) => {
-  const { date_from, date_to } = req.query;
-
-  if (!date_from && !date_to)
-    return res.status(400).json({ error: 'At least one of date_from or date_to is required' });
-
-  const dateError = validateDates(date_from, date_to);
-  if (dateError)
-    return res.status(400).json({ error: dateError });
-
-  try {
-    const [solicitudes, cuentaBancos, cuentaAcreedores] = await Promise.all([
-      Accountability.getRequestsByDateRange(date_from, date_to, req.user.society_id),
-      Accountability.getAccountByType('Activo'),
-      Accountability.getAccountByType('Pasivo'),
+    // [IS_EXPORTED] Mark as exported
+    await Promise.all([
+      ...rawAnticipos.map((r) => Accountability.markAsExported(r.request_id)),
+      ...rawComprobaciones.map((r) => Accountability.markAsExported(r.request_id)),
+      ...rawSinAnticipo.map((r) => Accountability.markAsExported(r.request_id)),
     ]);
-
-    if (!cuentaBancos || !cuentaAcreedores)
-      return res.status(500).json({ error: 'Missing account information in the database.' });
-
-    if (solicitudes.length === 0)
-      return res.status(404).json({ error: 'No requests found for the given date range' });
-
-    // Filtra solo los estados permitidos y construye cada póliza
-    const policies = await Promise.all(
-      solicitudes
-        .filter(a => estadosPermitidos.includes(a.request_status))
-        .map(async (anticipo) => {
-          const gastos = await Accountability.getGastosById(anticipo.request_id);
-          return buildPolicy(anticipo, gastos, cuentaBancos, cuentaAcreedores);
-        })
-    );
 
     return res.status(200).json({
-      export_date: formatDate(new Date()),
-      date_from:   date_from || null,
-      date_to:     date_to   || null,
-      total:       policies.length,
-      policies,
+      export_info: {
+        export_date: formatDate(new Date()),
+      },
+      polizas_anticipo: {
+        total: polizasAnticipo.length,
+        polizas: polizasAnticipo,
+      },
+      polizas_comprobacion: {
+        total: polizasComprobacion.length,
+        polizas: polizasComprobacion,
+      },
+      polizas_sin_anticipo: {
+        total: polizasSinAnticipo.length,
+        polizas: polizasSinAnticipo,
+      },
+      summary: {
+        total_anticipo: polizasAnticipo.length,
+        total_comprobacion: polizasComprobacion.length,
+        total_sin_anticipo: polizasSinAnticipo.length,
+        grand_total: totalPolicies,
+      },
     });
-
   } catch (error) {
-    console.error('Error exporting accountability by date range:', error);
-    return res.status(500).json({ error: 'Internal error when generating the accounting report' });
+    console.error('Error exporting accounting policies:', error);
+    return res.status(500).json({ 
+      error: 'Internal error when generating the accounting report.',
+      details: error.message 
+    });
   }
 };
 
-
 export default {
-    exportById,
-    exportByDateRange
+  exportAllPolicies,
 };

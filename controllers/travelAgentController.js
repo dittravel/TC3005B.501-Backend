@@ -13,6 +13,7 @@
 import TravelAgent from "../models/travelAgentModel.js";
 import TravelAgentService from "../services/travelAgentService.js";
 import { searchFlights } from "../services/travelAgency/flightService.js";
+import { searchHotels } from "../services/travelAgency/hotelService.js";
 import { getUserById } from "../services/userService.js";
 import { sendEmails } from "../services/email/emailService.js";
 
@@ -159,9 +160,64 @@ const searchFlightOffers = async (req, res) => {
   }
 };
 
+/**
+ * Search available hotel options in SerpApi (read-only, no booking)
+ * Retrieves hotel options based on destination and stay dates.
+ *
+ * @param {Object} req - Express request object with authenticated user and search params in body
+ * @param {string} req.body.checkInDate - Check-in date in YYYY-MM-DD format
+ * @param {string} req.body.checkOutDate - Check-out date in YYYY-MM-DD format
+ * @param {number} req.body.guests - Number of guests
+ * @param {string} req.body.address - Destination or address text
+ * @param {number} [req.body.page=1] - Internal page number
+ * @param {number} [req.body.pageSize] - Number of hotels per page
+ * @param {string} [req.body.nextPageToken] - SerpApi next page token
+ * @param {Object} res - Express response object
+ * @returns {void} Sends JSON with hotels sorted by rating and price, or error
+ */
+const searchHotelOffers = async (req, res) => {
+  try {
+    const userId = req.user?.user_id;
+
+    if (!userId) {
+      return res.status(401).json({ error: "User not authenticated" });
+    }
+
+    const {
+      checkInDate,
+      checkOutDate,
+      guests,
+      address,
+      page,
+      pageSize,
+      nextPageToken,
+    } = req.body;
+
+    const hotelsResult = await searchHotels({
+      checkInDate,
+      checkOutDate,
+      guests,
+      address,
+      page,
+      pageSize,
+      nextPageToken,
+    });
+
+    return res.status(200).json(hotelsResult);
+  } catch (err) {
+    console.error("Error in searchHotelOffers controller:", err);
+
+    return res.status(500).json({
+      error: "Failed to search hotels",
+      details: err?.message || "Unknown error",
+    });
+  }
+};
+
 // Export travel agent controller functions for router configuration
 export default {
   attendTravelRequest,
   completeServiceAssignment,
   searchFlightOffers,
+  searchHotelOffers,
 };
