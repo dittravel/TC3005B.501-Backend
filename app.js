@@ -4,6 +4,7 @@ dotenv.config();
 import express from "express";
 import cors from "cors";
 import cookieParser from 'cookie-parser';
+import { doubleCsrf } from 'csrf-csrf';
 
 import applicantRoutes from './routes/applicantRoutes.js';
 import authorizerRoutes from './routes/authorizerRoutes.js';
@@ -35,6 +36,26 @@ app.use(cors({
 
 app.use(express.json());
 app.use(cookieParser());
+
+const { generateToken, doubleCsrfProtection } = doubleCsrf({
+  getSecret: () => process.env.CSRF_SECRET || process.env.JWT_SECRET,
+  cookieName: 'csrfToken',
+  cookieOptions: {
+    httpOnly: false,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'strict',
+    path: '/',
+  },
+  size: 64,
+  ignoredMethods: ['GET', 'HEAD', 'OPTIONS'],
+});
+
+app.get('/api/csrf-token', (req, res) => {
+  const token = generateToken(req, res);
+  res.json({ csrfToken: token });
+});
+
+app.use(doubleCsrfProtection);
 
 app.use("/api/applicant", applicantRoutes);
 app.use("/api/authorizer", authorizerRoutes);
