@@ -30,19 +30,45 @@ Before an incident occurs, ensure the following are in place:
 ### Install the cron job (run once on the server)
 
 ```bash
-# Edit the crontab
 crontab -e
-
 # Add this line — runs backup daily at 2:00 AM
 0 2 * * * cd /path/to/dittravel-backend && ./scripts/backup.sh >> /var/log/dittravel-backup.log 2>&1
 ```
+
+### Set up MinIO for offsite storage (recommended)
+
+Deploy MinIO on a **separate machine** so backups survive a server failure:
+
+```bash
+# On the backup machine
+docker compose -f docker-compose.backup.yml up -d
+
+# One-time: create the bucket
+docker exec dittravel-minio mc alias set local http://localhost:9000 $MINIO_ROOT_USER $MINIO_ROOT_PASSWORD
+docker exec dittravel-minio mc mb local/dittravel-backups
+```
+
+Then add these to `.env` on the application server:
+```
+BACKUP_S3_ENDPOINT=http://<backup-machine-ip>:9000
+BACKUP_S3_BUCKET=dittravel-backups
+BACKUP_S3_ACCESS_KEY=<minio-access-key>
+BACKUP_S3_SECRET_KEY=<minio-secret-key>
+```
+
+After this, every `backup.sh` run uploads the archive to MinIO automatically.
+Access the MinIO web console at `http://<backup-machine-ip>:9001` to browse archives.
 
 ### Environment variables
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `BACKUP_DIR` | `./backups` | Where backup archives are stored |
-| `BACKUP_RETENTION_DAYS` | `7` | How many days of backups to keep |
+| `BACKUP_DIR` | `./backups` | Where local backup archives are stored |
+| `BACKUP_RETENTION_DAYS` | `7` | How many days of local backups to keep |
+| `BACKUP_S3_ENDPOINT` | — | MinIO URL (optional, enables offsite upload) |
+| `BACKUP_S3_BUCKET` | — | Bucket name in MinIO |
+| `BACKUP_S3_ACCESS_KEY` | — | MinIO access key |
+| `BACKUP_S3_SECRET_KEY` | — | MinIO secret key |
 
 ### Verify the backup works
 
@@ -81,9 +107,20 @@ npx prisma generate
 
 Copy the `.env` file to the server.
 
-### Step 3 — Restore databases (est. 1 hour)
+### Step 3 — Retrieve and restore databases (est. 1 hour)
 
-Copy the latest backup archive to the server, then:
+**If MinIO is configured**, download the latest backup from the web console
+(`http://<backup-machine-ip>:9001`) or via CLI:
+
+```bash
+AWS_ACCESS_KEY_ID=<key> AWS_SECRET_ACCESS_KEY=<secret> \
+  aws s3 cp s3://dittravel-backups/backup_<TIMESTAMP>.tar.gz ./backups/ \
+  --endpoint-url=http://<backup-machine-ip>:9000 --no-verify-ssl
+```
+
+**If only local backups exist**, copy the archive from wherever it was stored.
+
+Then restore:
 
 ```bash
 ./scripts/restore.sh ./backups/backup_<TIMESTAMP>.tar.gz
@@ -94,7 +131,7 @@ The script will:
 2. Restore MariaDB from the SQL dump
 3. Restore MongoDB collections
 
-If you need to find the latest backup:
+To find the latest archive:
 ```bash
 ls -lt ./backups/backup_*.tar.gz | head -5
 ```

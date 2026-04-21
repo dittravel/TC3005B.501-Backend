@@ -118,7 +118,20 @@ crontab -e
 0 2 * * * cd /path/to/dittravel-backend && ./scripts/backup.sh >> /var/log/dittravel-backup.log 2>&1
 ```
 
-See [DISASTER_RECOVERY.md](./DISASTER_RECOVERY.md) for full backup and restore documentation.
+### Offsite backup with MinIO (strongly recommended)
+
+Deploy MinIO on a separate machine so backups survive a server failure:
+
+```bash
+# On the backup machine
+docker compose -f docker-compose.backup.yml up -d
+docker exec dittravel-minio mc alias set local http://localhost:9000 $MINIO_ROOT_USER $MINIO_ROOT_PASSWORD
+docker exec dittravel-minio mc mb local/dittravel-backups
+```
+
+Then set `BACKUP_S3_*` vars in `.env` on the app server — `backup.sh` will upload automatically.
+
+See [DISASTER_RECOVERY.md](./DISASTER_RECOVERY.md) for full backup, MinIO setup, and restore documentation.
 
 ---
 
