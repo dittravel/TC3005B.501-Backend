@@ -24,3 +24,6 @@ DROP TRIGGER IF EXISTS `AddToWalletOnReceiptApproved`;
 
 -- Drop days_to_validate column from AuthorizationRule
 ALTER TABLE `AuthorizationRule` DROP COLUMN `days_to_validate`;
+
+-- Add currency column to Request table
+ALTER TABLE `Request` ADD COLUMN `currency` VARCHAR(6) DEFAULT 'MXN' AFTER `requested_fee`;
