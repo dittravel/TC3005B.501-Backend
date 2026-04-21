@@ -158,7 +158,9 @@ const Admin = {
           email: userData.email,
           phone_number: userData.phone_number || null,
           boss_id: userData.boss_id || null,
-          society_id: userData.society_id || null
+          society_id: userData.society_id || null,
+          supplier: userData.supplier || null,
+          active: userData.active !== undefined ? userData.active : true
         },
         select: { user_id: true }
       });

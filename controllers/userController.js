@@ -166,6 +166,7 @@ export const getTravelRequestById = async (req, res) => {
       imposed_fee: base.imposed_fee,
       request_days: base.request_days,
       creation_date: formatDate(base.creation_date),
+      currency: base.currency || 'MXN',
       user: {
         user_name: base.user_name,
         user_email: decryptedEmail,

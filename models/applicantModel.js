@@ -149,6 +149,7 @@ const Applicant = {
         notes,
         requested_fee = 0,
         imposed_fee = 0,
+        currency = 'MXN',
         origin_country_name,
         origin_city_name,
         destination_country_name,
@@ -302,6 +303,7 @@ const Applicant = {
             society_id: role.society_id,
             notes,
             requested_fee,
+            currency,
             imposed_fee,
             request_days,
           },
@@ -335,6 +337,7 @@ const Applicant = {
         notes,
         requested_fee = 0,
         imposed_fee = 0,
+        currency = 'MXN',
         origin_country_name,
         origin_city_name,
         destination_country_name,
@@ -379,6 +382,7 @@ const Applicant = {
           data: {
             notes,
             requested_fee,
+            currency,
             imposed_fee,
             request_days,
             last_mod_date: new Date(),
@@ -674,6 +678,7 @@ const Applicant = {
         request_status: request.Request_status?.status ?? null,
         notes: request.notes,
         requested_fee: request.requested_fee,
+        currency: request.currency ?? 'MXN',
         imposed_fee: request.imposed_fee,
         request_days: request.request_days,
         creation_date: request.creation_date,
@@ -773,6 +778,7 @@ const Applicant = {
         notes = '',                                     // Default value empty string
         requested_fee = 0,                              // Default value 0
         imposed_fee = 0,                                // Default value 0
+        currency = 'MXN',                               // Default value 'MXN'
         origin_country_name = 'notSelected',            // Default value 'notSelected'
         origin_city_name = 'notSelected',               // Default value 'notSelected'
         destination_country_name = 'notSelected',       // Default value 'notSelected'
@@ -827,6 +833,7 @@ const Applicant = {
             society_id: user.society_id,
             notes,
             requested_fee,
+            currency,
             imposed_fee,
             request_days,
           },
