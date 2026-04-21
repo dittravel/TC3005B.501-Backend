@@ -55,7 +55,10 @@ app.get('/api/csrf-token', (req, res) => {
   res.json({ csrfToken: token });
 });
 
-app.use('/api', doubleCsrfProtection);
+const csrfMiddleware = (req, res, next) =>
+  process.env.SKIP_CSRF === 'true' ? next() : doubleCsrfProtection(req, res, next);
+
+app.use('/api', csrfMiddleware);
 
 app.use("/api/applicant", applicantRoutes);
 app.use("/api/authorizer", authorizerRoutes);

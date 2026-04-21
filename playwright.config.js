@@ -25,7 +25,7 @@ export default defineConfig({
     command: `node tests/e2e/start-server.js`,
     url: `http://localhost:${E2E_PORT}/`,
     reuseExistingServer: !process.env.CI,
-    env: { SKIP_RATE_LIMIT: 'true' },
+    env: { SKIP_RATE_LIMIT: 'true', SKIP_CSRF: 'true' },
     stdout: 'pipe',
     stderr: 'pipe',
     timeout: 30000,
