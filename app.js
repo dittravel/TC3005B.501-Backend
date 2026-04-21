@@ -55,7 +55,7 @@ app.get('/api/csrf-token', (req, res) => {
   res.json({ csrfToken: token });
 });
 
-app.use(doubleCsrfProtection);
+app.use('/api', doubleCsrfProtection);
 
 app.use("/api/applicant", applicantRoutes);
 app.use("/api/authorizer", authorizerRoutes);
