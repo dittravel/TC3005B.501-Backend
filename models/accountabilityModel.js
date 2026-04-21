@@ -102,14 +102,14 @@ const Accountability = {
                     select: {
                       receipttype_account_id: true,
                       is_default: true,
-                      Account: {
+                      /*Account: {
                         select: {
                           account_id: true,
                           account_code: true,
                           account_name: true,
                           account_type: true,
                         },
-                      },
+                      },*/
                     },
                   },
                 },
@@ -217,14 +217,14 @@ const Accountability = {
                     select: {
                       receipttype_account_id: true,
                       is_default: true,
-                      Account: {
+                      /*Account: {
                         select: {
                           account_id: true,
                           account_code: true,
                           account_name: true,
                           account_type: true,
                         },
-                      },
+                      },*/
                     },
                   },
                 },
@@ -335,14 +335,14 @@ const Accountability = {
                     select: {
                       receipttype_account_id: true,
                       is_default: true,
-                      Account: {
+                      /*Account: {
                         select: {
                           account_id: true,
                           account_code: true,
                           account_name: true,
                           account_type: true,
                         },
-                      },
+                      },*/
                     },
                   },
                 },
@@ -363,6 +363,23 @@ const Accountability = {
       throw error;
     }
   },
+
+async getAccounts(){
+  try {
+    const accounts = await prisma.account.findMany({
+      where: { active: true },
+      select: {
+        account_id: true, 
+        account_code: true, 
+        account_name: true
+      }
+    });
+    return accounts;
+  } catch (error) {
+    console.error('Error fetching "Accounts"', error);
+    throw error;
+  }
+},
 
   /**
    * Mark a policy as exported by upserting a policyExports record.
