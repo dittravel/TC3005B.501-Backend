@@ -1,7 +1,7 @@
 /**
  * Refund Controller
  *
- * Handles refund-related HTTP requests
+ * HTTP handlers for refunds
  */
 
 import RefundService from '../services/refundService.js';

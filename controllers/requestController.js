@@ -1,8 +1,7 @@
 /**
  * Request Controller
  *
- * Handles HTTP requests for centralized request operations.
- * Delegates business logic to RequestService.
+ * HTTP handlers for requests
  */
 
 import RequestService from '../services/requestService.js';

@@ -89,6 +89,29 @@ async function seedDefaultAuthorizationRule(defaultSocietyGroupId) {
   });
 }
 
+async function seedDefaultRefundPolicy(defaultSocietyGroupId) {
+  const existingDefault = await prisma.refundPolicy.findFirst({
+    where: { is_default: true },
+    select: { policy_id: true },
+  });
+
+  if (existingDefault) {
+    return;
+  }
+
+  await prisma.refundPolicy.create({
+    data: {
+      policy_name: 'Política por Defecto',
+      min_amount: 10,
+      max_amount: 5000,
+      submission_deadline_days: 30,
+      society_group_id: defaultSocietyGroupId,
+      is_default: true,
+      active: true,
+    },
+  });
+}
+
 async function seedCurrencyCatalog() {
   for (const currency of CURRENCY_CATALOG) {
     await prisma.currency.upsert({
@@ -110,6 +133,7 @@ export async function seedEmptyDatabase() {
   const defaultSocietyGroupId = await seedDefaultSocietyGroupAndSociety();
   await seedReferenceData(prisma, defaultSocietyGroupId);
   await seedDefaultAuthorizationRule(defaultSocietyGroupId);
+  await seedDefaultRefundPolicy(defaultSocietyGroupId);
   await seedCurrencyCatalog();
   await seedAdminAccount(prisma, defaultSocietyGroupId);
   console.log('Base Prisma data created');

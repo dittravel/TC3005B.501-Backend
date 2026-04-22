@@ -1,8 +1,7 @@
 /**
  * Request Model
  *
- * Centralized model for handling travel request queries.
- * Consolidates request-related data access that was previously split across applicantModel and authorizerModel.
+ * Data access layer for requests
  */
 
 import { prisma } from '../lib/prisma.js';

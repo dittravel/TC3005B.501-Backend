@@ -16,7 +16,6 @@ import AccountsPayableService from '../services/accountsPayableService.js';
 import RequestService from '../services/requestService.js';
 import RefundService from '../services/refundService.js';
 import AuditLogService from "../services/auditLogService.js";
-import ReimbursementPolicyService from "../services/reimbursementPolicyService.js";
 import { sendEmails } from "../services/email/emailService.js";
 
 // Process authorized travel requests and handle fee assignment
@@ -167,35 +166,7 @@ const validateReceipt = async (req, res) => {
       return res.status(404).json({ error: "Receipt already approved or rejected" });
     }
 
-    // Enforce reimbursement policy before approving
-    let policyWarnings = null;
-    if (approval === "Aprobado") {
-      try {
-        const evaluation = await ReimbursementPolicyService.evaluateRequest(
-          receipt.request_id,
-          req.user
-        );
-        const receiptEval = evaluation.receipts.find(r => r.receipt_id === Number(receiptId));
-        if (receiptEval) {
-          if (receiptEval.evaluation_status === 'REJECTED') {
-            return res.status(422).json({
-              error: 'Receipt cannot be approved: policy violations detected',
-              violations: receiptEval.violations,
-            });
-          }
-          if (receiptEval.evaluation_status === 'WARNING') {
-            policyWarnings = receiptEval.violations;
-          }
-        }
-      } catch (policyError) {
-        // 404 means no active policy is configured for this department — allow approval
-        if (!policyError.status || policyError.status !== 404) {
-          throw policyError;
-        }
-      }
-    }
-
-  const updated = await AccountsPayable.validateReceipt(receiptId, approval);
+    const updated = await AccountsPayable.validateReceipt(receiptId, approval);
 
     if(!updated){
       return res
@@ -228,7 +199,6 @@ const validateReceipt = async (req, res) => {
         entityId: receiptId,
         metadata: {
           new_status: 'Aprobado',
-          policy_warnings: policyWarnings,
         },
       });
       return res.status(200).json({
@@ -237,7 +207,6 @@ const validateReceipt = async (req, res) => {
           receipt_id: receiptId,
           new_status: "Aprobado",
           message: "Receipt has been approved.",
-          ...(policyWarnings && { policy_warnings: policyWarnings }),
         }
       });
     }
@@ -300,11 +269,103 @@ const getExpenseValidations = async (req, res) => {
   }
 };
 
+// Edit receipt amount
+// for cases where receipt exceeds policy limits
+const editReceiptAmount = async (req, res) => {
+  const receiptId = req.params.receipt_id;
+  const { new_amount } = req.body;
+
+  // Check new amount is provided
+  if (new_amount === undefined || new_amount === null) {
+    return res.status(400).json({ error: "new_amount is required" });
+  }
+
+  // Validate new amount is a positive number
+  const parsedAmount = parseFloat(new_amount);
+  if (isNaN(parsedAmount) || parsedAmount <= 0) {
+    return res.status(400).json({ error: "new_amount must be a positive number" });
+  }
+
+  try {
+    const receipt = await AccountsPayable.receiptExists(receiptId);
+    if (!receipt) {
+      return res.status(404).json({ error: "Receipt not found" });
+    }
+
+    if (receipt.validation !== "Pendiente") {
+      return res.status(400).json({ error: "Cannot edit amount of already validated receipt" });
+    }
+
+    const updated = await AccountsPayable.updateReceiptAmount(receiptId, parsedAmount);
+
+    if (!updated) {
+      return res.status(400).json({ error: "Failed to update receipt amount" });
+    }
+
+    // Record audit log
+    await AuditLogService.recordAuditLogFromRequest(req, {
+      actionType: 'RECEIPT_AMOUNT_EDITED',
+      entityType: 'Receipt',
+      entityId: receiptId,
+      metadata: {
+        old_amount: receipt.local_amount,
+        new_amount: parsedAmount,
+      },
+    });
+
+    res.status(200).json({
+      message: "Receipt amount updated successfully",
+      receipt_id: receiptId,
+      new_amount: parsedAmount
+    });
+  } catch (err) {
+    console.error("Error in editReceiptAmount controller:", err);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+};
+
+// Return receipts to request for correction
+// marks request status as pending
+const returnReceiptsForCorrection = async (req, res) => {
+  const requestId = req.params.request_id;
+
+  try {
+    // Verify request exists
+    const request = await AccountsPayable.requestExists(requestId);
+    if (!request) {
+      return res.status(404).json({ error: "Request not found" });
+    }
+
+    // Change request status from 6 (Validación de comprobantes)
+    // to 5 (Comprobación gastos del viaje)
+    await AccountsPayable.updateRequestStatus(requestId, 5);
+
+    // Record audit log
+    await AuditLogService.recordAuditLogFromRequest(req, {
+      actionType: 'RECEIPTS_RETURNED',
+      entityType: 'Request',
+      entityId: requestId.toString(),
+      metadata: {
+        previous_status_id: request.request_status_id,
+        new_status_id: 5,
+        reason: 'Receipts returned for correction'
+      }
+    });
+
+    res.status(200).json({ message: "Receipts returned for correction successfully" });
+  } catch (err) {
+    console.error("Error in returnReceiptsForCorrection:", err);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+};
+
 // exports for the router
 export default {
   attendTravelRequest,
   validateReceiptsHandler,
   validateReceipt,
+  editReceiptAmount,
   getExpenseValidations,
   searchReceipts,
+  returnReceiptsForCorrection,
 };

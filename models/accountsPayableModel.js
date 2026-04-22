@@ -211,12 +211,25 @@ const AccountsPayable = {
         pdf_name: row.pdf_file_name,
         xml_id: row.xml_file_id,
         xml_name: row.xml_file_name,
+        exceeds_policy_limit: row.exceeds_policy_limit ?? false,
         department_name: row.Request?.requester?.department?.department_name ?? null,
         cost_center_name: row.Request?.requester?.department?.CostCenter?.cost_center_name ?? null,
       }))
     };
   },
-  
+
+  async updateReceiptAmount(receiptId, newAmount) {
+    const updated = await prisma.receipt.update({
+      where: { receipt_id: parseInt(receiptId, 10) },
+      data: {
+        local_amount: newAmount,
+        exceeds_policy_limit: false
+      },
+      select: { receipt_id: true }
+    });
+    return updated;
+  },
+
 };
 
 export default AccountsPayable;

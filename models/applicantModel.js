@@ -1043,7 +1043,8 @@ const Applicant = {
       currency,
       receipt_date,
       pdfFile,
-      xmlFile
+      xmlFile,
+      exceeds_policy_limit
     } = data;
 
     // Get the request to obtain its society_id
@@ -1067,6 +1068,7 @@ const Applicant = {
           currency,
           receipt_date: receipt_date || null,
           society_id: request.society_id,
+          exceeds_policy_limit: exceeds_policy_limit || false,
         },
         select: { receipt_id: true },
       });
