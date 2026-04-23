@@ -50,9 +50,8 @@ BigInt.prototype.toJSON = function () {
  * @param {Object} request - Raw request from Accountability.getAnticipoPolicies()
  * @returns {Object}
  */
-const buildAnticipo = (request, accountsCatalog) => {
+const buildAnticipo = (request, accountsCatalog, documentMap) => {
   const exportDate = formatDate(new Date());
-  const document = request.Document;
   const society = request.Society;
   const requester = request.requester;
   const firstReceipt = request.Receipt?.[0];
@@ -62,8 +61,9 @@ const buildAnticipo = (request, accountsCatalog) => {
   const account2 = accountsCatalog['Cuenta x pagar Empleado'] || null;
 
   // Build text fields
-  const headerText = `${document?.description ?? 'N/A'} # ${request.request_id}`;
-  const itemText = `${document?.description ?? 'N/A'} # ${request.request_id} #Emp${requester?.user_id ?? ''}`;
+  const type = 'AV';
+  const headerText = `${documentMap[type] ?? 'Tipo desconocido'} # ${request.request_id}`;
+  const itemText = `${headerText} #Emp${requester?.user_id ?? ''}`;
 
   // Get currency and exchange rate
   const currency = request.currency || firstReceipt?.xml_moneda || society?.local_currency;
@@ -72,12 +72,12 @@ const buildAnticipo = (request, accountsCatalog) => {
   const isSameCurrency = currency === society?.local_currency;
   const exchRate = isSameCurrency
     ? 1
-    : (firstReceipt?.exchange_rate || request.exchange_rate || null);
+    : (firstReceipt?.exch_rate.toFixed(2) || null);
 
   return {
     header: {
       ID_VIAJE: request.request_id,
-      DOC_TYPE: document?.document_id || null,
+      DOC_TYPE: type,
       HEADER_TXT: headerText,
       COMP_CODE: society?.id || null,
       PSTNG_DATE: exportDate,
@@ -111,9 +111,8 @@ const buildAnticipo = (request, accountsCatalog) => {
  * @param {Object} request - Raw request from Accountability.getComprobacionPolicies()
  * @returns {Object}
  */
-const buildComprobacion = (request, accountsCatalog) => {
+const buildComprobacion = (request, accountsCatalog, documentMap) => {
   const exportDate = formatDate(new Date());
-  const document = request.Document;
   const society = request.Society;
   const requester = request.requester;
   const costCenter = requester?.department?.CostCenter;
@@ -123,14 +122,14 @@ const buildComprobacion = (request, accountsCatalog) => {
   const firstReceipt = validatedReceipts[0];
 
   // Build header text
+  const type = 'GV';
   const headerText = `Comprobación de viaje # ${request.request_id}`;
   const currency = firstReceipt?.xml_moneda || society?.local_currency;
 
   const isSameCurrency = currency === society?.local_currency;
   const exchRate = isSameCurrency
     ? 1
-    : (firstReceipt?.exchange_rate || request.exchange_rate || null);
-  
+    : (firstReceipt?.exch_rate.toFixed(2) || null);
 
   // Build details from all validated receipts
   const details = [];
@@ -144,7 +143,7 @@ const buildComprobacion = (request, accountsCatalog) => {
 
     const subtotal = receipt.xml_subtotal ? Number(receipt.xml_subtotal) : receipt.amount;
     const taxes = receipt.xml_impuestos ? Number(receipt.xml_impuestos) : 0;
-    const total = receipt.xml_total ? Number(receipt.xml_total) : receipt.amount;
+    const total = subtotal + taxes;
 
     // Build item text for this receipt
     const receipt_type = receipt.Receipt_Type?.receipt_type_name ?? ''
@@ -183,7 +182,7 @@ const buildComprobacion = (request, accountsCatalog) => {
   return {
     header: {
       ID_VIAJE: request.request_id,
-      DOC_TYPE: document?.document_id || null,
+      DOC_TYPE: type,
       HEADER_TXT: headerText,
       COMP_CODE: society?.id || null,
       PSTNG_DATE: exportDate,
@@ -201,9 +200,8 @@ const buildComprobacion = (request, accountsCatalog) => {
  * @param {Object} request - Raw request from Accountability.getSinAnticipoPolicies()
  * @returns {Object}
  */
-const buildSinAnticipo = (request, accountsCatalog) => {
+const buildSinAnticipo = (request, accountsCatalog, documentMap) => {
   const exportDate = formatDate(new Date());
-  const document = request.Document;
   const society = request.Society;
   const requester = request.requester;
   const costCenter = requester?.department?.CostCenter;
@@ -213,13 +211,14 @@ const buildSinAnticipo = (request, accountsCatalog) => {
   const firstReceipt = validatedReceipts[0];
 
   // Build header text
+  const type = 'GV';
   const headerText = `Comprobación sin anticipo de viaje # ${request.request_id}`;
   const currency = firstReceipt?.xml_moneda || society?.local_currency;
 
   const isSameCurrency = currency === society?.local_currency;
   const exchRate = isSameCurrency
     ? 1
-    : (firstReceipt?.exchange_rate || request.exchange_rate || null);
+    : (firstReceipt?.exch_rate.toFixed(2) || null);
 
   // Build details from all validated receipts
   const details = [];
@@ -233,7 +232,7 @@ const buildSinAnticipo = (request, accountsCatalog) => {
 
     const subtotal = receipt.xml_subtotal ? Number(receipt.xml_subtotal) : receipt.amount;
     const taxes = receipt.xml_impuestos ? Number(receipt.xml_impuestos) : 0;
-    const total = receipt.xml_total ? Number(receipt.xml_total) : receipt.amount;
+    const total = subtotal + taxes; 
 
     // Build item text for this receipt
     const receipt_type = receipt.Receipt_Type?.receipt_type_name ?? ''
@@ -272,7 +271,7 @@ const buildSinAnticipo = (request, accountsCatalog) => {
   return {
     header: {
       ID_VIAJE: request.request_id,
-      DOC_TYPE: document?.document_id || null,
+      DOC_TYPE: type,
       HEADER_TXT: headerText,
       COMP_CODE: society?.id || null,
       PSTNG_DATE: exportDate,
@@ -293,34 +292,37 @@ const buildSinAnticipo = (request, accountsCatalog) => {
 export const exportAllPolicies = async (req, res) => {
   try {
     // Fetch all three policy types in parallel
-    const [rawAnticipos, rawComprobaciones, rawSinAnticipo, accounts] = await Promise.all([
+    const [rawAnticipos, rawComprobaciones, rawSinAnticipo, accounts, documents] = await Promise.all([
       Accountability.getAnticipoPolicies(),
       Accountability.getComprobacionPolicies(),
       Accountability.getSinAnticipoPolicies(),
       Accountability.getAccounts(),
+      Accountability.getDocuments(),
     ]);
 
-    // Map all the account types
+    // Map all the account and document types
     const accountMap = Object.fromEntries(
       accounts.map(a => [a.account_name, a.account_code])
     );
 
-    // Build the formatted policies
-    const polizasAnticipo = rawAnticipos.map(r => buildAnticipo(r, accountMap));
-    const polizasComprobacion = rawComprobaciones.map(r => buildComprobacion(r, accountMap));
-    const polizasSinAnticipo = rawSinAnticipo.map(r => buildSinAnticipo(r, accountMap));
+    const documentMap = Object.fromEntries(
+      documents.map(a => [a.document_id, a.description])
+    );
 
-    //console.log(accountMap);
+    // Build the formatted policies
+    const polizasAnticipo = rawAnticipos.map(r => buildAnticipo(r, accountMap, documentMap));
+    const polizasComprobacion = rawComprobaciones.map(r => buildComprobacion(r, accountMap, documentMap));
+    const polizasSinAnticipo = rawSinAnticipo.map(r => buildSinAnticipo(r, accountMap, documentMap));
 
     // Calculate totals
     const totalPolicies = polizasAnticipo.length + polizasComprobacion.length + polizasSinAnticipo.length;
 
-    // [IS_EXPORTED] Mark as exported
-    /*await Promise.all([
+    // Mark as exported
+    await Promise.all([
       ...rawAnticipos.map((r) => Accountability.markAsExported(r.request_id)),
       ...rawComprobaciones.map((r) => Accountability.markAsExported(r.request_id)),
       ...rawSinAnticipo.map((r) => Accountability.markAsExported(r.request_id)),
-    ]); */
+    ]);
 
     return res.status(200).json({
       export_info: {

@@ -167,6 +167,7 @@ export const getTravelRequestById = async (req, res) => {
       request_days: base.request_days,
       creation_date: formatDate(base.creation_date),
       currency: base.currency || 'MXN',
+      exch_rate: base.exch_rate,
       user: {
         user_name: base.user_name,
         user_email: decryptedEmail,

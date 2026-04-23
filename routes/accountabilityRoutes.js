@@ -17,21 +17,11 @@ const router = express.Router();
 router.route('/')
   .get(
     generalRateLimiter,
-    exportAllPolicies
-);
-
-/*
-// Export by ID (one request at a time)
-router.route('/:request_id')
-  .get(
-    generalRateLimiter,
     authenticateToken,
     authorizeRole(['Administrador']),
     validateSocietyAccess('request'),
-    exportById
+    exportAllPolicies
 );
-*/
-
 
 /* Example for accessing by ID 
  * https://localhost:3000/api/accounting/export/

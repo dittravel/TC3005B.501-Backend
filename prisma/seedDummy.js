@@ -288,6 +288,7 @@ const DUMMY_RECEIPTS = [
     receipt_type_name: 'Hotel',
     amount: 1250.00,
     currency: 'MXN',
+    exch_rate: 1,
     refund: true,
     submission_date: '2025-05-10T14:30:00',
     validation: 'Aprobado',
@@ -314,6 +315,7 @@ const DUMMY_RECEIPTS = [
     receipt_type_name: 'Alimentos',
     amount: 285.50,
     currency: 'USD',
+    exch_rate: 17.99,
     refund: true,
     submission_date: '2025-05-10T15:00:00',
     validation: 'Aprobado',
@@ -340,6 +342,7 @@ const DUMMY_RECEIPTS = [
     receipt_type_name: 'Taxi',
     amount: 420.75,
     currency: 'MXN',
+    exch_rate: 1,
     refund: true,
     submission_date: '2025-05-10T15:10:00',
     validation: 'Aprobado',
@@ -366,6 +369,7 @@ const DUMMY_RECEIPTS = [
     receipt_type_name: 'Taxi',
     amount: 320.00,
     currency: 'MXN',
+    exch_rate: 1,
     refund: true,
     submission_date: '2025-04-16T09:45:00',
     validation: 'Aprobado',
@@ -392,6 +396,7 @@ const DUMMY_RECEIPTS = [
     receipt_type_name: 'Hospedaje',
     amount: 890.00,
     currency: 'MXN',
+    exch_rate: 1,
     refund: true,
     submission_date: '2025-04-11T12:00:00',
     validation: 'Aprobado',
@@ -418,6 +423,7 @@ const DUMMY_RECEIPTS = [
     receipt_type_name: 'Alimentos',
     amount: 420.75,
     currency: 'USD',
+    exch_rate: 17.98,
     refund: true,
     submission_date: '2025-05-13T16:20:00',
     validation: 'Pendiente',
@@ -671,7 +677,8 @@ const requestsData = [
     status: 'Finalizado',
     assigned_to: null,
     document_id: 'GV',
-    authorization_rule_id: 1
+    authorization_rule_id: 1,
+    exch_rate: 0,
   },
   {
     notes: 'Reembolso por gastos medicos durante viaje.',
@@ -681,7 +688,8 @@ const requestsData = [
     status: 'Revision',
     assigned_to: authorizer.user_id,
     document_id: 'GV',
-    authorization_rule_id: 1
+    authorization_rule_id: 1,
+    exch_rate: 0,
   },
   {
     notes: 'Solicitud de apoyo economico para capacitacion online.',
@@ -691,7 +699,8 @@ const requestsData = [
     status: 'Cotizacion del Viaje',
     assigned_to: accountsPayable.user_id,
     document_id: 'GV',
-    authorization_rule_id: 1
+    authorization_rule_id: 1,
+    exch_rate: 0,
   },
   {
     notes: 'Viaticos para taller de liderazgo en Madrid.',
@@ -701,7 +710,8 @@ const requestsData = [
     status: 'Atencion Agencia de Viajes',
     assigned_to: agency.user_id,
     document_id: 'GV',
-    authorization_rule_id: 1
+    authorization_rule_id: 1,
+    exch_rate: 0,
   },
   {
     notes: 'Reembolso de transporte.',
@@ -711,7 +721,8 @@ const requestsData = [
     status: 'Comprobacion gastos del viaje',
     assigned_to: accountsPayable.user_id,
     document_id: 'GV',
-    authorization_rule_id: 1
+    authorization_rule_id: 1,
+    exch_rate: 0,
   },
   {
     notes: 'Apoyo para participacion en congreso internacional.',
@@ -721,7 +732,8 @@ const requestsData = [
     status: 'Validacion de comprobantes',
     assigned_to: accountsPayable.user_id,
     document_id: 'AV',
-    authorization_rule_id: 1
+    authorization_rule_id: 1,
+    exch_rate: 0,
   },
   {
     notes: 'Gastos operativos extraordinarios.',
@@ -731,7 +743,8 @@ const requestsData = [
     status: 'Finalizado',
     assigned_to: accountsPayable.user_id,
     document_id: 'AV',
-    authorization_rule_id: 1
+    authorization_rule_id: 1,
+    exch_rate: 0,
   },
   {
     notes: 'Viaje urgente por representacion institucional.',
@@ -741,7 +754,8 @@ const requestsData = [
     status: 'Cancelado',
     assigned_to: accountsPayable.user_id,
     document_id: 'AV',
-    authorization_rule_id: 1
+    authorization_rule_id: 1,
+    exch_rate: 0,
   },
   {
     notes: 'Solicito anticipo para mision tecnica en el extranjero.',
@@ -751,7 +765,8 @@ const requestsData = [
     status: 'Finalizado',
     assigned_to: accountsPayable.user_id,
     document_id: 'AV',
-    authorization_rule_id: 1
+    authorization_rule_id: 1,
+    exch_rate: 0,
   }
 ];
 
@@ -917,6 +932,7 @@ const requestsData = [
           : null,
         amount: dummyReceipt.amount,
         currency: dummyReceipt.currency,
+        exch_rate: dummyReceipt.exch_rate,
         refund: dummyReceipt.refund,
         submission_date: dummyReceipt.submission_date
           ? new Date(dummyReceipt.submission_date)
