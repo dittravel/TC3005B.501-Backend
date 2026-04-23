@@ -52,7 +52,6 @@ BigInt.prototype.toJSON = function () {
  */
 const buildAnticipo = (request, accountsCatalog, documentMap) => {
   const exportDate = formatDate(new Date());
-  const document = request.Document;
   const society = request.Society;
   const requester = request.requester;
   const firstReceipt = request.Receipt?.[0];
@@ -114,7 +113,6 @@ const buildAnticipo = (request, accountsCatalog, documentMap) => {
  */
 const buildComprobacion = (request, accountsCatalog, documentMap) => {
   const exportDate = formatDate(new Date());
-  const document = request.Document;
   const society = request.Society;
   const requester = request.requester;
   const costCenter = requester?.department?.CostCenter;
@@ -204,7 +202,6 @@ const buildComprobacion = (request, accountsCatalog, documentMap) => {
  */
 const buildSinAnticipo = (request, accountsCatalog, documentMap) => {
   const exportDate = formatDate(new Date());
-  const document = request.Document;
   const society = request.Society;
   const requester = request.requester;
   const costCenter = requester?.department?.CostCenter;
@@ -235,7 +232,7 @@ const buildSinAnticipo = (request, accountsCatalog, documentMap) => {
 
     const subtotal = receipt.xml_subtotal ? Number(receipt.xml_subtotal) : receipt.amount;
     const taxes = receipt.xml_impuestos ? Number(receipt.xml_impuestos) : 0;
-    const total = subtotal + taxes;
+    const total = subtotal + taxes; 
 
     // Build item text for this receipt
     const receipt_type = receipt.Receipt_Type?.receipt_type_name ?? ''
@@ -316,8 +313,6 @@ export const exportAllPolicies = async (req, res) => {
     const polizasAnticipo = rawAnticipos.map(r => buildAnticipo(r, accountMap, documentMap));
     const polizasComprobacion = rawComprobaciones.map(r => buildComprobacion(r, accountMap, documentMap));
     const polizasSinAnticipo = rawSinAnticipo.map(r => buildSinAnticipo(r, accountMap, documentMap));
-
-    console.log(documentMap);
 
     // Calculate totals
     const totalPolicies = polizasAnticipo.length + polizasComprobacion.length + polizasSinAnticipo.length;

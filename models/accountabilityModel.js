@@ -77,12 +77,6 @@ const Accountability = {
           Society: {
             select: { id: true, description: true, local_currency: true },
           },
-          /*Document: {
-            select: {
-              document_id: true,
-              description: true,
-            },
-          },*/
           Receipt: {
             select: {
               receipt_id: true,
@@ -103,14 +97,6 @@ const Accountability = {
                     select: {
                       receipttype_account_id: true,
                       is_default: true,
-                      /*Account: {
-                        select: {
-                          account_id: true,
-                          account_code: true,
-                          account_name: true,
-                          account_type: true,
-                        },
-                      },*/
                     },
                   },
                 },
@@ -190,12 +176,6 @@ const Accountability = {
           Society: {
             select: { id: true, description: true, local_currency: true },
           },
-          /*Document: {
-            select: {
-              document_id: true,
-              description: true,
-            },
-          },*/
           Receipt: {
             where: {
               validation: 'Aprobado',
@@ -219,14 +199,6 @@ const Accountability = {
                     select: {
                       receipttype_account_id: true,
                       is_default: true,
-                      /*Account: {
-                        select: {
-                          account_id: true,
-                          account_code: true,
-                          account_name: true,
-                          account_type: true,
-                        },
-                      },*/
                     },
                   },
                 },
@@ -309,12 +281,6 @@ const Accountability = {
           Society: {
             select: { id: true, description: true, local_currency: true },
           },
-          /*Document: {
-            select: {
-              document_id: true,
-              description: true,
-            },
-          },*/
           Receipt: {
             where: {
               validation: 'Aprobado',
@@ -338,14 +304,6 @@ const Accountability = {
                     select: {
                       receipttype_account_id: true,
                       is_default: true,
-                      /*Account: {
-                        select: {
-                          account_id: true,
-                          account_code: true,
-                          account_name: true,
-                          account_type: true,
-                        },
-                      },*/
                     },
                   },
                 },
