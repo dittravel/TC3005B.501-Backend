@@ -28,6 +28,7 @@ const RequestModel = {
       orderBy: { creation_date: sort },
       select: {
         request_id: true,
+        assigned_to: true,
         notes: true,
         requested_fee: true,
         imposed_fee: true,
@@ -35,6 +36,9 @@ const RequestModel = {
         creation_date: true,
         Request_status: {
           select: { status: true }
+        },
+        assignedUser: {
+          select: { user_name: true }
         },
         Route_Request: {
           take: 1,
@@ -63,6 +67,7 @@ const RequestModel = {
       imposed_fee: req.imposed_fee || 0,
       request_days: req.request_days || 0,
       creation_date: req.creation_date,
+      assigned_to_name: req.assignedUser?.user_name || undefined,
       routes: req.Route_Request.map(rr => ({
         route_id: rr.Route.route_id,
         origin_country: rr.Route.originCountry?.country_name || '',
