@@ -324,6 +324,51 @@ const editReceiptAmount = async (req, res) => {
   }
 };
 
+// Edit receipt notes
+// for providing feedback on corrections needed
+const editReceiptNotes = async (req, res) => {
+  const receiptId = req.params.receipt_id;
+  const { notes } = req.body;
+
+  // Check notes field exists (can be empty string or null)
+  if (notes === undefined) {
+    return res.status(400).json({ error: "notes field is required" });
+  }
+
+  try {
+    const receipt = await AccountsPayable.receiptExists(receiptId);
+    if (!receipt) {
+      return res.status(404).json({ error: "Receipt not found" });
+    }
+
+    const updated = await AccountsPayable.updateReceiptNotes(receiptId, notes);
+
+    if (!updated) {
+      return res.status(400).json({ error: "Failed to update receipt notes" });
+    }
+
+    // Record audit log
+    await AuditLogService.recordAuditLogFromRequest(req, {
+      actionType: 'RECEIPT_NOTES_EDITED',
+      entityType: 'Receipt',
+      entityId: receiptId,
+      metadata: {
+        old_notes: receipt.notes,
+        new_notes: notes,
+      },
+    });
+
+    res.status(200).json({
+      message: "Receipt notes updated successfully",
+      receipt_id: receiptId,
+      new_notes: notes
+    });
+  } catch (err) {
+    console.error("Error in editReceiptNotes controller:", err);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+};
+
 // Return receipts to request for correction
 // marks request status as pending
 const returnReceiptsForCorrection = async (req, res) => {
@@ -365,6 +410,7 @@ export default {
   validateReceiptsHandler,
   validateReceipt,
   editReceiptAmount,
+  editReceiptNotes,
   getExpenseValidations,
   searchReceipts,
   returnReceiptsForCorrection,

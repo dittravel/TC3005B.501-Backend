@@ -163,6 +163,7 @@ model Receipt {
   submission_date       DateTime?             @default(now()) @db.Timestamp(0)
   receipt_date          DateTime?             @db.Date
   validation_date       DateTime?             @db.Timestamp(0)
+  notes                 String?               @db.LongText
   pdf_file_id           String?               @db.VarChar(24)
   pdf_file_name         String?               @db.VarChar(255)
   xml_file_id           String?               @db.VarChar(24)

@@ -196,8 +196,7 @@ const AccountsPayable = {
       imposed_fee: receipts[0].Request?.imposed_fee ?? null,
       status: expense_status,
       department_name: receipts[0].Request?.requester?.department?.department_name ?? null,
-      cost_center_name:
-        receipts[0].Request?.requester?.department?.CostCenter?.cost_center_name ?? null,
+      cost_center_name: receipts[0].Request?.requester?.department?.CostCenter?.cost_center_name ?? null,
       Expenses: receipts.map(row => ({
         receipt_id: row.receipt_id,
         route_id: row.route_id,
@@ -207,6 +206,7 @@ const AccountsPayable = {
         currency: row.currency,
         validation: row.validation,
         submission_date: row.submission_date,
+        notes: row.notes,
         pdf_id: row.pdf_file_id,
         pdf_name: row.pdf_file_name,
         xml_id: row.xml_file_id,
@@ -230,6 +230,16 @@ const AccountsPayable = {
     return updated;
   },
 
+  async updateReceiptNotes(receiptId, notes) {
+    const updated = await prisma.receipt.update({
+      where: { receipt_id: parseInt(receiptId, 10) },
+      data: {
+        notes
+      },
+      select: { receipt_id: true }
+    });
+    return updated;
+  },
 };
 
 export default AccountsPayable;
