@@ -4,14 +4,14 @@
  * Prisma-based data access for user workflows.
  */
 
-import { randomInt } from 'crypto';
-import { prisma } from '../lib/prisma.js';
-import { decrypt } from '../middleware/decryption.js';
+import { randomInt } from "crypto";
+import { prisma } from "../lib/prisma.js";
+import { decrypt } from "../middleware/decryption.js";
 
 function toDateOnly(value) {
   if (!value) return null;
   const date = value instanceof Date ? value : new Date(value);
-  return date.toISOString().split('T')[0];
+  return date.toISOString().split("T")[0];
 }
 
 const User = {
@@ -94,8 +94,7 @@ const User = {
       user_phone_number: request.requester?.phone_number ?? null,
     };
 
-    const routeRows = request.Route_Request
-      .map((row) => row.Route)
+    const routeRows = request.Route_Request.map((row) => row.Route)
       .filter(Boolean)
       .sort((a, b) => (a.router_index ?? 0) - (b.router_index ?? 0));
 
@@ -132,6 +131,10 @@ const User = {
       ending_time: route.ending_time,
       hotel_needed: route.hotel_needed,
       plane_needed: route.plane_needed,
+      flight_pdf_file_id: route.flight_pdf_file_id ?? null,
+      flight_pdf_file_name: route.flight_pdf_file_name ?? null,
+      hotel_pdf_file_id: route.hotel_pdf_file_id ?? null,
+      hotel_pdf_file_name: route.hotel_pdf_file_name ?? null,
     }));
   },
 
@@ -142,7 +145,7 @@ const User = {
         request_status_id: Number(statusId),
       },
       orderBy: {
-        creation_date: 'desc',
+        creation_date: "desc",
       },
       take: n ? Number(n) : undefined,
       include: {
@@ -179,8 +182,7 @@ const User = {
     });
 
     return requests.map((req) => {
-      const route = req.Route_Request
-        .map((row) => row.Route)
+      const route = req.Route_Request.map((row) => row.Route)
         .filter(Boolean)
         .sort((a, b) => (a.router_index ?? 0) - (b.router_index ?? 0))[0];
 
@@ -217,7 +219,10 @@ const User = {
     if (!user) return null;
 
     // Validate that user belongs to the specified society group if provided
-    if (societyGroupId !== null && user.Society?.society_group_id !== Number(societyGroupId)) {
+    if (
+      societyGroupId !== null &&
+      user.Society?.society_group_id !== Number(societyGroupId)
+    ) {
       return null;
     }
 
@@ -276,7 +281,7 @@ const User = {
         user_name: true,
       },
       orderBy: {
-        user_name: 'asc',
+        user_name: "asc",
       },
     });
   },
@@ -340,7 +345,11 @@ const User = {
   },
 
   async updateOutOfOffice(userId, fields) {
-    const allowed = ['out_of_office_start_date', 'out_of_office_end_date', 'substitute_id'];
+    const allowed = [
+      "out_of_office_start_date",
+      "out_of_office_end_date",
+      "substitute_id",
+    ];
     const data = {};
 
     for (const key of allowed) {
@@ -350,14 +359,14 @@ const User = {
     }
 
     if (Object.keys(data).length === 0) {
-      return { success: false, message: 'No fields to update' };
+      return { success: false, message: "No fields to update" };
     }
 
-    if (typeof data.out_of_office_start_date === 'string') {
+    if (typeof data.out_of_office_start_date === "string") {
       data.out_of_office_start_date = new Date(data.out_of_office_start_date);
     }
 
-    if (typeof data.out_of_office_end_date === 'string') {
+    if (typeof data.out_of_office_end_date === "string") {
       data.out_of_office_end_date = new Date(data.out_of_office_end_date);
     }
 
@@ -366,7 +375,7 @@ const User = {
       data,
     });
 
-    return { success: true, message: 'Out-of-office updated successfully' };
+    return { success: true, message: "Out-of-office updated successfully" };
   },
 
   async getEffectiveUserId(user) {
@@ -378,11 +387,15 @@ const User = {
 
       if (startDate && endDate && today >= startDate && today <= endDate) {
         if (user.substitute_id) {
-          console.log(`User ${user.user_id} is out of office. Using substitute ${user.substitute_id} instead.`);
+          console.log(
+            `User ${user.user_id} is out of office. Using substitute ${user.substitute_id} instead.`,
+          );
           return user.substitute_id;
         }
 
-        console.warn(`User ${user.user_id} is out of office but has no substitute assigned.`);
+        console.warn(
+          `User ${user.user_id} is out of office but has no substitute assigned.`,
+        );
         return null;
       }
     }

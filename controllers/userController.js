@@ -1,18 +1,21 @@
 /**
  * User Controller
- * 
+ *
  * This module handles general user operations and business logic
  * for all user roles in the travel request system. It includes functionality
  * for authentication (login/logout), user data retrieval, travel request queries,
  * and wallet management.
- * 
+ *
  * Role-based access control is implemented to ensure users can only access
  * data and operations appropriate to their role and department.
  */
-import * as userService from '../services/userService.js';
-import { requestPasswordReset, resetPassword as resetPasswordService } from '../services/userService.js';
-import User from '../models/userModel.js';
-import { decrypt } from '../middleware/decryption.js';
+import * as userService from "../services/userService.js";
+import {
+  requestPasswordReset,
+  resetPassword as resetPasswordService,
+} from "../services/userService.js";
+import User from "../models/userModel.js";
+import { decrypt } from "../middleware/decryption.js";
 
 /**
  * Get user data by ID
@@ -22,25 +25,27 @@ import { decrypt } from '../middleware/decryption.js';
  */
 export async function getUserData(req, res) {
   try {
-    console.log('Request received for user ID:', req.params.user_id);
+    console.log("Request received for user ID:", req.params.user_id);
     const userId = parseInt(req.params.user_id);
 
     if (isNaN(userId)) {
-      console.log('Invalid user ID format');
-      return res.status(400).json({ error: 'Invalid user ID format' });
+      console.log("Invalid user ID format");
+      return res.status(400).json({ error: "Invalid user ID format" });
     }
 
     const userData = await userService.getUserById(userId);
 
     if (!userData) {
-      console.log('No user found for ID:', userId);
-      return res.status(404).json({ error: 'No information found for the user' });
+      console.log("No user found for ID:", userId);
+      return res
+        .status(404)
+        .json({ error: "No information found for the user" });
     }
 
     return res.status(200).json(userData);
   } catch (error) {
-    console.error('Error retrieving user data', error);
-    return res.status(500).json({ error: 'Internal server error' });
+    console.error("Error retrieving user data", error);
+    return res.status(500).json({ error: "Internal server error" });
   }
 }
 
@@ -48,10 +53,10 @@ export async function getUserData(req, res) {
 export const login = async (req, res) => {
   try {
     const { username, password } = req.body;
-    
+
     // Authenticate user credentials through service layer
     const result = await userService.authenticateUser(username, password, req);
-    
+
     /**
      * Set secure HTTP-only cookies for session management
      * Lax allows cookies to be sent between some cross-site requests
@@ -106,7 +111,7 @@ export const login = async (req, res) => {
   } catch (error) {
     res.status(400).json({ error: error.message });
   }
-}
+};
 
 // Get travel requests filtered by department and status with optional limit
 export const getTravelRequestsByUserStatus = async (req, res) => {
@@ -116,7 +121,11 @@ export const getTravelRequestsByUserStatus = async (req, res) => {
   const n = req.params.n ? Number(req.params.n) : null; // Optional limit
 
   try {
-    const travelRequests = await User.getTravelRequestsByUserStatus(userId, statusId, n);
+    const travelRequests = await User.getTravelRequestsByUserStatus(
+      userId,
+      statusId,
+      n,
+    );
 
     if (!travelRequests || travelRequests.length === 0) {
       return res.status(404).json({ error: "No travel requests found" });
@@ -169,7 +178,7 @@ export const getTravelRequestById = async (req, res) => {
       user: {
         user_name: base.user_name,
         user_email: decryptedEmail,
-        user_phone_number: decryptedPhone
+        user_phone_number: decryptedPhone,
       },
       // Map all rows to routes array (one row per route)
       routes: requestData.map((row) => ({
@@ -184,8 +193,12 @@ export const getTravelRequestById = async (req, res) => {
         ending_date: formatDate(row.ending_date),
         ending_time: row.ending_time,
         hotel_needed: row.hotel_needed,
-        plane_needed: row.plane_needed
-      }))
+        plane_needed: row.plane_needed,
+        flight_pdf_file_id: row.flight_pdf_file_id,
+        flight_pdf_file_name: row.flight_pdf_file_name,
+        hotel_pdf_file_id: row.hotel_pdf_file_id,
+        hotel_pdf_file_name: row.hotel_pdf_file_name,
+      })),
     };
 
     return res.status(200).json(response);
@@ -203,7 +216,9 @@ export const getUserWallet = async (req, res) => {
     const user = await User.getUserWallet(user_id);
 
     if (!user) {
-      return res.status(404).json({ error: `No user with id ${user_id} found`  });
+      return res
+        .status(404)
+        .json({ error: `No user with id ${user_id} found` });
     }
 
     // Return formatted wallet data
@@ -221,7 +236,7 @@ export const getUserWallet = async (req, res) => {
 
 // Helper function to format dates to YYYY-MM-DD
 const formatDate = (date) => {
-  return new Date(date).toISOString().split('T')[0];
+  return new Date(date).toISOString().split("T")[0];
 };
 
 // Update user's out-of-office information
@@ -230,19 +245,23 @@ export const updateOutOfOffice = async (req, res) => {
     const userId = parseInt(req.params.user_id);
 
     if (isNaN(userId)) {
-      return res.status(400).json({ error: 'Invalid user ID format' });
+      return res.status(400).json({ error: "Invalid user ID format" });
     }
 
     // Security: users can only modify their own out-of-office information
     if (req.user.user_id !== userId) {
-      return res.status(403).json({ error: 'Forbidden: You can only update your own out-of-office information' });
+      return res
+        .status(403)
+        .json({
+          error:
+            "Forbidden: You can only update your own out-of-office information",
+        });
     }
 
     const result = await userService.updateOutOfOffice(userId, req.body);
     return res.status(200).json(result);
-
   } catch (error) {
-    console.error('Error updating out-of-office:', error);
+    console.error("Error updating out-of-office:", error);
     return res.status(400).json({ error: error.message });
   }
 };
@@ -253,14 +272,17 @@ export const getSubstituteUsers = async (req, res) => {
     const userId = parseInt(req.params.user_id);
 
     if (isNaN(userId)) {
-      return res.status(400).json({ error: 'Invalid user ID format' });
+      return res.status(400).json({ error: "Invalid user ID format" });
     }
 
-    const users = await User.getUserDepartmentMembers(userId, req.user.society_id);
+    const users = await User.getUserDepartmentMembers(
+      userId,
+      req.user.society_id,
+    );
     return res.status(200).json(users);
   } catch (error) {
-    console.error('Error retrieving department users:', error);
-    return res.status(500).json({ error: 'Internal server error' });
+    console.error("Error retrieving department users:", error);
+    return res.status(500).json({ error: "Internal server error" });
   }
 };
 
@@ -269,10 +291,15 @@ export const forgotPassword = async (req, res) => {
   try {
     await requestPasswordReset(req.body.email);
     // Always 200 — don't reveal whether the username exists
-    return res.status(200).json({ message: 'If an account with that username exists, a recovery email has been sent.' });
+    return res
+      .status(200)
+      .json({
+        message:
+          "If an account with that username exists, a recovery email has been sent.",
+      });
   } catch (err) {
-    console.error('Error in forgotPassword controller:', err);
-    return res.status(500).json({ error: 'Internal server error' });
+    console.error("Error in forgotPassword controller:", err);
+    return res.status(500).json({ error: "Internal server error" });
   }
 };
 
@@ -280,13 +307,13 @@ export const forgotPassword = async (req, res) => {
 export const resetPassword = async (req, res) => {
   try {
     await resetPasswordService(req.body.token, req.body.new_password);
-    return res.status(200).json({ message: 'Password updated successfully.' });
+    return res.status(200).json({ message: "Password updated successfully." });
   } catch (err) {
     if (err.status === 400) {
       return res.status(400).json({ error: err.message });
     }
-    console.error('Error in resetPassword controller:', err);
-    return res.status(500).json({ error: 'Internal server error' });
+    console.error("Error in resetPassword controller:", err);
+    return res.status(500).json({ error: "Internal server error" });
   }
 };
 
@@ -294,7 +321,7 @@ export const resetPassword = async (req, res) => {
 export const logout = (req, res) => {
   // Cookie options for secure clearing
   const cookieOptions = {
-    path: '/',
+    path: "/",
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "Strict",

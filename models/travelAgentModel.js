@@ -14,7 +14,7 @@ const TravelAgent = {
   // Update request status to receipt validation
   async attendTravelRequest(requestId) {
     try {
-      const result = await prisma.route.updateMany({
+      const result = await prisma.request.updateMany({
         where: { request_id: requestId },
         data: { request_status_id: 5 },
       });
@@ -95,7 +95,7 @@ const TravelAgent = {
   // Update request status and assigned user
   async updateRequestRouting(request_id, assigned_to, status_id) {
     try {
-      const result = await prisma.route.updateMany({
+      const result = await prisma.request.updateMany({
         where: { request_id },
         data: {
           assigned_to,
