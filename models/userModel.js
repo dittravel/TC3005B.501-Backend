@@ -90,6 +90,7 @@ const User = {
       request_days: request.request_days,
       creation_date: request.creation_date,
       currency: request.currency ?? 'MXN',
+      exch_rate: request.exch_rate,
       user_name: request.requester?.user_name ?? null,
       user_email: request.requester?.email ?? null,
       user_phone_number: request.requester?.phone_number ?? null,

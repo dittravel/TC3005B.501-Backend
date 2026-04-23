@@ -77,18 +77,19 @@ const Accountability = {
           Society: {
             select: { id: true, description: true, local_currency: true },
           },
-          Document: {
+          /*Document: {
             select: {
               document_id: true,
               description: true,
             },
-          },
+          },*/
           Receipt: {
             select: {
               receipt_id: true,
               amount: true,
               validation: true,
               currency: true,
+              exch_rate: true,
               xml_total: true,
               xml_moneda: true,
               xml_subtotal: true,
@@ -189,12 +190,12 @@ const Accountability = {
           Society: {
             select: { id: true, description: true, local_currency: true },
           },
-          Document: {
+          /*Document: {
             select: {
               document_id: true,
               description: true,
             },
-          },
+          },*/
           Receipt: {
             where: {
               validation: 'Aprobado',
@@ -204,6 +205,7 @@ const Accountability = {
               amount: true,
               validation: true,
               currency: true,
+              exch_rate: true,
               xml_total: true,
               xml_moneda: true,
               xml_subtotal: true,
@@ -307,12 +309,12 @@ const Accountability = {
           Society: {
             select: { id: true, description: true, local_currency: true },
           },
-          Document: {
+          /*Document: {
             select: {
               document_id: true,
               description: true,
             },
-          },
+          },*/
           Receipt: {
             where: {
               validation: 'Aprobado',
@@ -322,6 +324,7 @@ const Accountability = {
               amount: true,
               validation: true,
               currency: true,
+              exch_rate: true,
               xml_total: true,
               xml_moneda: true,
               xml_subtotal: true,
@@ -356,7 +359,6 @@ const Accountability = {
         },
         orderBy: { request_id: 'asc' },
       });
-
       return requests;
     } catch (error) {
       console.error('Error fetching "Sin Anticipo" policies:', error);
@@ -364,35 +366,58 @@ const Accountability = {
     }
   },
 
-async getAccounts(){
-  try {
-    const accounts = await prisma.account.findMany({
-      where: { active: true },
-      select: {
-        account_id: true, 
-        account_code: true, 
-        account_name: true
-      }
-    });
-    return accounts;
-  } catch (error) {
-    console.error('Error fetching "Accounts"', error);
-    throw error;
-  }
-},
+  /**
+   * Obtain all accounts
+   *
+   */
+  async getAccounts(){
+    try {
+      const accounts = await prisma.account.findMany({
+        where: { active: true },
+        select: {
+          account_id: true, 
+          account_code: true, 
+          account_name: true
+        }
+      });
+      return accounts;
+    } catch (error) {
+      console.error('Error fetching "Accounts"', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Obtain all document types
+   *
+   */
+  async getDocuments(){
+    try {
+      const documents = await prisma.document.findMany({
+        select: {
+          document_id: true, 
+          description: true, 
+        }
+      });
+      return documents;
+    } catch (error) {
+      console.error('Error fetching "Documents"', error);
+      throw error;
+    }
+  },
 
   /**
    * Mark a policy as exported by upserting a policyExports record.
    *
    * @param {number} request_id
    */
-async markAsExported(request_id) {
-  return prisma.policyExport.upsert({
-    where: { request_id },
-    update: { is_exported: true, exported_at: new Date() },
-    create: { request_id, is_exported: true, exported_at: new Date() },
-  });
-},
+  async markAsExported(request_id) {
+    return prisma.policyExport.upsert({
+      where: { request_id },
+      update: { is_exported: true, exported_at: new Date() },
+      create: { request_id, is_exported: true, exported_at: new Date() },
+    });
+  },
 };
 
 export default Accountability;
