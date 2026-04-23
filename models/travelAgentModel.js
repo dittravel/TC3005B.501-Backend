@@ -107,6 +107,46 @@ const TravelAgent = {
       throw error;
     }
   },
+
+  /**
+     * Upload a reservation pdf file
+     */
+    async createExpenseWithFiles(data) {
+      const {
+        route_id,
+        flightPdfFile,
+        hotelPdfFile,
+      } = data;
+  
+      // Get the request to obtain its society_id
+      const route = await prisma.request.findUnique({
+        where: { route_id: Number(route_id) },
+        select: { society_id: true },
+      });
+  
+      if (!route) {
+        throw new Error("Route not found");
+      }
+  
+      const result = await prisma.$transaction(async (tx) => {
+        const route = await tx.route.create({
+          data: {
+            route_id: Number(route_id),
+            society_id: route.society_id,
+          },
+          select: { route_id: true },
+        });
+  
+        const fileResult = await uploadReservationFiles(route.route_id, flightPdfFile, hotelPdfFile, tx);
+  
+        return {
+          route_id: route.route_id,
+          pdf: fileResult.pdf,
+        };
+      });
+  
+      return result;
+    }
 };
 
 export default TravelAgent;
