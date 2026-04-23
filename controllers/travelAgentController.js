@@ -232,7 +232,7 @@ export async function createReservationWithFilesHandler(req, res) {
     }
 
     // Create the expense and upload files
-    const result = await travelAgent.createReservationWithFiles({
+    const result = await TravelAgent.createReservationWithFiles({
       route_id: Number(route_id),
       flightPdf: req.files.flightPdf ? req.files.flightPdf[0] : null,
       hotelPdf: req.files.hotelPdf ? req.files.hotelPdf[0] : null

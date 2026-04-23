@@ -351,6 +351,10 @@ model Route {
   originCity             City?           @relation("OriginCity", fields: [id_origin_city], references: [city_id], onDelete: Restrict, onUpdate: Restrict, map: "fk_route_origin_city")
   originCountry          Country?        @relation("OriginCountry", fields: [id_origin_country], references: [country_id], onDelete: Restrict, onUpdate: Restrict, map: "fk_route_origin_country")
   Route_Request          Route_Request[]
+  flight_pdf_file_id String? @db.VarChar(24)
+  flight_pdf_file_name String? @db.VarChar(255)
+  hotel_pdf_file_id String? @db.VarChar(24)
+  hotel_pdf_file_name String? @db.VarChar(255)
 
   @@index([id_destination_city], map: "fk_route_destination_city")
   @@index([id_destination_country], map: "fk_route_destination_country")

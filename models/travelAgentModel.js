@@ -7,13 +7,14 @@
  */
 
 import { prisma } from "../lib/prisma.js";
+import { uploadReservationFiles } from "../services/reservationFileService.js";
 
 
 const TravelAgent = {
   // Update request status to receipt validation
   async attendTravelRequest(requestId) {
     try {
-      const result = await prisma.request.updateMany({
+      const result = await prisma.route.updateMany({
         where: { request_id: requestId },
         data: { request_status_id: 5 },
       });
@@ -94,7 +95,7 @@ const TravelAgent = {
   // Update request status and assigned user
   async updateRequestRouting(request_id, assigned_to, status_id) {
     try {
-      const result = await prisma.request.updateMany({
+      const result = await prisma.route.updateMany({
         where: { request_id },
         data: {
           assigned_to,
@@ -108,45 +109,22 @@ const TravelAgent = {
     }
   },
 
-  /**
-     * Upload a reservation pdf file
-     */
-    async createExpenseWithFiles(data) {
-      const {
-        route_id,
-        flightPdfFile,
-        hotelPdfFile,
-      } = data;
-  
-      // Get the request to obtain its society_id
-      const route = await prisma.request.findUnique({
-        where: { route_id: Number(route_id) },
-        select: { society_id: true },
-      });
-  
-      if (!route) {
-        throw new Error("Route not found");
-      }
-  
-      const result = await prisma.$transaction(async (tx) => {
-        const route = await tx.route.create({
-          data: {
-            route_id: Number(route_id),
-            society_id: route.society_id,
-          },
-          select: { route_id: true },
-        });
-  
-        const fileResult = await uploadReservationFiles(route.route_id, flightPdfFile, hotelPdfFile, tx);
-  
-        return {
-          route_id: route.route_id,
-          pdf: fileResult.pdf,
-        };
-      });
-  
-      return result;
-    }
+  // Upload flight and hotel PDF files for a reservation
+  async createReservationWithFiles(data) {
+    const { route_id, flightPdf, hotelPdf } = data;
+
+    const fileResult = await uploadReservationFiles(
+      Number(route_id),
+      flightPdf,
+      hotelPdf
+    );
+
+    return {
+      route_id: Number(route_id),
+      flightPdf: fileResult.flightPdf,
+      hotelPdf: fileResult.hotelPdf,
+    };
+  }
 };
 
 export default TravelAgent;
