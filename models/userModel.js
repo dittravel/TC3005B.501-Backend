@@ -89,6 +89,7 @@ const User = {
       imposed_fee: request.imposed_fee,
       request_days: request.request_days,
       creation_date: request.creation_date,
+      currency: request.currency ?? 'MXN',
       user_name: request.requester?.user_name ?? null,
       user_email: request.requester?.email ?? null,
       user_phone_number: request.requester?.phone_number ?? null,
@@ -125,10 +126,10 @@ const User = {
       origin_city: route.originCity?.city_name ?? null,
       destination_country: route.destinationCountry?.country_name ?? null,
       destination_city: route.destinationCity?.city_name ?? null,
-      beginning_date: route.beginning_date,
-      beginning_time: route.beginning_time,
-      ending_date: route.ending_date,
-      ending_time: route.ending_time,
+      beginning_date: toDateOnly(route.beginning_date),
+      beginning_time: route.beginning_time ? route.beginning_time.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'America/Mexico_City' }) : null,
+      ending_date: toDateOnly(route.ending_date),
+      ending_time: route.ending_time ? route.ending_time.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'America/Mexico_City' }) : null,
       hotel_needed: route.hotel_needed,
       plane_needed: route.plane_needed,
       flight_pdf_file_id: route.flight_pdf_file_id ?? null,
@@ -523,6 +524,24 @@ const User = {
     });
 
     return substitute || null;
+  },
+
+  // Update user's wallet (positive amount adds, negative amount subtracts)
+  async updateWallet(userId, amount) {
+    try {
+      const result = await prisma.user.update({
+        where: { user_id: userId },
+        data: {
+          wallet: {
+            increment: amount,
+          },
+        },
+      });
+      return result;
+    } catch (error) {
+      console.error("Error updating wallet:", error);
+      throw error;
+    }
   },
 };
 

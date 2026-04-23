@@ -149,6 +149,7 @@ const Applicant = {
         notes,
         requested_fee = 0,
         imposed_fee = 0,
+        currency = 'MXN',
         origin_country_name,
         origin_city_name,
         destination_country_name,
@@ -302,6 +303,7 @@ const Applicant = {
             society_id: role.society_id,
             notes,
             requested_fee,
+            currency,
             imposed_fee,
             request_days,
           },
@@ -335,6 +337,7 @@ const Applicant = {
         notes,
         requested_fee = 0,
         imposed_fee = 0,
+        currency = 'MXN',
         origin_country_name,
         origin_city_name,
         destination_country_name,
@@ -379,6 +382,7 @@ const Applicant = {
           data: {
             notes,
             requested_fee,
+            currency,
             imposed_fee,
             request_days,
             last_mod_date: new Date(),
@@ -603,11 +607,6 @@ const Applicant = {
               },
             },
           },
-          AuthorizationRule: {
-            select: {
-              days_to_validate: true,
-            },
-          }
         },
       });
 
@@ -625,7 +624,6 @@ const Applicant = {
           creation_date: request.creation_date,
           assigned_to: request.assigned_to,
           assigned_to_name: request.assignedUser?.user_name ?? null,
-          days_to_validate: request.AuthorizationRule?.days_to_validate ?? null,
         };
       });
 
@@ -680,6 +678,7 @@ const Applicant = {
         request_status: request.Request_status?.status ?? null,
         notes: request.notes,
         requested_fee: request.requested_fee,
+        currency: request.currency ?? 'MXN',
         imposed_fee: request.imposed_fee,
         request_days: request.request_days,
         creation_date: request.creation_date,
@@ -737,47 +736,6 @@ const Applicant = {
   },
 
   /**
-   * Get days remaining to validate receipts for a request
-   * @param {number} requestId
-   * @returns {number|null} days remaining to validate receipts
-   */
-  async getDaysToValidateReceipts(requestId) {
-    try {
-      const request = await prisma.request.findUnique({
-        where: { request_id: Number(requestId) },
-        select: {
-          creation_date: true,
-          AuthorizationRule: {
-            select: {
-              days_to_validate: true,
-            },
-          },
-        },
-      });
-
-      if (!request) {
-        throw new Error("Request not found");
-      }
-
-      const daysToValidate = request.AuthorizationRule?.days_to_validate ?? null;
-      if (daysToValidate === null) {
-        return null;
-      }
-
-      const today = new Date();
-      const elapsedTime = today - request.creation_date;
-      const elapsedDays = Math.floor(elapsedTime / (1000 * 60 * 60 * 24));
-      const remainingDays = daysToValidate - elapsedDays;
-
-      return remainingDays;
-
-    } catch (error) {
-      console.error("Error getting days to validate receipts:", error);
-      throw error;
-    }
-  },
-  
-  /**
   * Inserts multiple receipts using receipt_type_id and amount.
   * @param {Array<{receipt_type_id: number, request_id: number, amount: number}>} receipts
   * @returns {number} number of inserted rows
@@ -820,6 +778,7 @@ const Applicant = {
         notes = '',                                     // Default value empty string
         requested_fee = 0,                              // Default value 0
         imposed_fee = 0,                                // Default value 0
+        currency = 'MXN',                               // Default value 'MXN'
         origin_country_name = 'notSelected',            // Default value 'notSelected'
         origin_city_name = 'notSelected',               // Default value 'notSelected'
         destination_country_name = 'notSelected',       // Default value 'notSelected'
@@ -874,6 +833,7 @@ const Applicant = {
             society_id: user.society_id,
             notes,
             requested_fee,
+            currency,
             imposed_fee,
             request_days,
           },

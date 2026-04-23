@@ -82,7 +82,7 @@ export async function authenticateUser(username, password, req) {
       ...(enforceIpBinding ? { ip: req.ip } : {}),
     };
 
-    const token = jwt.sign(tokenPayload, process.env.JWT_SECRET, { expiresIn: '1h' });
+    const token = jwt.sign(tokenPayload, process.env.JWT_SECRET, { expiresIn: '8h' });
 
     return {
       token,

@@ -158,7 +158,9 @@ const Admin = {
           email: userData.email,
           phone_number: userData.phone_number || null,
           boss_id: userData.boss_id || null,
-          society_id: userData.society_id || null
+          society_id: userData.society_id || null,
+          supplier: userData.supplier || null,
+          active: userData.active !== undefined ? userData.active : true
         },
         select: { user_id: true }
       });
@@ -328,7 +330,6 @@ const Admin = {
           max_duration: ruleData.max_duration,
           min_amount: ruleData.min_amount,
           max_amount: ruleData.max_amount,
-          days_to_validate: ruleData.days_to_validate,
           society_group_id: societyGroupId ? Number(societyGroupId) : null,
           levels: {
             create: (Array.isArray(ruleData.levels) ? ruleData.levels : []).map(level => ({
@@ -376,7 +377,6 @@ const Admin = {
           max_duration: ruleData.max_duration,
           min_amount: ruleData.min_amount,
           max_amount: ruleData.max_amount,
-          days_to_validate: ruleData.days_to_validate
         }
       });
 
