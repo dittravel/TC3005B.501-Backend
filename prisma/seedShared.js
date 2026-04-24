@@ -2,7 +2,7 @@ import bcrypt from 'bcrypt';
 import crypto from 'node:crypto';
 
 export const ADMIN_USER_NAME = 'admin';
-export const ADMIN_PASSWORD = 'admin123';
+export const ADMIN_PASSWORD = '123';
 export const ADMIN_EMAIL = 'admin@cocoscheme.local';
 export const ADMIN_WORKSTATION = 'ADMIN-WS';
 export const ADMIN_DEPARTMENT_NAME = 'Admin';

@@ -73,6 +73,10 @@ function normalizeAuditLogFilters(rawFilters = {}) {
       rawFilters.actor_user_id === undefined || rawFilters.actor_user_id === null
         ? null
         : Number(rawFilters.actor_user_id),
+    society_id:
+      rawFilters.society_id === undefined || rawFilters.society_id === null
+        ? null
+        : Number(rawFilters.society_id),
     action_type: rawFilters.action_type ? String(rawFilters.action_type).trim() : null,
     entity_type: rawFilters.entity_type ? String(rawFilters.entity_type).trim() : null,
     entity_id: rawFilters.entity_id ? String(rawFilters.entity_id).trim() : null,
@@ -86,6 +90,7 @@ function buildAuditLogService({ auditLogModel = AuditLogModel } = {}) {
   return {
     async recordAuditLog({
       actorUserId = null,
+      societyId = null,
       actionType,
       entityType,
       entityId = null,
@@ -96,6 +101,7 @@ function buildAuditLogService({ auditLogModel = AuditLogModel } = {}) {
 
       return auditLogModel.createAuditLog({
         actor_user_id: actorUserId,
+        society_id: societyId,
         action_type: actionType,
         entity_type: entityType,
         entity_id: entityId === null || entityId === undefined ? null : String(entityId),
@@ -107,6 +113,7 @@ function buildAuditLogService({ auditLogModel = AuditLogModel } = {}) {
     async recordAuditLogFromRequest(req, event, options = {}) {
       return this.recordAuditLog({
         actorUserId: req.user?.user_id ?? null,
+        societyId: req.user?.society_id ?? null,
         sourceIp: getClientIp(req),
         ...event,
       }, options);
@@ -119,6 +126,7 @@ function buildAuditLogService({ auditLogModel = AuditLogModel } = {}) {
         audit_log_id: row.audit_log_id,
         actor_user_id: row.actor_user_id,
         actor_user_name: row.actor_user_name || null,
+        society_id: row.society_id,
         action_type: row.action_type,
         entity_type: row.entity_type,
         entity_id: row.entity_id,

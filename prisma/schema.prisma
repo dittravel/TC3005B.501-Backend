@@ -30,6 +30,7 @@ model AlertMessage {
 model Audit_Log {
   audit_log_id    Int       @id @default(autoincrement())
   actor_user_id   Int?
+  society_id      Int?
   action_type     String    @db.VarChar(80)
   entity_type     String    @db.VarChar(80)
   entity_id       String?   @db.VarChar(64)
@@ -37,9 +38,11 @@ model Audit_Log {
   metadata        String?   @db.LongText
   event_timestamp DateTime? @default(now()) @db.Timestamp(0)
   User            User?     @relation(fields: [actor_user_id], references: [user_id], onDelete: Restrict, onUpdate: Restrict, map: "fk_audit_actor_user")
+  Society         Society?  @relation(fields: [society_id], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fk_audit_society")
 
   @@index([action_type], map: "idx_audit_action")
   @@index([actor_user_id], map: "idx_audit_actor")
+  @@index([society_id], map: "idx_audit_society")
   @@index([entity_type, entity_id], map: "idx_audit_entity")
   @@index([event_timestamp], map: "idx_audit_timestamp")
 }
@@ -403,6 +406,7 @@ model Society {
   User             User[]
   Request          Request[]
   Receipt          Receipt[]
+  Audit_Log        Audit_Log[]
 }
 
 /// General ledger accounts for financial classification

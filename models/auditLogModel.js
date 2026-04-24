@@ -12,6 +12,9 @@ function buildAuditWhere(filters) {
   if (filters.actor_user_id !== null && filters.actor_user_id !== undefined) {
     where.actor_user_id = filters.actor_user_id;
   }
+  if (filters.society_id !== null && filters.society_id !== undefined) {
+    where.society_id = filters.society_id;
+  }
   if (filters.action_type) {
     where.action_type = filters.action_type;
   }
@@ -31,6 +34,7 @@ function buildAuditLogModel() {
       const result = await prisma.audit_Log.create({
         data: {
           actor_user_id: entry.actor_user_id,
+          society_id: entry.society_id,
           action_type: entry.action_type,
           entity_type: entry.entity_type,
           entity_id: entry.entity_id,
@@ -66,6 +70,7 @@ function buildAuditLogModel() {
         audit_log_id: row.audit_log_id,
         actor_user_id: row.actor_user_id,
         actor_user_name: row.User?.user_name ?? null,
+        society_id: row.society_id,
         action_type: row.action_type,
         entity_type: row.entity_type,
         entity_id: row.entity_id,
