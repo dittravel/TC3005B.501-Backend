@@ -65,7 +65,7 @@ export const searchHotels = async ({
       installation: hotel.room_type || hotel.type || hotel.hotel_class || null,
       cost: hotel.rate_per_night?.extracted_lowest || hotel.total_rate?.extracted_lowest || null,
       name: hotel.name || "No name provided",
-      currency: hotel.rate_per_night?.currency || hotel.total_rate?.currency || hotel.price?.currency || null,
+      currency: response.data?.search_parameters?.currency || null,
     }))
     .sort((a, b) => {
       // Sort by rating descending (higher first)
