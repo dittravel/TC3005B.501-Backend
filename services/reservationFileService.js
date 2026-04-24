@@ -56,8 +56,6 @@ export async function uploadReservationFiles(routeId, flightPdfFile, hotelPdfFil
         hotel_pdf_file_name: hotelPdfResult ? hotelPdfResult.fileName : null,
       };
 
-      console.log("Attempting route update with route_id:", Number(safeRouteId), typeof safeRouteId);
-
       await tx.route.update({
         where: { route_id: Number(safeRouteId) },
         data: updateData,
