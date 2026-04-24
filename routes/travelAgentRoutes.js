@@ -9,17 +9,6 @@ import express from "express";
 import travelAgentController from "../controllers/travelAgentController.js";
 import { validateId, validateInputs, validateFlightSearch, validateHotelSearch, validateRouteFeeUpdate } from "../middleware/validation.js";
 import { authenticateToken, authorizeRole, validateSocietyAccess } from "../middleware/auth.js";
-import {
-  validateId,
-  validateInputs,
-  validateFlightSearch,
-  validateHotelSearch,
-} from "../middleware/validation.js";
-import {
-  authenticateToken,
-  authorizeRole,
-  validateSocietyAccess,
-} from "../middleware/auth.js";
 import { generalRateLimiter } from "../middleware/rateLimiters.js";
 
 // Import multer for file uploads
@@ -100,7 +89,7 @@ router.route('/route-fees/:route_id')
     validateInputs,
     travelAgentController.updateRouteFees
   );
-  
+
 router.route("/create-reservation-file").post(
   generalRateLimiter,
   authenticateToken,
