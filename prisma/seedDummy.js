@@ -13,6 +13,7 @@ import {
   ADMIN_COST_CENTER_NAME,
   ADMIN_DEPARTMENT_NAME,
   encryptSeedValue,
+  seedReferenceData,
 } from './seedShared.js';
 
 const COST_CENTER_NAMES = [
@@ -747,10 +748,26 @@ async function seedDummyRoles() {
   console.log('Created roles for all society groups');
 }
 
+async function seedReferenceDataForDummySocietyGroups() {
+  console.log('Creating permissions and role-permission mappings for dummy society groups...');
+
+  const societyGroups = await prisma.societyGroup.findMany({
+    where: { description: { not: 'Default' } },
+    select: { id: true },
+  });
+
+  for (const societyGroup of societyGroups) {
+    await seedReferenceData(prisma, societyGroup.id);
+  }
+
+  console.log(`Permissions and role mappings seeded for ${societyGroups.length} dummy society groups`);
+}
+
 async function seedDummyLocationsAndUsers() {
   await seedDummySocietyGroups();
   await seedDummySocieties();
   await seedDummyRoles();
+  await seedReferenceDataForDummySocietyGroups();
   await seedDummyCostCenters();
   await seedDummyDepartments();
   await seedDummyCountries();

@@ -27,6 +27,45 @@ const CURRENCY_CATALOG = [
   { currency_code: 'INR', currency_name: 'Rupia India', country: 'India', banxico_series_id: 'SF57829', frequency: 'monthly' },
 ];
 
+const CITY_CATALOG = [
+  'CDMX',
+  'Guadalajara',
+  'Monterrey',
+  'Cancún',
+  'Mérida',
+  'Nueva York',
+  'Los Ángeles',
+  'San Francisco',
+  'Chicago',
+  'Las Vegas',
+  'Toronto',
+  'Vancouver',
+  'Rio de Janeiro',
+  'Sao Paulo',
+  'Buenos Aires',
+  'Cordoba',
+  'Santiago',
+  'Valparaíso',
+  'Bogotá',
+  'Barranquilla',
+  'Madrid',
+  'Barcelona',
+  'Paris',
+  'Lyon',
+  'Londres',
+  'Manchester',
+  'Berlín',
+  'Munich',
+  'Roma',
+  'Venecia',
+  'Tokyo',
+  'Kyoto',
+  'Pekín',
+  'Hong Kong',
+  'Bombay',
+  'Nueva Delhi',
+];
+
 async function seedDefaultSocietyGroupAndSociety() {
   // Create default SocietyGroup
   const existingGroup = await prisma.societyGroup.findFirst({
@@ -35,13 +74,13 @@ async function seedDefaultSocietyGroupAndSociety() {
   });
 
   let defaultSocietyGroupId;
-  if (!existingGroup) {
+  if (existingGroup) {
+    defaultSocietyGroupId = existingGroup.id;
+  } else {
     const group = await prisma.societyGroup.create({
       data: { description: 'Default', is_default: true },
     });
     defaultSocietyGroupId = group.id;
-  } else {
-    defaultSocietyGroupId = existingGroup.id;
   }
 
   // Create default Society
@@ -77,7 +116,7 @@ async function seedDefaultAuthorizationRule(defaultSocietyGroupId) {
     return;
   }
 
-  const rule = await prisma.authorizationRule.create({
+  await prisma.authorizationRule.create({
     data: {
       rule_name: 'Regla predeterminada',
       is_default: true,
@@ -105,10 +144,21 @@ async function seedCurrencyCatalog() {
   }
 }
 
+async function seedCityCatalog() {
+  for (const cityName of CITY_CATALOG) {
+    await prisma.city.upsert({
+      where: { city_name: cityName },
+      create: { city_name: cityName },
+      update: { city_name: cityName },
+    });
+  }
+}
+
 export async function seedEmptyDatabase() {
   console.log('Creating base Prisma data and admin account...');
   const defaultSocietyGroupId = await seedDefaultSocietyGroupAndSociety();
   await seedReferenceData(prisma, defaultSocietyGroupId);
+  await seedCityCatalog();
   await seedDefaultAuthorizationRule(defaultSocietyGroupId);
   await seedCurrencyCatalog();
   await seedAdminAccount(prisma, defaultSocietyGroupId);

@@ -276,18 +276,20 @@ model Request_status {
 }
 
 model Role {
-  role_id         Int               @id @default(autoincrement())
-  role_name       String            @db.VarChar(60)
-  description     String?           @db.VarChar(60)
+  role_id          Int               @id @default(autoincrement())
+  role_name        String            @db.VarChar(60)
+  description      String?           @db.VarChar(60)
   society_group_id Int?
-  active          Boolean?          @default(true)
-  updated_at      DateTime?         @default(now()) @db.Timestamp(0)
-  SocietyGroup    SocietyGroup?     @relation(fields: [society_group_id], references: [id], map: "fk_role_societygroup")
-  Role_Permission Role_Permission[]
-  User            User[]
+  active           Boolean?          @default(true)
+  is_default       Boolean           @default(false)
+  updated_at       DateTime?         @default(now()) @db.Timestamp(0)
+  SocietyGroup     SocietyGroup?     @relation(fields: [society_group_id], references: [id], map: "fk_role_societygroup")
+  Role_Permission  Role_Permission[]
+  User             User[]
 
   @@unique([role_name, society_group_id])
   @@index([active], map: "idx_role_active")
+  @@index([is_default], map: "idx_role_is_default")
   @@index([society_group_id])
 }
 
