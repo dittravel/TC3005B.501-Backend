@@ -77,7 +77,7 @@ router.get('/:action/:token', authenticateTokenFromCookies, async (req, res) => 
           
           // Send email notifications to the newly assigned user
           try {
-            await sendEmails(requestId);
+            sendEmails(requestId);
           } catch (mailError) {
             console.error("Failed to send authorization notification email:", mailError);
             // Don't fail the request if email fails
@@ -126,7 +126,7 @@ router.get('/:action/:token', authenticateTokenFromCookies, async (req, res) => 
           
           // Send email notifications about the decline
           try {
-            await sendEmails(requestId);
+            sendEmails(requestId);
           } catch (mailError) {
             console.error("Failed to send decline notification email:", mailError);
             // Don't fail the request if email fails

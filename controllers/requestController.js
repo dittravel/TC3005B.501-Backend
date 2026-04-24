@@ -22,3 +22,18 @@ export const getUserRequests = async (req, res) => {
     return res.status(500).json({ error: 'Internal server error' });
   }
 };
+
+export const deleteDraftRequest = async (req, res) => {
+  const requestId = Number(req.params.request_id);
+
+  try {
+    await RequestService.deleteDraftRequest(requestId);
+    return res.status(200).json({ message: 'Draft request deleted successfully' });
+  } catch (err) {
+    console.error('Error in deleteDraftRequest controller:', err);
+    if (err.status) {
+      return res.status(err.status).json({ error: err.message });
+    }
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+};

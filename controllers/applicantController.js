@@ -142,7 +142,7 @@ export const createTravelRequest = async (req, res) => {
     const requestId = travelRequest.requestId;
 
     // Send email notifications
-    await sendEmails(requestId);
+    sendEmails(requestId);
 
     res.status(201).json(travelRequest);
   } catch (err) {
@@ -175,7 +175,7 @@ export const cancelTravelRequest = async (req, res) => {
     const result = await cancelTravelRequestValidation(Number(request_id));
     
     // Send email notifications
-    await sendEmails(request_id);
+    sendEmails(request_id);
 
     return res.status(200).json(result);
   } catch (err) {
@@ -269,7 +269,7 @@ export const confirmDraftTravelRequest = async (req, res) => {
     const result = await Applicant.confirmDraftTravelRequest(userId, requestId);
     
     // Send email notifications
-    await sendEmails(requestId);
+    sendEmails(requestId);
 
     return res.status(200).json(result);
   } catch (err) {
@@ -289,7 +289,7 @@ export const sendExpenseValidation = async (req, res) => {
     const result = await sendReceiptsForValidation(requestId);
     
     // Send email notifications
-    await sendEmails(requestId);
+    sendEmails(requestId);
 
     return res.status(200).json(result);
   } catch (err) {

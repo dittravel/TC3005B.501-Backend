@@ -812,8 +812,7 @@ const Applicant = {
       // Step 1: Insert into Request table
       const request_days = getRequestDays(allRoutes);
 
-      // Get the boss (checking if they're out of office) and user's society_id
-      const bossId = await User.getBossId(user_id);
+      // Get user's society_id for the request
       const user = await prisma.user.findUnique({
         where: { user_id: Number(user_id) },
         select: { society_id: true },
@@ -828,7 +827,7 @@ const Applicant = {
           data: {
             user_id: Number(user_id),
             request_status_id: 1,
-            assigned_to: bossId,
+            assigned_to: null, // No assigned approver for draft requests
             authorization_level: 0,
             society_id: user.society_id,
             notes,

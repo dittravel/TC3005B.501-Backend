@@ -64,7 +64,7 @@ const attendTravelRequest = async (req, res) => {
       });
       try {
         // Send email notifications
-        await sendEmails(requestId);
+        sendEmails(requestId);
       } catch (mailError) {
         console.error("Failed to send accounts payable quotation email:", mailError);
       }
@@ -132,7 +132,7 @@ const validateReceiptsHandler = async (req, res) => {
 
     try {
       // Send email notifications
-      await sendEmails(requestId);
+      sendEmails(requestId);
     } catch (mailError) {
       console.error("Failed to send receipts validation email:", mailError);
     }
