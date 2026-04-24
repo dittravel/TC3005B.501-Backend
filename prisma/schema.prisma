@@ -347,6 +347,8 @@ model Route {
   beginning_time         DateTime?       @db.Time(0)
   ending_date            DateTime?       @db.Date
   ending_time            DateTime?       @db.Time(0)
+  flight_fee             Float?         @default(0) @db.Float
+  hotel_fee              Float?         @default(0) @db.Float
   Receipt                Receipt[]
   destinationCity        City?           @relation("DestinationCity", fields: [id_destination_city], references: [city_id], onDelete: Restrict, onUpdate: Restrict, map: "fk_route_destination_city")
   destinationCountry     Country?        @relation("DestinationCountry", fields: [id_destination_country], references: [country_id], onDelete: Restrict, onUpdate: Restrict, map: "fk_route_destination_country")

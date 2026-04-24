@@ -876,6 +876,30 @@ export const validateHotelSearch = [
   }),
 ];
 
+// Validate route fee updates from travel agency selections
+export const validateRouteFeeUpdate = [
+  param('route_id')
+    .isInt({ min: 1 })
+    .toInt()
+    .withMessage('route_id must be a valid positive integer'),
+  body('flight_fee')
+    .optional({ nullable: true })
+    .isFloat({ min: 0 })
+    .toFloat()
+    .withMessage('flight_fee must be a non-negative number'),
+  body('hotel_fee')
+    .optional({ nullable: true })
+    .isFloat({ min: 0 })
+    .toFloat()
+    .withMessage('hotel_fee must be a non-negative number'),
+  body().custom((value) => {
+    if (value.flight_fee === undefined && value.hotel_fee === undefined) {
+      throw new Error('At least one fee field must be provided');
+    }
+    return true;
+  }),
+];
+
 // Validate forgot-password request body
 export const validateForgotPassword = [
   body('email')
@@ -1066,6 +1090,7 @@ export default {
   validateAuditLogQuery,
   validateFlightSearch,
   validateHotelSearch,
+  validateRouteFeeUpdate,
   validateForgotPassword,
   validateResetPassword,
   validateReceiptSearchQuery,
