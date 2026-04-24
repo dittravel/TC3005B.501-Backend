@@ -77,20 +77,25 @@ export const createUser = async (req, res) => {
   try {
     const userData = req.body;
     const createdUser = await adminService.createUser(userData);
-    await AuditLogService.recordAuditLogFromRequest(req, {
-      actionType: 'USER_CREATED',
-      entityType: 'User',
-      entityId: createdUser.user_id,
-      metadata: {
-        user_name: createdUser.user_name,
-        role_id: createdUser.role_id,
-        department_id: createdUser.department_id,
-      },
-    });
+    try {
+      await AuditLogService.recordAuditLogFromRequest(req, {
+        actionType: 'USER_CREATED',
+        entityType: 'User',
+        entityId: createdUser.user_id,
+        metadata: {
+          user_name: createdUser.user_name,
+          role_id: createdUser.role_id,
+          department_id: createdUser.department_id,
+        },
+      });
+    } catch (auditError) {
+      console.error('Audit log failed for USER_CREATED:', auditError.message);
+    }
+
     return res.status(201).json({ message: 'User created succesfully'});
   } catch (error) {
     console.error('Error creating user:', error.message);
-    return res.status(500).json({ error: 'Internal server error' });
+    return res.status(error.status || 500).json({ error: error.message || 'Internal server error' });
   }
 }
 
@@ -231,6 +236,54 @@ export const updateRole = async (req, res) => {
   }
 };
 
+// Get default role for current society group
+export const getDefaultRole = async (req, res) => {
+  try {
+    const role = await adminService.getDefaultRole(req.user.society_group_id);
+    return res.status(200).json(role);
+  } catch (error) {
+    console.error('Error getting default role:', error.message);
+    return res.status(500).json({ error: error.message || 'Internal server error' });
+  }
+};
+
+// Set default role for current society group
+export const setDefaultRole = async (req, res) => {
+  try {
+    const roleId = req.params.role_id;
+    if (!roleId) {
+      return res.status(400).json({ error: 'role_id is required' });
+    }
+
+    const updated = await adminService.setDefaultRole(roleId, req.user.society_group_id);
+    if (!updated) {
+      return res.status(404).json({ error: 'Role not found' });
+    }
+
+    const role = await adminService.getDefaultRole(req.user.society_group_id);
+    await AuditLogService.recordAuditLogFromRequest(req, {
+      actionType: 'ROLE_DEFAULT_UPDATED',
+      entityType: 'Role',
+      entityId: roleId,
+      metadata: {
+        default_role_id: role?.role_id || null,
+      },
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: 'Default role updated successfully',
+      role,
+    });
+  } catch (error) {
+    console.error('Error setting default role:', error.message);
+    if (error.message?.includes('Unauthorized')) {
+      return res.status(403).json({ error: error.message });
+    }
+    return res.status(500).json({ error: error.message || 'Internal server error' });
+  }
+};
+
 // Delete role
 export const deleteRole = async (req, res) => {
   try {
@@ -318,7 +371,11 @@ export const deleteAuthRule = async (req, res) => {
 export const getBossList = async (req, res) => {
   try {
     const departmentId = req.params.department_id;
-    const bosses = await adminService.getBossList(departmentId);
+    const bosses = await adminService.getBossList(
+      departmentId,
+      req.user.society_group_id,
+      req.user.society_id,
+    );
     res.status(200).json(bosses);
   } catch (error) {
     console.error('Error getting boss list:', error.message);
@@ -394,6 +451,8 @@ export default {
   getRoleById,
   createRole,
   updateRole,
+  getDefaultRole,
+  setDefaultRole,
   deleteRole,
   // Auth rules
   getAuthRules,

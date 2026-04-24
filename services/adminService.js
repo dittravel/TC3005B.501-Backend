@@ -85,7 +85,13 @@ export async function createUser(userData, options = {}) {
       user_name: newUser.user_name,
     };
   } catch (error) {
-    throw new Error(`Error creating user: ${error.message}`);
+    if (error?.status) {
+      throw error;
+    }
+
+    const wrappedError = new Error(`Error creating user: ${error.message}`);
+    wrappedError.status = 500;
+    throw wrappedError;
   }
 };
 
@@ -474,6 +480,22 @@ export const updateRole = async (roleId, roleData, societyGroupId = null) => {
   }
 };
 
+export const getDefaultRole = async (societyGroupId = null) => {
+  try {
+    return await Admin.getDefaultRole(societyGroupId);
+  } catch (error) {
+    throw new Error(`Error fetching default role: ${error.message}`);
+  }
+};
+
+export const setDefaultRole = async (roleId, societyGroupId = null) => {
+  try {
+    return await Admin.setDefaultRole(roleId, societyGroupId);
+  } catch (error) {
+    throw new Error(`Error setting default role: ${error.message}`);
+  }
+};
+
 // Delete an existing role
 export const deleteRole = async (roleId, societyGroupId = null) => {
   try {
@@ -535,9 +557,9 @@ export const deleteAuthRule = async (ruleId, societyGroupId = null) => {
 };
 
 // Get boss list for a department
-export const getBossList = async (departmentId) => {
+export const getBossList = async (departmentId, societyGroupId = null, societyId = null) => {
   try {
-    const bosses = await Admin.getBossList(departmentId);
+    const bosses = await Admin.getBossList(departmentId, societyGroupId, societyId);
     return bosses;
   } catch (error) {
     throw new Error(`Error fetching boss list: ${error.message}`);

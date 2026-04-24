@@ -10,6 +10,23 @@ import { prisma } from "../lib/prisma.js";
 
 
 const TravelAgent = {
+  async getCities() {
+    try {
+      return prisma.city.findMany({
+        select: {
+          city_id: true,
+          city_name: true,
+        },
+        orderBy: {
+          city_name: 'asc',
+        },
+      });
+    } catch (error) {
+      console.error('Error getting cities:', error);
+      throw error;
+    }
+  },
+
   // Update request status to receipt validation
   async attendTravelRequest(requestId) {
     try {

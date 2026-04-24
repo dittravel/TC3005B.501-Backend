@@ -35,6 +35,7 @@ export async function getUserById(userId) {
       cost_center_name: userData.cost_center_name,
       costs_center: userData.cost_center_name,
       creation_date: userData.creation_date,
+      role_id: userData.role_id,
       role_name: userData.role_name,
       boss_id: userData.boss_id,
       boss_name: userData.boss_name || 'N/A',
@@ -77,6 +78,8 @@ export async function authenticateUser(username, password, req) {
     const tokenPayload = {
       user_id: user.user_id,
       role: user.role_name,
+      role_id: user.role_id,
+      permissions: user.permission_keys || [],
       society_id: user.society_id,
       society_group_id: user.society_group_id,
       ...(enforceIpBinding ? { ip: req.ip } : {}),
@@ -91,7 +94,9 @@ export async function authenticateUser(username, password, req) {
       user_id: user.user_id,
       department_id: user.department_id,
       society_id: user.society_id,
-      society_group_id: user.society_group_id
+      society_group_id: user.society_group_id,
+      permissions: user.permissions || [],
+      permission_keys: user.permission_keys || []
     };
   } catch (error) {
     throw new Error(`Authentication failed: ${error.message}`);
