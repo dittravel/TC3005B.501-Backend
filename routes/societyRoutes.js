@@ -6,7 +6,7 @@
 
 import express from 'express';
 import * as societyController from '../controllers/societyController.js';
-import { authenticateToken, authorizeRole } from '../middleware/auth.js';
+import { authenticateToken, authorizePermission } from '../middleware/auth.js';
 import { validateId, validateInputs } from '../middleware/validation.js';
 import { generalRateLimiter } from '../middleware/rateLimiters.js';
 
@@ -24,13 +24,13 @@ router.route('/')
   .get(
     generalRateLimiter,
     authenticateToken,
-    authorizeRole(['Administrador']),
+    authorizePermission(['societies:view', 'users:view', 'users:create', 'users:edit'], { mode: 'any' }),
     societyController.getSocieties
   )
   .post(
     generalRateLimiter,
     authenticateToken,
-    authorizeRole(['Administrador']),
+    authorizePermission(['societies:create']),
     validateInputs,
     societyController.createSociety
   );
@@ -39,7 +39,7 @@ router.route('/:society_id')
   .get(
     generalRateLimiter,
     authenticateToken,
-    authorizeRole(['Administrador']),
+    authorizePermission(['societies:view', 'users:view', 'users:create', 'users:edit'], { mode: 'any' }),
     validateId,
     validateInputs,
     societyController.getSocietyById
@@ -47,7 +47,7 @@ router.route('/:society_id')
   .put(
     generalRateLimiter,
     authenticateToken,
-    authorizeRole(['Administrador']),
+    authorizePermission(['societies:edit']),
     validateId,
     validateInputs,
     societyController.updateSociety
@@ -55,7 +55,7 @@ router.route('/:society_id')
   .delete(
     generalRateLimiter,
     authenticateToken,
-    authorizeRole(['Administrador']),
+    authorizePermission(['societies:delete']),
     validateId,
     validateInputs,
     societyController.deleteSociety

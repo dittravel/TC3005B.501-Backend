@@ -7,7 +7,7 @@
 
 import express from 'express';
 import * as reimbursementPolicyController from '../controllers/reimbursementPolicyController.js';
-import { authenticateToken, authorizeRole, validateSocietyAccess } from '../middleware/auth.js';
+import { authenticateToken, authorizePermission, validateSocietyAccess } from '../middleware/auth.js';
 import {
   validateId,
   validateInputs,
@@ -21,7 +21,7 @@ router.route('/get-policy-list')
   .get(
     generalRateLimiter,
     authenticateToken,
-    authorizeRole(['Administrador']),
+    authorizePermission(['travel:def_amount']),
     reimbursementPolicyController.getPolicyList
   );
 
@@ -29,7 +29,7 @@ router.route('/get-policy/:policy_id')
   .get(
     generalRateLimiter,
     authenticateToken,
-    authorizeRole(['Administrador']),
+    authorizePermission(['travel:def_amount']),
     validateId,
     validateInputs,
     reimbursementPolicyController.getPolicyById
@@ -39,7 +39,7 @@ router.route('/create-policy')
   .post(
     generalRateLimiter,
     authenticateToken,
-    authorizeRole(['Administrador']),
+    authorizePermission(['travel:def_amount']),
     validateReimbursementPolicyPayload,
     validateInputs,
     reimbursementPolicyController.createPolicy
@@ -49,7 +49,7 @@ router.route('/update-policy/:policy_id')
   .put(
     generalRateLimiter,
     authenticateToken,
-    authorizeRole(['Administrador']),
+    authorizePermission(['travel:def_amount']),
     validateId,
     validateReimbursementPolicyPayload,
     validateInputs,
@@ -60,7 +60,7 @@ router.route('/deactivate-policy/:policy_id')
   .put(
     generalRateLimiter,
     authenticateToken,
-    authorizeRole(['Administrador']),
+    authorizePermission(['travel:def_amount']),
     validateId,
     validateInputs,
     reimbursementPolicyController.deactivatePolicy
@@ -70,7 +70,7 @@ router.route('/get-active-policy/:department_id')
   .get(
     generalRateLimiter,
     authenticateToken,
-    authorizeRole(['Administrador']),
+    authorizePermission(['travel:def_amount']),
     validateId,
     validateInputs,
     reimbursementPolicyController.getActivePolicy
@@ -80,7 +80,7 @@ router.route('/evaluate-request/:request_id')
   .get(
     generalRateLimiter,
     authenticateToken,
-    authorizeRole(['Solicitante', 'Cuentas por pagar', 'Administrador']),
+    authorizePermission(['receipts:create', 'receipts:edit', 'receipts:view'], { mode: 'any' }),
     validateSocietyAccess('request'),
     validateId,
     validateInputs,

@@ -8,7 +8,7 @@
 import express from "express";
 import travelAgentController from "../controllers/travelAgentController.js";
 import { validateId, validateInputs, validateFlightSearch } from "../middleware/validation.js";
-import { authenticateToken, authorizeRole, validateSocietyAccess } from "../middleware/auth.js";
+import { authenticateToken, authorizePermission, validateSocietyAccess } from "../middleware/auth.js";
 import { generalRateLimiter } from "../middleware/rateLimiters.js";
 
 const router = express.Router();
@@ -19,11 +19,20 @@ router.use((req, res, next) => {
 
 // Attend a travel request by request ID
 router.route("/attend-travel-request/:request_id")
-  .put(generalRateLimiter, authenticateToken, authorizeRole(['Agencia de viajes']), validateSocietyAccess('request'), validateId, validateInputs, travelAgentController.attendTravelRequest);
+  .put(generalRateLimiter, authenticateToken, authorizePermission(['travel:approve']), validateSocietyAccess('request'), validateId, validateInputs, travelAgentController.attendTravelRequest);
 
 // Complete service assignment and route to Accounts Payable for quoting
 router.route("/complete-service-assignment/:request_id")
-  .put(generalRateLimiter, authenticateToken, authorizeRole(['Agencia de viajes']), validateSocietyAccess('request'), validateId, validateInputs, travelAgentController.completeServiceAssignment);
+  .put(generalRateLimiter, authenticateToken, authorizePermission(['travel:edit']), validateSocietyAccess('request'), validateId, validateInputs, travelAgentController.completeServiceAssignment);
+
+// Get cities from the database for travel planning
+router.route("/cities")
+  .get(
+    generalRateLimiter,
+    authenticateToken,
+    authorizePermission(['travel:view', 'travel:view_flights', 'travel:view_hotels'], { mode: 'any' }),
+    travelAgentController.getCities
+  );
 
 /**
  * Search available flight offers in Duffel
@@ -48,7 +57,7 @@ router.route("/flights/search")
   .post(
     generalRateLimiter,
     authenticateToken,
-    authorizeRole(['Agencia de viajes']),
+    authorizePermission(['travel:view_flights']),
     validateFlightSearch,
     validateInputs,
     travelAgentController.searchFlightOffers

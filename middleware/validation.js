@@ -497,6 +497,10 @@ export const validateCreateUser = [
     .isInt({ min: 1 })
     .toInt()
     .withMessage('Department ID must be a valid number'),
+  body('society_id')
+    .isInt({ min: 1 })
+    .toInt()
+    .withMessage('Society ID must be a valid number'),
     
   // Authentication credentials
   body('user_name')
@@ -516,23 +520,22 @@ export const validateCreateUser = [
     
   // User identification and contact information
   body('workstation')
+    .optional({ checkFalsy: true })
     .isString()
     .trim()
-    .notEmpty()
     .escape()
-    .withMessage('Workstation cannot be empty.'),
+    .withMessage('Workstation must be a valid string.'),
   body('email')
     .isEmail()
     .normalizeEmail()
     .escape()
     .withMessage('Email must be a valid email address'),
   body('phone_number')
-    .optional()
+    .optional({ checkFalsy: true })
     .isString()
-    .notEmpty()
     .trim()
     .escape()
-    .withMessage('Phone number cannot be empty.')
+    .withMessage('Phone number must be a valid string.')
 ];
 
 // Validate out-of-office dates and substitute selection

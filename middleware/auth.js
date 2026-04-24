@@ -45,6 +45,49 @@ export const authorizeRole = (roles) => {
   };
 };
 
+// Middleware to authorize based on fine-grained permission keys.
+// Example: authorizePermission(['users:create'])
+export const authorizePermission = (requiredPermissions = [], options = {}) => {
+  const {
+    mode = 'all',
+    allowAdminByRole = true,
+  } = options;
+
+  const required = Array.isArray(requiredPermissions)
+    ? requiredPermissions.filter(Boolean)
+    : [requiredPermissions].filter(Boolean);
+
+  return (req, res, next) => {
+    if (!req.user) {
+      return res.status(401).json({ error: 'User is not authenticated' });
+    }
+
+    if (allowAdminByRole && req.user.role === 'Administrador') {
+      return next();
+    }
+
+    if (required.length === 0) {
+      return next();
+    }
+
+    const rawPermissionKeys = Array.isArray(req.user.permissions) ? req.user.permissions : [];
+    const userPermissionKeys = new Set(rawPermissionKeys.map((permission) => String(permission).trim()).filter(Boolean));
+
+    const hasAll = required.every((permission) => userPermissionKeys.has(permission));
+    const hasAny = required.some((permission) => userPermissionKeys.has(permission));
+    const authorized = mode === 'any' ? hasAny : hasAll;
+
+    if (!authorized) {
+      return res.status(403).json({
+        error: 'Access denied: insufficient permission keys',
+        required_permissions: required,
+      });
+    }
+
+    return next();
+  };
+};
+
 /**
  * Middleware to authenticate using cookies instead of JWT headers
  * Used for email action endpoints where cookies are available but JWT might not be
@@ -73,11 +116,149 @@ export const authenticateTokenFromCookies = (req, res, next) => {
 
   req.user = {
     role: userRole,
-    user_id: parseInt(userId),
+    user_id: Number.parseInt(userId, 10),
     username: userName
   };
 
   next();
+};
+
+function getResourceIdByType(resourceType, params) {
+  switch (resourceType) {
+    case 'request':
+      return params.request_id;
+    case 'receipt':
+      return params.receipt_id;
+    case 'user':
+      return params.user_id;
+    default:
+      return params.id;
+  }
+}
+
+async function validateRequestSocietyAccess(resourceId, societyId) {
+  return prisma.request.findFirst({
+    where: {
+      request_id: Number(resourceId),
+      society_id: Number(societyId),
+    },
+    select: { request_id: true },
+  });
+}
+
+async function validateReceiptSocietyAccess(resourceId, societyId) {
+  return prisma.receipt.findFirst({
+    where: {
+      receipt_id: Number(resourceId),
+      society_id: Number(societyId),
+    },
+    select: { receipt_id: true },
+  });
+}
+
+async function validateUserSocietyAccess(resourceId, user) {
+  const targetUser = await prisma.user.findUnique({
+    where: { user_id: Number(resourceId) },
+    select: { user_id: true, society_id: true }
+  });
+
+  if (!targetUser) {
+    return { error: 'User not found' };
+  }
+
+  if (user.society_group_id) {
+    const targetSociety = await prisma.society.findUnique({
+      where: { id: targetUser.society_id },
+      select: { society_group_id: true }
+    });
+
+    if (!targetSociety || targetSociety.society_group_id !== user.society_group_id) {
+      return { error: 'Access denied: User does not belong to your society group' };
+    }
+
+    return { resource: targetUser };
+  }
+
+  if (targetUser.society_id !== Number(user.society_id)) {
+    return { error: 'Access denied: resource does not belong to your society' };
+  }
+
+  return { resource: targetUser };
+}
+
+const validateRequestSocietyAccessMiddleware = async (req, res, next) => {
+  if (!req.user?.society_id) {
+    return res.status(401).json({ error: 'Society ID not found in token' });
+  }
+
+  try {
+    const resourceId = getResourceIdByType('request', req.params);
+
+    if (!resourceId) {
+      return next();
+    }
+
+    const resource = await validateRequestSocietyAccess(resourceId, req.user.society_id);
+
+    if (!resource) {
+      return res.status(403).json({ error: 'Access denied: resource does not belong to your society' });
+    }
+
+    return next();
+  } catch (error) {
+    console.error('Error in validateSocietyAccess middleware:', error);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+const validateReceiptSocietyAccessMiddleware = async (req, res, next) => {
+  if (!req.user?.society_id) {
+    return res.status(401).json({ error: 'Society ID not found in token' });
+  }
+
+  try {
+    const resourceId = getResourceIdByType('receipt', req.params);
+
+    if (!resourceId) {
+      return next();
+    }
+
+    const resource = await validateReceiptSocietyAccess(resourceId, req.user.society_id);
+
+    if (!resource) {
+      return res.status(403).json({ error: 'Access denied: resource does not belong to your society' });
+    }
+
+    return next();
+  } catch (error) {
+    console.error('Error in validateSocietyAccess middleware:', error);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+const validateUserSocietyAccessMiddleware = async (req, res, next) => {
+  if (!req.user?.society_id) {
+    return res.status(401).json({ error: 'Society ID not found in token' });
+  }
+
+  try {
+    const resourceId = getResourceIdByType('user', req.params);
+
+    if (!resourceId) {
+      return next();
+    }
+
+    const accessResult = await validateUserSocietyAccess(resourceId, req.user);
+
+    if (accessResult.error) {
+      return res.status(403).json({ error: accessResult.error });
+    }
+
+    return next();
+  } catch (error) {
+    console.error('Error in validateSocietyAccess middleware:', error);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
 };
 
 /**
@@ -86,84 +267,13 @@ export const authenticateTokenFromCookies = (req, res, next) => {
  * @param {string} resourceType - Type of resource: 'request' or 'receipt'
  */
 export const validateSocietyAccess = (resourceType) => {
-  return async (req, res, next) => {
-    if (!req.user?.society_id) {
-      return res.status(401).json({ error: 'Society ID not found in token' });
-    }
-
-    try {
-      // Extract resource ID from params
-      const resourceId = resourceType === 'request'
-        ? req.params.request_id
-        : resourceType === 'receipt'
-        ? req.params.receipt_id
-        : resourceType === 'user'
-        ? req.params.user_id
-        : req.params.id;
-
-      if (!resourceId) {
-        return next(); // No ID in params, skip validation
-      }
-
-      let resource;
-
-      if (resourceType === 'request') {
-        resource = await prisma.request.findFirst({
-          where: {
-            request_id: Number(resourceId),
-            society_id: Number(req.user.society_id),
-          },
-          select: { request_id: true },
-        });
-      } else if (resourceType === 'receipt') {
-        resource = await prisma.receipt.findFirst({
-          where: {
-            receipt_id: Number(resourceId),
-            society_id: Number(req.user.society_id),
-          },
-          select: { receipt_id: true },
-        });
-      } else if (resourceType === 'user') {
-        // Check if users belong to same society, or to same society group if admin
-        const targetUser = await prisma.user.findUnique({
-          where: { user_id: Number(resourceId) },
-          select: { user_id: true, society_id: true }
-        });
-
-        if (!targetUser) {
-          return res.status(403).json({ error: 'User not found' });
-        }
-
-        // If admin has society_group_id, check if target user's society is in the same group
-        if (req.user.society_group_id) {
-          const targetSociety = await prisma.society.findUnique({
-            where: { id: targetUser.society_id },
-            select: { society_group_id: true }
-          });
-
-          if (!targetSociety || targetSociety.society_group_id !== req.user.society_group_id) {
-            return res.status(403).json({ error: 'Access denied: User does not belong to your society group' });
-          }
-        } else {
-          // Regular user can only access their own society
-          if (targetUser.society_id !== Number(req.user.society_id)) {
-            return res.status(403).json({ error: 'Access denied: resource does not belong to your society' });
-          }
-        }
-
-        resource = targetUser;
-      }
-
-      if (!resource) {
-        return res.status(403).json({ error: 'Access denied: resource does not belong to your society' });
-      }
-
-      next();
-    } catch (error) {
-      console.error('Error in validateSocietyAccess middleware:', error);
-      res.status(500).json({ error: 'Internal server error' });
-    }
+  const accessMiddlewares = {
+    request: validateRequestSocietyAccessMiddleware,
+    receipt: validateReceiptSocietyAccessMiddleware,
+    user: validateUserSocietyAccessMiddleware,
   };
+
+  return accessMiddlewares[resourceType] ?? ((req, res, next) => next());
 };
 
 /**
