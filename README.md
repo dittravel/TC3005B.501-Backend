@@ -29,7 +29,250 @@ TC3005B.501-Backend/
 
 ## Getting Started
 
-In order to run this Backend, the following steps are required:
+To run this backend, follow the steps in this guide.
+
+## Quick Guides (from `git pull`)
+
+This section is a practical, step-by-step runbook for the team.
+
+### Docker vs Local (Summary)
+
+| Step # | Run with Docker | Run locally |
+| --- | --- | --- |
+| 1. `.env` profile | `pnpm env:docker` | `pnpm env:local` |
+| 2. Install deps | `pnpm install` | `pnpm install` |
+| 3. Start services | `docker compose up -d --build` | Local MariaDB + MongoDB running |
+| 4. Migrations | `docker compose exec -T backend pnpm prisma:migrate:deploy` | `pnpm prisma:migrate:deploy` |
+| 5. Seed (optional) | `docker compose exec -T backend pnpm prisma:seed` | `pnpm prisma:seed` |
+| 6. Run backend | Already running in container (`https://localhost:3000`) | `pnpm dev:local` |
+
+### A) Docker Guide (recommended for the team)
+
+Use this flow when Docker Desktop is available.
+
+#### 1. Update code from the repository
+
+From the backend root:
+
+```sh
+git pull
+pnpm install
+```
+
+#### 2. Start or rebuild containers
+
+```sh
+docker compose up -d --build
+```
+
+What it does:
+
+- `docker compose up`: creates/starts the services defined in `docker-compose.yml`
+- `-d`: detached mode (containers run in the background)
+- `--build`: rebuilds the backend image with the latest code changes
+
+#### 3. Apply Prisma migrations in Docker
+
+```sh
+docker compose exec -T backend pnpm prisma:migrate:deploy
+```
+
+What it does:
+
+- `docker compose exec`: runs a command inside a running container
+- `-T`: non-interactive mode (important for CI/scripts)
+- `backend`: target service/container
+- `pnpm prisma:migrate:deploy`: applies pending migrations without resetting data
+
+#### 4. Seed the database (choose ONE mode)
+
+Base/normal data:
+
+```sh
+docker compose exec -T backend pnpm prisma:seed
+```
+
+Dummy/demo data:
+
+```sh
+docker compose exec -T backend pnpm prisma:seed:dummy
+```
+
+Important behavior:
+
+- `prisma:seed` keeps only base reference data and the default admin (`admin / admin123`)
+- `prisma:seed:dummy` loads demo users/data (for example `admin.tec / 123`)
+- both seed scripts run `prisma migrate reset --force` internally (development only; data is dropped and recreated)
+
+#### Default Role Permissions (base and dummy)
+
+The default permission matrix is defined in `prisma/seedShared.js` and is the same for:
+
+- base seed (`pnpm prisma:seed`)
+- dummy seed (`pnpm prisma:seed:dummy`)
+
+In dummy mode, this same matrix is replicated for each dummy society group.
+
+| Role | Permissions by module | Default permission keys |
+| --- | --- | --- |
+| Requester (Solicitante) | Travel, Receipts | `travel:view`, `travel:create`, `travel:edit`, `receipts:create`, `receipts:edit` |
+| Travel Agency (Agencia de viajes) | Travel | `travel:view`, `travel:edit`, `travel:view_flights`, `travel:view_hotels`, `travel:approve` |
+| Accounts Payable (Cuentas por pagar) | Receipts | `receipts:view`, `receipts:approve` |
+| Authorizer (Autorizador) | Travel, Receipts | `travel:view`, `travel:create`, `travel:edit`, `travel:approve`, `travel:reject`, `receipts:create`, `receipts:edit` |
+| Administrator (Administrador) | All modules | all `permission_key` values available in the `Permission` table |
+
+#### 5. Useful Docker operations and when to use them
+
+Check container status:
+
+```sh
+docker compose ps
+```
+
+View backend logs in real time:
+
+```sh
+docker compose logs -f backend
+```
+
+Stop the stack but keep DB volumes/data:
+
+```sh
+docker compose down
+```
+
+Stop the stack and remove DB volumes/data (full cleanup):
+
+```sh
+docker compose down -v
+```
+
+#### 6. End-to-end reset flow (clean machine/development reset)
+
+```sh
+docker compose down -v
+docker compose up -d --build
+docker compose exec -T backend pnpm prisma:migrate:deploy
+docker compose exec -T backend pnpm prisma:seed
+```
+
+If you need demo data instead of base data, replace the last command with:
+
+```sh
+docker compose exec -T backend pnpm prisma:seed:dummy
+```
+
+### B) Local Guide without Docker (backend + frontend)
+
+Use this flow when someone on the team still does not have Docker.
+
+Prerequisites:
+
+- Node.js + pnpm installed
+- Local MariaDB running
+- Local MongoDB running
+
+#### 1. Backend terminal (Terminal 1)
+
+Desde `TC3005B.501-Backend`:
+
+```sh
+git pull
+pnpm install
+```
+
+Create `.env` from the example and adjust local values:
+
+```sh
+# PowerShell (Windows)
+Copy-Item .env.example .env
+
+# Bash
+cp .env.example .env
+```
+
+Recommended for local mode:
+
+```sh
+# PowerShell (Windows)
+Copy-Item .env.local .env
+
+# Bash
+cp .env.local .env
+```
+
+Or use the profile script:
+
+```sh
+pnpm env:local
+```
+
+Minimum variables to verify in local mode:
+
+- `DB_HOST=localhost`
+- `DB_PORT=3306` (or the port you use for your local MariaDB)
+- `DB_NAME`, `DB_USER`, `DB_PASSWORD`
+- `DATABASE_URL` consistent with the values above
+- `MONGO_URI=mongodb://localhost:27017`
+- `JWT_SECRET`, `AES_SECRET_KEY`, `MAIL_USER`, `MAIL_PASSWORD`
+- `FRONTEND_URL=https://localhost:4321`
+- `BACKEND_URL=https://localhost:3000`
+- `DB_DOCKER_PORT=3307` and `MONGO_DOCKER_PORT=27018` (used only for Docker port publishing)
+
+Apply migrations locally:
+
+```sh
+pnpm prisma:migrate:deploy
+```
+
+Seed locally (choose ONE):
+
+```sh
+pnpm prisma:seed
+```
+
+or:
+
+```sh
+pnpm prisma:seed:dummy
+```
+
+Start backend API:
+
+```sh
+pnpm dev:local
+```
+
+#### 2. Frontend terminal (Terminal 2)
+
+Desde `TC3005B.501-Frontend`:
+
+```sh
+git pull
+pnpm install
+
+# PowerShell (Windows)
+Copy-Item .env.example .env
+
+# Bash
+cp .env.example .env
+
+pnpm dev
+```
+
+Verify in `TC3005B.501-Frontend/.env`:
+
+- `PUBLIC_API_BASE_URL=https://localhost:3000/api`
+
+#### 3. Local URLs
+
+- Backend API: `https://localhost:3000`
+- Frontend app: `https://localhost:4321`
+
+#### 4. Which seed should each team member use?
+
+- Use `pnpm prisma:seed` for normal development, closer to a production-like baseline.
+- Use `pnpm prisma:seed:dummy` when QA/testing needs more users and richer demo scenarios.
 
 ### Installing
 
@@ -99,6 +342,24 @@ Then update at least these variables in `.env`:
 - `FRONTEND_URL` (supports values like `https://localhost:4321` or `https://localhost:4321/login`)
 - `BACKEND_URL`
 
+Or use the Docker profile directly:
+
+```sh
+# PowerShell (Windows)
+Copy-Item .env.docker .env
+
+# Bash
+cp .env.docker .env
+```
+
+Or use the profile script:
+
+```sh
+pnpm env:docker
+```
+
+Este comando reemplaza `.env` con la plantilla de perfil seleccionada.
+
 #### 3. Install local dependencies
 
 Even with Docker runtime, keep local dependencies in sync for scripts and lockfile consistency:
@@ -116,13 +377,15 @@ docker compose up -d --build
 This starts:
 
 - `backend` on `https://localhost:3000`
-- `mariadb` on host port `3307`
-- `mongodb` on host port `27017`
+- `mariadb` on host port `${DB_DOCKER_PORT:-3307}`
+- `mongodb` on host port `${MONGO_DOCKER_PORT:-27018}`
+
+Using dedicated Docker host-port variables avoids conflicts with teammates running local MariaDB (`3306`) and local MongoDB (`27017`).
 
 #### 5. Apply Prisma migrations (inside Docker)
 
 ```sh
-npm run prisma:migrate:deploy:docker
+docker compose exec -T backend pnpm prisma:migrate:deploy
 ```
 
 #### 6. Verify services
@@ -151,10 +414,10 @@ Seeding is NOT automatic on startup.
 
 The startup process does not run:
 
-- `npm run prisma:seed`
-- `npm run prisma:seed:dummy`
-- `docker compose exec backend npm run prisma:seed`
-- `docker compose exec backend npm run prisma:seed:dummy`
+- `pnpm prisma:seed`
+- `pnpm prisma:seed:dummy`
+- `docker compose exec -T backend pnpm prisma:seed`
+- `docker compose exec -T backend pnpm prisma:seed:dummy`
 
 If you need data prepopulation, run seed manually after the stack is up.
 
@@ -163,14 +426,59 @@ If you need data prepopulation, run seed manually after the stack is up.
 Standard seed (essential initial data):
 
 ```sh
-docker compose exec backend npm run prisma:seed
+docker compose exec -T backend pnpm prisma:seed
 ```
 
 Dummy seed (testing/demo data):
 
 ```sh
-docker compose exec backend npm run prisma:seed:dummy
+docker compose exec -T backend pnpm prisma:seed:dummy
 ```
+
+> [!Important]
+> In non-interactive environments, always use `docker compose exec -T`.
+> The seed scripts run `prisma migrate reset --force` internally to avoid interactive prompt failures.
+
+#### 8. Recommended Prisma + Docker runbooks
+
+Clean reset (drop volumes and recreate everything):
+
+```sh
+docker compose down -v
+docker compose up -d --build
+docker compose ps
+docker compose exec -T backend pnpm prisma:migrate:deploy
+```
+
+No-wipe update (preserve DB data):
+
+```sh
+docker compose up -d --build
+docker compose exec -T backend pnpm prisma:migrate:deploy
+```
+
+Seed after either flow:
+
+```sh
+# Base data + single admin
+docker compose exec -T backend pnpm prisma:seed
+
+# Demo data set
+docker compose exec -T backend pnpm prisma:seed:dummy
+```
+
+Quick verification for default role permission counts:
+
+```sh
+docker compose exec -T mariadb mariadb -u${DB_USER} -p${DB_PASSWORD} ${DB_NAME} -e "SELECT r.role_name, COUNT(*) AS total FROM Role_Permission rp JOIN Role r ON r.role_id = rp.role_id GROUP BY r.role_name ORDER BY total;"
+```
+
+Default admin users by seed mode:
+
+- `prisma:seed` creates `admin / admin123`
+- `prisma:seed:dummy` includes `admin / 123` and `admin.tec / 123`
+
+If admin endpoints return 403, first verify you are logging in with a user created by the seed mode you ran.
 
 > [!Warning]
 > Both seed scripts execute `prisma migrate reset` first. This drops data and recreates the schema.
@@ -397,6 +705,10 @@ Finally, it is crucial that a local `.env` file is created. Based off of the [`.
     DB_NAME=travel_management # Change this
     DB_USER=username # Change this
     DB_PASSWORD=password # Change this
+
+    # Docker host port mapping (used by docker-compose only)
+    DB_DOCKER_PORT=3307
+    MONGO_DOCKER_PORT=27018
 
     # API Keys (if needed)
     # API_KEY=your_api_key
