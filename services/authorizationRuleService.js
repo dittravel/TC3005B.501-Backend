@@ -84,24 +84,19 @@ const AuthorizationRuleService = {
         const boss = await User.getBossId(requesterUserId);
         return boss;
       } else if (ruleLevel.level_type === 'Aleatorio') {
-        // Random authorizer from the department
-        let randomAuthorizer = await User.getRandomUserByRoleName('Autorizador', departmentId, societyGroupId);
+        // Random approver from the department (permission-based, role-name agnostic)
+        let randomAuthorizer = await User.getRandomUserByPermissions(['travel:approve', 'travel:reject'], departmentId, societyGroupId);
 
-        // If authorizer == requester, try again
+        // If selected approver == requester, retry a few times
         if (randomAuthorizer && randomAuthorizer.user_id === requesterUserId) {
           let attempts = 0;
           while (attempts < 5 && randomAuthorizer && randomAuthorizer.user_id === requesterUserId) {
-            randomAuthorizer = await User.getRandomUserByRoleName('Autorizador', departmentId, societyGroupId);
+            randomAuthorizer = await User.getRandomUserByPermissions(['travel:approve', 'travel:reject'], departmentId, societyGroupId);
             attempts++;
           }
         }
-        
-        if (randomAuthorizer) {
-          return randomAuthorizer.user_id;
-        } else {
-          // No authorizer found in department
-          return null;
-        }
+
+        return randomAuthorizer ? randomAuthorizer.user_id : null;
       } else if (ruleLevel.level_type === 'Nivel_Superior' || ruleLevel.level_type === 'Nivel_Superior') {
         // N levels up the hierarchy
         const levelsUp = ruleLevel.superior_level_number || 1;

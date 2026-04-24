@@ -38,32 +38,40 @@ const ensureSocietyGroupExists = async (societyGroupId) => {
   return id;
 };
 
-const findOrCreatePermissionId = async (permissionName, societyGroupId) => {
-  const permissionKey = toPermissionKey(permissionName);
+const findOrCreatePermissionId = async (permissionValue, societyGroupId) => {
+  const normalizedPermissionValue = String(permissionValue || '').trim();
+  if (!normalizedPermissionValue) {
+    throw new Error('Invalid permission value provided');
+  }
+
+  const looksLikePermissionKey = normalizedPermissionValue.includes(':');
+  const permissionKey = looksLikePermissionKey
+    ? normalizedPermissionValue
+    : toPermissionKey(normalizedPermissionValue);
 
   const existingPermission = await prisma.permission.findFirst({
     where: {
-      permission_key: permissionKey,
       society_group_id: societyGroupId,
+      OR: [
+        { permission_key: normalizedPermissionValue },
+        { permission_name: normalizedPermissionValue },
+        { permission_key: permissionKey },
+      ],
     },
     select: { permission_id: true },
   });
 
   if (existingPermission) {
-    await prisma.permission.update({
-      where: { permission_id: existingPermission.permission_id },
-      data: { permission_name: permissionName },
-    });
     return existingPermission.permission_id;
   }
 
   const createdPermission = await prisma.permission.create({
     data: {
       permission_key: permissionKey,
-      permission_name: permissionName,
+      permission_name: normalizedPermissionValue,
       module: 'custom',
       action: 'custom',
-      description: `Permission ${permissionName}`,
+      description: `Permission ${normalizedPermissionValue}`,
       society_group_id: societyGroupId,
     },
     select: { permission_id: true },
@@ -318,14 +326,31 @@ const Admin = {
     }
   },
 
-  // Get roles
+  // Get roles with their permissions
   async getRoles(societyGroupId = null) {
     try {
       const roles = await prisma.role.findMany({
         where: societyGroupId ? { society_group_id: Number(societyGroupId) } : {},
-        select: { role_id: true, role_name: true }
+        include: {
+          Role_Permission: {
+            include: {
+              Permission: {
+                select: {
+                  permission_name: true,
+                  permission_key: true,
+                },
+              },
+            },
+          },
+        },
       });
-      return roles;
+      return roles.map(role => ({
+        role_id: role.role_id,
+        role_name: role.role_name,
+        is_default: Boolean(role.is_default),
+        permissions: role.Role_Permission.map((rp) => rp.Permission.permission_name),
+        permission_keys: role.Role_Permission.map((rp) => rp.Permission.permission_key),
+      }));
     } catch (error) {
       console.error('Error getting roles:', error);
       throw error;
@@ -361,8 +386,94 @@ const Admin = {
       role_id: role.role_id,
       name: role.role_name,
       description: role.description,
+      is_default: Boolean(role.is_default),
       permissions: role.Role_Permission.map((rp) => rp.Permission.permission_name),
+      permission_keys: role.Role_Permission.map((rp) => rp.Permission.permission_key),
     };
+  },
+
+  async getDefaultRole(societyGroupId = null) {
+    const where = societyGroupId
+      ? { society_group_id: Number(societyGroupId), is_default: true }
+      : { is_default: true };
+
+    const role = await prisma.role.findFirst({
+      where,
+      select: {
+        role_id: true,
+        role_name: true,
+        is_default: true,
+      },
+      orderBy: { role_id: 'asc' },
+    });
+
+    if (role) {
+      return {
+        role_id: role.role_id,
+        name: role.role_name,
+        is_default: Boolean(role.is_default),
+      };
+    }
+
+    const fallbackWhere = societyGroupId
+      ? { society_group_id: Number(societyGroupId), role_name: 'Solicitante' }
+      : { role_name: 'Solicitante' };
+
+    const fallback = await prisma.role.findFirst({
+      where: fallbackWhere,
+      select: {
+        role_id: true,
+        role_name: true,
+      },
+      orderBy: { role_id: 'asc' },
+    });
+
+    if (!fallback) {
+      return null;
+    }
+
+    return {
+      role_id: fallback.role_id,
+      name: fallback.role_name,
+      is_default: false,
+    };
+  },
+
+  async setDefaultRole(roleId, societyGroupId = null) {
+    const id = Number(roleId);
+    const role = await prisma.role.findUnique({
+      where: { role_id: id },
+      select: {
+        role_id: true,
+        society_group_id: true,
+      },
+    });
+
+    if (!role) {
+      return false;
+    }
+
+    if (societyGroupId && role.society_group_id !== Number(societyGroupId)) {
+      throw new Error('Unauthorized: Role does not belong to your society group');
+    }
+
+    const targetSocietyGroupId = societyGroupId ? Number(societyGroupId) : role.society_group_id;
+
+    await prisma.$transaction([
+      prisma.role.updateMany({
+        where: {
+          society_group_id: targetSocietyGroupId,
+          is_default: true,
+        },
+        data: { is_default: false },
+      }),
+      prisma.role.update({
+        where: { role_id: id },
+        data: { is_default: true },
+      }),
+    ]);
+
+    return true;
   },
 
   // Create role and optionally assign permissions
@@ -625,21 +736,41 @@ const Admin = {
     }
   },
 
-  // Get boss list for a department
-  async getBossList(departmentId) {
+  // Get boss list for a department.
+  // A boss is any active user in the department whose role can approve/reject travel.
+  async getBossList(departmentId, societyGroupId = null, societyId = null) {
     try {
-      // Fetch users who are authorizers (role_id = 4)
+      const permissionScope = societyGroupId
+        ? { society_group_id: Number(societyGroupId) }
+        : {};
+
       const bosses = await prisma.user.findMany({
         where: {
           department_id: Number(departmentId),
           active: true,
-          role_id: 4
+          ...(societyGroupId ? { Society: { society_group_id: Number(societyGroupId) } } : {}),
+          ...(societyGroupId ? {} : societyId ? { society_id: Number(societyId) } : {}),
+          role: {
+            Role_Permission: {
+              some: {
+                Permission: {
+                  ...permissionScope,
+                  OR: [
+                    { permission_key: { in: ['travel:approve', 'travel:reject'] } },
+                    { permission_name: { in: ['Aprobar/Rechazar solicitud', 'Aprobar/Rechazar solicitudes'] } },
+                  ],
+                },
+              },
+            },
+          },
         },
         select: {
           user_id: true,
           user_name: true
-        }
+        },
+        orderBy: { user_name: 'asc' },
       });
+
       return bosses;
     } catch (error) {
       console.error('Error fetching boss list:', error);

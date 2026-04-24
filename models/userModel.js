@@ -4,7 +4,7 @@
  * Prisma-based data access for user workflows.
  */
 
-import { randomInt } from 'crypto';
+import { randomInt } from 'node:crypto';
 import { prisma } from '../lib/prisma.js';
 import { decrypt } from '../middleware/decryption.js';
 
@@ -41,6 +41,7 @@ const User = {
       department_name: user.department?.department_name ?? null,
       costs_center: user.department?.CostCenter?.cost_center_name ?? null,
       creation_date: user.creation_date,
+      role_id: user.role_id,
       role_name: user.role?.role_name ?? null,
       boss_id: user.boss_id,
       out_of_office_start_date: user.out_of_office_start_date,
@@ -202,8 +203,17 @@ const User = {
       where: { user_name: username },
       include: {
         role: {
-          select: {
-            role_name: true,
+          include: {
+            Role_Permission: {
+              include: {
+                Permission: {
+                  select: {
+                    permission_key: true,
+                    permission_name: true,
+                  },
+                },
+              },
+            },
           },
         },
         Society: {
@@ -227,7 +237,10 @@ const User = {
       department_id: user.department_id,
       password: user.password,
       active: user.active,
+      role_id: user.role_id,
       role_name: user.role?.role_name ?? null,
+      permissions: (user.role?.Role_Permission || []).map((row) => row.Permission?.permission_name).filter(Boolean),
+      permission_keys: (user.role?.Role_Permission || []).map((row) => row.Permission?.permission_key).filter(Boolean),
       society_id: user.society_id,
       society_group_id: user.Society?.society_group_id ?? null,
     };
@@ -510,6 +523,115 @@ const User = {
     });
 
     return substitute || null;
+  },
+
+  async getRandomUserByPermissions(permissionKeys, departmentId, societyGroupId = null) {
+    const normalizedKeys = Array.isArray(permissionKeys)
+      ? permissionKeys.map((permission) => String(permission).trim()).filter(Boolean)
+      : [];
+
+    if (normalizedKeys.length === 0) {
+      return null;
+    }
+
+    const societyGroupFilter = societyGroupId !== null && societyGroupId !== undefined
+      ? { society_group_id: Number(societyGroupId) }
+      : {};
+
+    const candidates = await prisma.user.findMany({
+      where: {
+        department_id: Number(departmentId),
+        active: true,
+        role: {
+          ...societyGroupFilter,
+          Role_Permission: {
+            some: {
+              Permission: {
+                ...societyGroupFilter,
+                permission_key: { in: normalizedKeys },
+              },
+            },
+          },
+        },
+      },
+      select: {
+        user_id: true,
+        user_name: true,
+        out_of_office_start_date: true,
+        out_of_office_end_date: true,
+        substitute_id: true,
+      },
+    });
+
+    if (candidates.length === 0) {
+      return null;
+    }
+
+    const user = candidates[randomInt(0, candidates.length)];
+    const effectiveUserId = await this.getEffectiveUserId(user);
+
+    if (!effectiveUserId) {
+      return null;
+    }
+
+    if (effectiveUserId === user.user_id) {
+      return {
+        user_id: user.user_id,
+        user_name: user.user_name,
+      };
+    }
+
+    const substitute = await prisma.user.findUnique({
+      where: { user_id: effectiveUserId },
+      select: {
+        user_id: true,
+        user_name: true,
+      },
+    });
+
+    return substitute || null;
+  },
+
+  async userHasAnyPermission(userId, permissionKeys, societyGroupId = null) {
+    const normalizedKeys = Array.isArray(permissionKeys)
+      ? permissionKeys.map((permission) => String(permission).trim()).filter(Boolean)
+      : [];
+
+    if (normalizedKeys.length === 0) {
+      return false;
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { user_id: Number(userId) },
+      select: {
+        role: {
+          select: {
+            society_group_id: true,
+            Role_Permission: {
+              where: {
+                Permission: {
+                  permission_key: { in: normalizedKeys },
+                  ...(societyGroupId !== null && societyGroupId !== undefined ? { society_group_id: Number(societyGroupId) } : {}),
+                },
+              },
+              select: {
+                permission_id: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!user?.role) {
+      return false;
+    }
+
+    if (societyGroupId !== null && societyGroupId !== undefined && user.role.society_group_id !== Number(societyGroupId)) {
+      return false;
+    }
+
+    return user.role.Role_Permission.length > 0;
   },
 };
 

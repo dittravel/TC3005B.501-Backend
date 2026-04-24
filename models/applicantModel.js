@@ -192,6 +192,20 @@ const Applicant = {
           role: {
             select: {
               role_name: true,
+              Role_Permission: {
+                include: {
+                  Permission: {
+                    select: {
+                      permission_key: true,
+                    },
+                  },
+                },
+              },
+            },
+          },
+          Society: {
+            select: {
+              society_group_id: true,
             },
           },
         },
@@ -202,9 +216,15 @@ const Applicant = {
       }
 
       const departmentId = role.department_id;
+      const societyGroupId = role.Society?.society_group_id ?? null;
+      const permissionKeys = new Set(
+        (role.role?.Role_Permission || [])
+          .map((entry) => entry.Permission?.permission_key)
+          .filter(Boolean),
+      );
 
-      if (role.role?.role_name !== 'Solicitante' && role.role?.role_name !== 'Autorizador') {
-        throw new Error("User role is not allowed to create a travel request");
+      if (!permissionKeys.has('travel:create')) {
+        throw new Error("User does not have permission to create a travel request");
       }
 
       let authorizationRuleId = null;
@@ -237,18 +257,19 @@ const Applicant = {
             firstRuleLevel,
             Number(user_id),
             departmentId,
+            societyGroupId,
           );
 
           if (!assignedTo) {
             // If no approver found based on rule level, go to next step
             if (plane_needed || hotel_needed) {
               request_status = 4;
-              const travelAgent = await User.getRandomUserByRole(2, departmentId);
+              const travelAgent = await User.getRandomUserByPermissions(['travel:view_flights', 'travel:view_hotels'], departmentId, societyGroupId);
               assignedTo = travelAgent ? travelAgent.user_id : null;
               console.log('[createTravelRequest] No boss found, assigned to travel agent:', assignedTo);
             } else {
               request_status = 3;
-              const accountsPayable = await User.getRandomUserByRole(3, departmentId);
+              const accountsPayable = await User.getRandomUserByPermissions(['receipts:approve'], departmentId, societyGroupId);
               assignedTo = accountsPayable ? accountsPayable.user_id : null;
               console.log('[createTravelRequest] No boss found, assigned to accounts payable:', assignedTo);
             }
@@ -271,11 +292,11 @@ const Applicant = {
         if (!bossId) {
           if (plane_needed || hotel_needed) {
             request_status = 4;
-            const travelAgent = await User.getRandomUserByRole(2, departmentId);
+            const travelAgent = await User.getRandomUserByPermissions(['travel:view_flights', 'travel:view_hotels'], departmentId, societyGroupId);
             assignedTo = travelAgent ? travelAgent.user_id : null;
           } else {
             request_status = 3;
-            const accountsPayable = await User.getRandomUserByRole(3, departmentId);
+            const accountsPayable = await User.getRandomUserByPermissions(['receipts:approve'], departmentId, societyGroupId);
             assignedTo = accountsPayable ? accountsPayable.user_id : null;
           }
         } else {
@@ -850,18 +871,31 @@ const Applicant = {
             role_id: true,
             role: {
               select: {
-                role_name: true,
+                Role_Permission: {
+                  include: {
+                    Permission: {
+                      select: {
+                        permission_key: true,
+                      },
+                    },
+                  },
+                },
               },
             },
           },
         });
 
+        const permissionKeys = new Set(
+          (role?.role?.Role_Permission || [])
+            .map((entry) => entry.Permission?.permission_key)
+            .filter(Boolean),
+        );
+
         let request_status;
-        if (role?.role?.role_name === 'Solicitante' || role?.role?.role_name === 'Autorizador') {
-          console.log("Role ID:", role.role_id);
+        if (permissionKeys.has('travel:create')) {
           request_status = 2;
         } else {
-          throw new Error("User role in not allowed to create a travel request");
+          throw new Error("User does not have permission to create a travel request");
         }
 
         await tx.request.update({

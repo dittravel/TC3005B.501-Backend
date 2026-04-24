@@ -8,7 +8,7 @@
 import express from "express";
 import { exportById, exportByDateRange } from "../controllers/accountabilityController.js";
 import { generalRateLimiter } from "../middleware/rateLimiters.js";
-import { authenticateToken, authorizeRole, validateSocietyAccess } from "../middleware/auth.js"; // For validating permissions
+import { authenticateToken, authorizePermission, validateSocietyAccess } from "../middleware/auth.js"; // For validating permissions
 
 
 const router = express.Router();
@@ -18,7 +18,7 @@ router.route('/:request_id')
   .get(
     generalRateLimiter,
     authenticateToken,
-    authorizeRole(['Administrador']),
+    authorizePermission(['system:export_accounting']),
     validateSocietyAccess('request'),
     exportById
 );
@@ -28,7 +28,7 @@ router.route('/')
   .get(
     generalRateLimiter, 
     authenticateToken, 
-    authorizeRole(['Administrador']), 
+    authorizePermission(['system:export_accounting']), 
     exportByDateRange
 );
 

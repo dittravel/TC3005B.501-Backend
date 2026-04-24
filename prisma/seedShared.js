@@ -42,8 +42,16 @@ export async function seedReferenceData(prisma, defaultSocietyGroupId) {
     { role_name: 'Administrador' },
   ], (item) => ({
     where: { role_name_society_group_id: { role_name: item.role_name, society_group_id: defaultSocietyGroupId } },
-    create: { role_name: item.role_name, society_group_id: defaultSocietyGroupId },
-    update: { role_name: item.role_name, society_group_id: defaultSocietyGroupId },
+    create: {
+      role_name: item.role_name,
+      society_group_id: defaultSocietyGroupId,
+      is_default: item.role_name === 'Solicitante',
+    },
+    update: {
+      role_name: item.role_name,
+      society_group_id: defaultSocietyGroupId,
+      is_default: item.role_name === 'Solicitante',
+    },
   }));
 
   const alertMessages = [
@@ -99,6 +107,14 @@ export async function seedReferenceData(prisma, defaultSocietyGroupId) {
     { permission_key: 'users:create', permission_name: 'Crear usuario', module: 'users', action: 'create', description: 'Create new user accounts' },
     { permission_key: 'users:edit', permission_name: 'Editar usuario', module: 'users', action: 'edit', description: 'Modify existing user data' },
     { permission_key: 'users:delete', permission_name: 'Eliminar usuario', module: 'users', action: 'delete', description: 'Deactivate or remove users' },
+    { permission_key: 'societies:view', permission_name: 'Ver sociedad', module: 'societies', action: 'view', description: 'View societies and their details' },
+    { permission_key: 'societies:create', permission_name: 'Crear sociedad', module: 'societies', action: 'create', description: 'Create new societies' },
+    { permission_key: 'societies:edit', permission_name: 'Editar sociedad', module: 'societies', action: 'edit', description: 'Modify existing societies' },
+    { permission_key: 'societies:delete', permission_name: 'Eliminar sociedad', module: 'societies', action: 'delete', description: 'Delete societies' },
+    { permission_key: 'society_groups:view', permission_name: 'Ver grupo de sociedad', module: 'society_groups', action: 'view', description: 'View society groups and their details' },
+    { permission_key: 'society_groups:create', permission_name: 'Crear grupo de sociedad', module: 'society_groups', action: 'create', description: 'Create new society groups' },
+    { permission_key: 'society_groups:edit', permission_name: 'Editar grupo de sociedad', module: 'society_groups', action: 'edit', description: 'Modify existing society groups' },
+    { permission_key: 'society_groups:delete', permission_name: 'Eliminar grupo de sociedad', module: 'society_groups', action: 'delete', description: 'Delete society groups' },
     { permission_key: 'travel:view', permission_name: 'Ver solicitud', module: 'travel_requests', action: 'view', description: 'View travel requests' },
     { permission_key: 'travel:create', permission_name: 'Crear solicitud', module: 'travel_requests', action: 'create', description: 'Submit new travel requests' },
     { permission_key: 'travel:edit', permission_name: 'Editar solicitud', module: 'travel_requests', action: 'edit', description: 'Modify pending travel requests' },
@@ -115,6 +131,9 @@ export async function seedReferenceData(prisma, defaultSocietyGroupId) {
     { permission_key: 'receipts:edit', permission_name: 'Editar comprobantes', module: 'receipts', action: 'edit', description: 'Modify submitted receipts' },
     { permission_key: 'receipts:delete', permission_name: 'Eliminar comprobantes', module: 'receipts', action: 'delete', description: 'Remove receipts' },
     { permission_key: 'receipts:approve', permission_name: 'Aprobar/Rechazar comprobantes', module: 'receipts', action: 'approve_reject', description: 'Approve or reject expense receipts' },
+    { permission_key: 'system:audit_log', permission_name: 'Ver bitácora', module: 'system', action: 'audit_log', description: 'Access the system audit log of critical actions' },
+    { permission_key: 'system:import_data', permission_name: 'Importar datos', module: 'system', action: 'import_data', description: 'Import organizational data from files' },
+    { permission_key: 'system:export_accounting', permission_name: 'Exportar datos contables', module: 'system', action: 'export_accounting', description: 'Export accounting and travel expense data' },
   ];
 
   await upsertOrderedRecords(prisma.permission, permissions, (item) => ({
@@ -122,6 +141,75 @@ export async function seedReferenceData(prisma, defaultSocietyGroupId) {
     create: { ...item, society_group_id: defaultSocietyGroupId },
     update: { ...item, society_group_id: defaultSocietyGroupId },
   }));
+
+  // Ensure default hardcoded roles always have a base permission set.
+  const defaultRolePermissions = {
+    'Solicitante': [
+      'travel:view',
+      'travel:create',
+      'travel:edit',
+      'receipts:create',
+      'receipts:edit',
+    ],
+    'Agencia de viajes': [
+      'travel:view',
+      'travel:edit',
+      'travel:view_flights',
+      'travel:view_hotels',
+      'travel:approve',
+    ],
+    'Cuentas por pagar': [
+      'receipts:view',
+      'receipts:approve',
+    ],
+    'Autorizador': [
+      'travel:view',
+      'travel:create',
+      'travel:edit',
+      'travel:approve',
+      'travel:reject',
+      'receipts:create',
+      'receipts:edit',
+    ],
+    'Administrador': permissions.map((permission) => permission.permission_key),
+  };
+
+  const roles = await prisma.role.findMany({
+    where: {
+      society_group_id: defaultSocietyGroupId,
+      role_name: { in: Object.keys(defaultRolePermissions) },
+    },
+    select: { role_id: true, role_name: true },
+  });
+
+  const roleByName = new Map(roles.map((role) => [role.role_name, role.role_id]));
+
+  const permissionRows = await prisma.permission.findMany({
+    where: {
+      society_group_id: defaultSocietyGroupId,
+      permission_key: { in: permissions.map((permission) => permission.permission_key) },
+    },
+    select: { permission_id: true, permission_key: true },
+  });
+
+  const permissionByKey = new Map(permissionRows.map((permission) => [permission.permission_key, permission.permission_id]));
+
+  for (const [roleName, permissionKeys] of Object.entries(defaultRolePermissions)) {
+    const roleId = roleByName.get(roleName);
+    if (!roleId) continue;
+
+    const rolePermissionRows = permissionKeys
+      .map((permissionKey) => permissionByKey.get(permissionKey))
+      .filter(Boolean)
+      .map((permissionId) => ({ role_id: roleId, permission_id: permissionId }));
+
+    if (rolePermissionRows.length === 0) continue;
+
+    await prisma.role_Permission.createMany({
+      data: rolePermissionRows,
+      skipDuplicates: true,
+    });
+  }
 }
 
 export async function seedAdminAccount(prisma, defaultSocietyGroupId) {

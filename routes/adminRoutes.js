@@ -8,7 +8,7 @@
 import express from "express";
 import multer from "multer";
 import * as adminController from "../controllers/adminController.js";
-import { authenticateToken, authorizeRole, validateSocietyAccess } from "../middleware/auth.js";
+import { authenticateToken, authorizePermission, validateSocietyAccess } from "../middleware/auth.js";
 import { validateCreateUser, validateInputs } from "../middleware/validation.js";
 import { generalRateLimiter } from "../middleware/rateLimiters.js";
 
@@ -28,83 +28,111 @@ router.use((req, res, next) => {
 
 // Get list of all users
 router.route("/get-user-list")
-  .get(generalRateLimiter, authenticateToken, authorizeRole(['Administrador']), adminController.getUserList);
+  .get(generalRateLimiter, authenticateToken, authorizePermission(['users:view']), adminController.getUserList);
 
 // Create a new user
 router.route('/create-user')
-  .post(generalRateLimiter, authenticateToken, authorizeRole(['Administrador']), validateCreateUser, validateInputs, adminController.createUser);
+  .post(generalRateLimiter, authenticateToken, authorizePermission(['users:create']), validateCreateUser, validateInputs, adminController.createUser);
 
 // Create multiple
 // Expects a CSV file
 router.route("/create-multiple-users")
   .post(
     generalRateLimiter,
-    authenticateToken, authorizeRole(['Administrador']),
+    authenticateToken, authorizePermission(['users:create']),
     upload.single("file"),
     adminController.createMultipleUsers
   );
 
 // Update user information by user ID
 router.route('/update-user/:user_id')
-  .put(generalRateLimiter, authenticateToken, authorizeRole(['Administrador']), validateSocietyAccess('user'), adminController.updateUser);
+  .put(generalRateLimiter, authenticateToken, authorizePermission(['users:edit']), validateSocietyAccess('user'), adminController.updateUser);
 
 // Delete a user by user ID
 router.route("/delete-user/:user_id")
-  .put(generalRateLimiter, authenticateToken, authorizeRole(['Administrador']), validateSocietyAccess('user'), adminController.deactivateUser);
+  .put(generalRateLimiter, authenticateToken, authorizePermission(['users:delete']), validateSocietyAccess('user'), adminController.deactivateUser);
 
 // Get departments
 router.route("/get-departments")
-  .get(generalRateLimiter, authenticateToken, authorizeRole(['Administrador']), adminController.getDepartments);
+  .get(
+    generalRateLimiter,
+    authenticateToken,
+    authorizePermission(['users:view', 'users:create', 'users:edit'], { mode: 'any' }),
+    adminController.getDepartments,
+  );
 
 // Get roles
 router.route("/get-roles")
-  .get(generalRateLimiter, authenticateToken, authorizeRole(['Administrador']), adminController.getRoles);
+  .get(
+    generalRateLimiter,
+    authenticateToken,
+    authorizePermission(['users:view', 'users:create', 'users:edit'], { mode: 'any' }),
+    adminController.getRoles,
+  );
 
 // Get role details by ID
 router.route('/roles/:role_id')
-  .get(generalRateLimiter, authenticateToken, authorizeRole(['Administrador']), adminController.getRoleById);
+  .get(generalRateLimiter, authenticateToken, authorizePermission(['users:view']), adminController.getRoleById);
 
 // Create role
 router.route('/create-role')
-  .post(generalRateLimiter, authenticateToken, authorizeRole(['Administrador']), adminController.createRole);
+  .post(generalRateLimiter, authenticateToken, authorizePermission(['users:create']), adminController.createRole);
 
 // Update role
 router.route('/update-role/:role_id')
-  .put(generalRateLimiter, authenticateToken, authorizeRole(['Administrador']), adminController.updateRole);
+  .put(generalRateLimiter, authenticateToken, authorizePermission(['users:edit']), adminController.updateRole);
+
+// Get default role for current society group
+router.route('/get-default-role')
+  .get(
+    generalRateLimiter,
+    authenticateToken,
+    authorizePermission(['users:view', 'users:create', 'users:edit'], { mode: 'any' }),
+    adminController.getDefaultRole,
+  );
+
+// Set default role for current society group
+router.route('/set-default-role/:role_id')
+  .put(generalRateLimiter, authenticateToken, authorizePermission(['users:edit']), adminController.setDefaultRole);
 
 // Delete role
 router.route('/delete-role/:role_id')
-  .delete(generalRateLimiter, authenticateToken, authorizeRole(['Administrador']), adminController.deleteRole);
+  .delete(generalRateLimiter, authenticateToken, authorizePermission(['users:delete']), adminController.deleteRole);
 
 // Get an auth rule by ID
 router.route("/auth-rules/:rule_id")
-  .get(generalRateLimiter, authenticateToken, authorizeRole(['Administrador']), adminController.getAuthRuleById);
+  .get(generalRateLimiter, authenticateToken, authorizePermission(['travel:def_amount']), adminController.getAuthRuleById);
 
 // Get all auth rules
 router.route("/get-auth-rules")
-  .get(generalRateLimiter, authenticateToken, authorizeRole(['Administrador']), adminController.getAuthRules);
+  .get(generalRateLimiter, authenticateToken, authorizePermission(['travel:def_amount']), adminController.getAuthRules);
 
 // Create auth rule
 router.route("/create-auth-rule")
-  .post(generalRateLimiter, authenticateToken, authorizeRole(['Administrador']), adminController.createAuthRule);
+  .post(generalRateLimiter, authenticateToken, authorizePermission(['travel:def_amount']), adminController.createAuthRule);
 
 // Update auth rule
 router.route("/update-auth-rule/:rule_id")
-  .put(generalRateLimiter, authenticateToken, authorizeRole(['Administrador']), adminController.updateAuthRule);
+  .put(generalRateLimiter, authenticateToken, authorizePermission(['travel:def_amount']), adminController.updateAuthRule);
 
 // Delete auth rule
 router.route("/delete-auth-rule/:rule_id")
-  .delete(generalRateLimiter, authenticateToken, authorizeRole(['Administrador']), adminController.deleteAuthRule);
+  .delete(generalRateLimiter, authenticateToken, authorizePermission(['travel:def_amount']), adminController.deleteAuthRule);
 
 // Get boss list for a department
 router.route("/get-boss-list/:department_id")
-  .get(generalRateLimiter, authenticateToken, authorizeRole(['Administrador']), adminController.getBossList);
+  .get(
+    generalRateLimiter,
+    authenticateToken,
+    authorizePermission(['users:view', 'users:create', 'users:edit'], { mode: 'any' }),
+    adminController.getBossList,
+  );
 
 // Import data from XML/JSON file
 router.route("/import-data")
   .post(
     generalRateLimiter,
-    authenticateToken, authorizeRole(['Administrador']),
+    authenticateToken, authorizePermission(['system:import_data']),
     upload.single("file"),
     adminController.importData
   );

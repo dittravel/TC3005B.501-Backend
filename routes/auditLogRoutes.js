@@ -6,7 +6,7 @@
 
 import express from 'express';
 import auditLogController from '../controllers/auditLogController.js';
-import { authenticateToken, authorizeRole } from '../middleware/auth.js';
+import { authenticateToken, authorizePermission } from '../middleware/auth.js';
 import { validateAuditLogQuery, validateInputs } from '../middleware/validation.js';
 import { generalRateLimiter } from '../middleware/rateLimiters.js';
 
@@ -16,7 +16,7 @@ router.route('/get-logs')
   .get(
     generalRateLimiter,
     authenticateToken,
-    authorizeRole(['Administrador']),
+    authorizePermission(['system:audit_log']),
     validateAuditLogQuery,
     validateInputs,
     auditLogController.getAuditLogs

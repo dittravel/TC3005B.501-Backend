@@ -20,6 +20,9 @@ import Authorizer from "../models/authorizerModel.js";
 import User from "../models/userModel.js";
 import AuthorizationRuleService from "./authorizationRuleService.js";
 
+const TRAVEL_AGENT_PERMISSIONS = ['travel:view_flights', 'travel:view_hotels'];
+const ACCOUNTS_PAYABLE_PERMISSIONS = ['receipts:approve'];
+
 /**
  * Authorizes a travel request based on the associated authorization rule.
  * - Fetches the rule and current level configuration
@@ -84,7 +87,7 @@ const authorizeRequest = async (request_id, user_id, options = {}) => {
       
       if (needsTravelAgent) {
         // Trip requires flights or hotels: assign to Travel Agent
-        const travelAgent = await User.getRandomUserByRoleName('Agencia de viajes', requesterUser.department_id, requesterUser.society_group_id);
+        const travelAgent = await User.getRandomUserByPermissions(TRAVEL_AGENT_PERMISSIONS, requesterUser.department_id, requesterUser.society_group_id);
         if (!travelAgent) {
           throw {
             status: 500,
@@ -95,7 +98,7 @@ const authorizeRequest = async (request_id, user_id, options = {}) => {
         new_status_id = 4; // Agency travel
       } else {
         // Trip doesn't require flights or hotels: assign to Accounts Payable
-        const accountsPayable = await User.getRandomUserByRoleName('Cuentas por pagar', requesterUser.department_id, requesterUser.society_group_id);
+        const accountsPayable = await User.getRandomUserByPermissions(ACCOUNTS_PAYABLE_PERMISSIONS, requesterUser.department_id, requesterUser.society_group_id);
         if (!accountsPayable) {
           throw { 
             status: 500, 
@@ -111,21 +114,25 @@ const authorizeRequest = async (request_id, user_id, options = {}) => {
         // Automatic rule: escalate through hierarchy (direct boss)
         const bossId = await User.getBossId(request.assigned_to);
         if (bossId) {
-          // Check if boss is an authorizer
-          const bossRole = await Authorizer.getUserRole(bossId);
-          if (bossRole === 4) {
-            // Boss is an authorizer, escalate to them
+          // Escalate to boss only if they can approve requests
+          const bossCanApprove = await User.userHasAnyPermission(
+            bossId,
+            ['travel:approve', 'travel:reject'],
+            requesterUser.society_group_id,
+          );
+
+          if (bossCanApprove) {
             new_assigned_to = bossId;
             console.log(`Automatic rule: Escalating to boss (user_id: ${bossId}), new authorization level: ${new_authorization_level}`);
           } else {
-            // Boss is not an authorizer, route to next step (Travel Agent or Accounts Payable)
+            // Boss cannot approve, route to next step (Travel Agent or Accounts Payable)
             const needsTravelAgent = await Authorizer.requiresTravelAgencyServices(request_id);
             if (needsTravelAgent) {
-              const travelAgent = await User.getRandomUserByRoleName('Agencia de viajes', requesterUser.department_id, requesterUser.society_group_id);
+              const travelAgent = await User.getRandomUserByPermissions(TRAVEL_AGENT_PERMISSIONS, requesterUser.department_id, requesterUser.society_group_id);
               new_assigned_to = travelAgent ? travelAgent.user_id : null;
               new_status_id = 4;
             } else {
-              const accountsPayable = await User.getRandomUserByRoleName('Cuentas por pagar', requesterUser.department_id, requesterUser.society_group_id);
+              const accountsPayable = await User.getRandomUserByPermissions(ACCOUNTS_PAYABLE_PERMISSIONS, requesterUser.department_id, requesterUser.society_group_id);
               new_assigned_to = accountsPayable ? accountsPayable.user_id : null;
               new_status_id = 3;
             }
@@ -134,11 +141,11 @@ const authorizeRequest = async (request_id, user_id, options = {}) => {
           // No boss found, route to Travel Agent or Accounts Payable
           const needsTravelAgent = await Authorizer.requiresTravelAgencyServices(request_id);
           if (needsTravelAgent) {
-            const travelAgent = await User.getRandomUserByRoleName('Agencia de viajes', requesterUser.department_id, requesterUser.society_group_id);
+            const travelAgent = await User.getRandomUserByPermissions(TRAVEL_AGENT_PERMISSIONS, requesterUser.department_id, requesterUser.society_group_id);
             new_assigned_to = travelAgent ? travelAgent.user_id : null;
             new_status_id = 4;
           } else {
-            const accountsPayable = await User.getRandomUserByRoleName('Cuentas por pagar', requesterUser.department_id, requesterUser.society_group_id);
+            const accountsPayable = await User.getRandomUserByPermissions(ACCOUNTS_PAYABLE_PERMISSIONS, requesterUser.department_id, requesterUser.society_group_id);
             new_assigned_to = accountsPayable ? accountsPayable.user_id : null;
             new_status_id = 3;
           }
