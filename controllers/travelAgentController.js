@@ -250,6 +250,52 @@ const updateRouteFees = async (req, res) => {
   }
 };
 
+// Handler to create an expense with file uploads (PDF/XML)
+// This is used to create a receipt along with uploading the associated files to MongoDB
+export async function createReservationWithFilesHandler(req, res) {
+  try {
+    // Check if files are present
+    if (!req.files || (!req.files.flightPdf && !req.files.hotelPdf)) {
+      return res.status(400).json({ error: "At least a PDF file is required" });
+    }
+
+    // Extract receipt details from request body
+    const { route_id } = req.body;
+
+    // Validate required fields
+    if (!route_id) {
+      return res.status(400).json({ error: "Missing required fields" });
+    }
+
+    // Create the expense and upload files
+    const result = await TravelAgent.createReservationWithFiles({
+      route_id: Number(route_id),
+      flightPdf: req.files.flightPdf ? req.files.flightPdf[0] : null,
+      hotelPdf: req.files.hotelPdf ? req.files.hotelPdf[0] : null
+    });
+
+    // Return message
+    return res.status(201).json({
+      message: "Reservation files uploaded",
+      route_id: result.route_id,
+      flightPdf: result.flightPdf,
+      hotelPdf: result.hotelPdf
+    });
+
+  } catch (err) {
+    if (err.code === "DUPLICATE_UUID") {
+      return res.status(409).json({ error: err.message });
+    }
+    if (err.code === "BAD_REQUEST") {
+      return res.status(400).json({ error: err.message });
+    }
+    if (err.code === "CONFLICT") {
+      return res.status(409).json({ error: err.message });
+    }
+    return res.status(500).json({ error: "Internal server error" });
+  }
+}
+
 // Export travel agent controller functions for router configuration
 export default {
   attendTravelRequest,
@@ -257,4 +303,5 @@ export default {
   searchFlightOffers,
   searchHotelOffers,
   updateRouteFees,
+  createReservationWithFilesHandler
 };

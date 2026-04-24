@@ -7,6 +7,7 @@
  */
 
 import { prisma } from "../lib/prisma.js";
+import { uploadReservationFiles } from "../services/reservationFileService.js";
 
 
 const TravelAgent = {
@@ -139,6 +140,22 @@ const TravelAgent = {
       throw error;
     }
   },
+  // Upload flight and hotel PDF files for a reservation
+  async createReservationWithFiles(data) {
+    const { route_id, flightPdf, hotelPdf } = data;
+
+    const fileResult = await uploadReservationFiles(
+      Number(route_id),
+      flightPdf,
+      hotelPdf
+    );
+
+    return {
+      route_id: Number(route_id),
+      flightPdf: fileResult.flightPdf,
+      hotelPdf: fileResult.hotelPdf,
+    };
+  }
 };
 
 export default TravelAgent;
