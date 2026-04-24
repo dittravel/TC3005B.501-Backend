@@ -214,6 +214,42 @@ const searchHotelOffers = async (req, res) => {
   }
 };
 
+/**
+ * Save selected flight/hotel fees into a specific route.
+ * Allows updating either field independently.
+ *
+ * @param {Object} req - Express request object with route_id param and fee fields in body
+ * @param {Object} res - Express response object
+ * @returns {void} Sends JSON with updated fee values or error
+ */
+const updateRouteFees = async (req, res) => {
+  try {
+    const { route_id: routeId } = req.params;
+    const { flight_fee: flightFee, hotel_fee: hotelFee } = req.body;
+
+    const updatedRoute = await TravelAgent.updateRouteFees(routeId, {
+      flight_fee: flightFee,
+      hotel_fee: hotelFee,
+    });
+
+    return res.status(200).json({
+      message: 'Route fees updated successfully',
+      route: updatedRoute,
+    });
+  } catch (err) {
+    console.error('Error in updateRouteFees controller:', err);
+
+    if (err?.code === 'P2025') {
+      return res.status(404).json({ error: 'Route not found' });
+    }
+
+    return res.status(500).json({
+      error: 'Failed to update route fees',
+      details: err?.message || 'Unknown error',
+    });
+  }
+};
+
 // Handler to create an expense with file uploads (PDF/XML)
 // This is used to create a receipt along with uploading the associated files to MongoDB
 export async function createReservationWithFilesHandler(req, res) {
@@ -266,5 +302,6 @@ export default {
   completeServiceAssignment,
   searchFlightOffers,
   searchHotelOffers,
+  updateRouteFees,
   createReservationWithFilesHandler
 };

@@ -1,0 +1,3 @@
+-- AlterTable
+ALTER TABLE `Route` ADD COLUMN `flight_fee` FLOAT NULL DEFAULT 0,
+    ADD COLUMN `hotel_fee` FLOAT NULL DEFAULT 0;

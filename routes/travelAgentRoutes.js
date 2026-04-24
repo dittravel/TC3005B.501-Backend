@@ -7,17 +7,8 @@
 
 import express from "express";
 import travelAgentController from "../controllers/travelAgentController.js";
-import {
-  validateId,
-  validateInputs,
-  validateFlightSearch,
-  validateHotelSearch,
-} from "../middleware/validation.js";
-import {
-  authenticateToken,
-  authorizeRole,
-  validateSocietyAccess,
-} from "../middleware/auth.js";
+import { validateId, validateInputs, validateFlightSearch, validateHotelSearch, validateRouteFeeUpdate } from "../middleware/validation.js";
+import { authenticateToken, authorizeRole, validateSocietyAccess } from "../middleware/auth.js";
 import { generalRateLimiter } from "../middleware/rateLimiters.js";
 
 // Import multer for file uploads
@@ -86,6 +77,17 @@ router
     validateHotelSearch,
     validateInputs,
     travelAgentController.searchHotelOffers,
+  );
+
+// Persist selected flight/hotel fees for a specific route
+router.route('/route-fees/:route_id')
+  .put(
+    generalRateLimiter,
+    authenticateToken,
+    authorizeRole(['Agencia de viajes']),
+    validateRouteFeeUpdate,
+    validateInputs,
+    travelAgentController.updateRouteFees
   );
 
 router.route("/create-reservation-file").post(
