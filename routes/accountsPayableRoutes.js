@@ -37,4 +37,16 @@ router.route("/get-expense-validations/:request_id")
 router.route("/search-receipts")
   .get(generalRateLimiter, authenticateToken, authorizeRole(['Cuentas por pagar', 'Administrador']), validateReceiptSearchQuery, validateInputs, AccountsPayableController.searchReceipts);
 
+// Edit receipt amount (for exceeding policy limits)
+router.route("/edit-receipt-amount/:receipt_id")
+  .put(generalRateLimiter, authenticateToken, authorizeRole(['Cuentas por pagar']), validateSocietyAccess('receipt'), validateId, validateInputs, AccountsPayableController.editReceiptAmount);
+
+// Edit receipt notes (for providing feedback on corrections)
+router.route("/edit-receipt-notes/:receipt_id")
+  .put(generalRateLimiter, authenticateToken, authorizeRole(['Cuentas por pagar']), validateSocietyAccess('receipt'), validateId, validateInputs, AccountsPayableController.editReceiptNotes);
+
+// Return receipts for correction (marks request as pending again)
+router.route("/return-receipts/:request_id")
+  .put(generalRateLimiter, authenticateToken, authorizeRole(['Cuentas por pagar']), validateSocietyAccess('request'), validateId, validateInputs, AccountsPayableController.returnReceiptsForCorrection);
+
 export default router;

@@ -153,4 +153,34 @@ function normalizeRequestFilters({ status, sort } = {}) {
   };
 }
 
+/**
+ * Deactivate (delete) a draft request by ID.
+ * @param {number} requestId - The ID of the request to delete
+ * @returns {Promise<void>}
+ * @throws {Error} If request not found, not a draft, or database error occurs
+ */
+RequestService.deleteDraftRequest = async (requestId) => {
+  try {
+    const result = await prisma.request.updateMany({
+      where: {
+        request_id: Number(requestId),
+        Request_status: {
+          status: 'Borrador',
+        },
+      },
+      data: {
+        active: false,
+      },
+    });
+
+    if (result.count === 0) {
+      throw new Error('Draft request not found or cannot be deleted');
+    }
+
+  } catch (error) {
+    console.error('Error deleting draft request:', error);
+    throw error;
+  }
+};
+
 export default RequestService;

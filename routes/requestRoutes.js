@@ -23,4 +23,15 @@ router.route('/:user_id')
     requestController.getUserRequests
   );
 
+router.route('/delete-draft/:request_id')
+  .delete(
+    generalRateLimiter,
+    authenticateToken,
+    authorizeRole(['Solicitante', 'Autorizador']),
+    validateSocietyAccess('request'),
+    validateId,
+    validateInputs,
+    requestController.deleteDraftRequest
+  );
+
 export default router;

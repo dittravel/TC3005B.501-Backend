@@ -125,7 +125,6 @@ model Department {
   active                          Boolean                           @default(true)
   CostCenter                      CostCenter?                       @relation(fields: [cost_center_id], references: [cost_center_id], onDelete: Restrict, onUpdate: Restrict, map: "fk_department_costcenter")
   SocietyGroup                    SocietyGroup?                     @relation(fields: [society_group_id], references: [id], map: "fk_department_societygroup")
-  Reimbursement_Policy_Assignment Reimbursement_Policy_Assignment[]
   User                            User[]
 
   @@unique([department_name, society_group_id])
@@ -151,38 +150,40 @@ model Permission {
 
 /// Expense receipts attached to travel requests with XML invoice data
 model Receipt {
-  receipt_id          Int                   @id @default(autoincrement())
-  receipt_type_id     Int?
-  request_id          Int?
-  route_id            Int?
-  society_id          Int?
-  validation          Receipt_validation?   @default(Pendiente)
-  amount              Float                 @db.Float
-  local_amount        Float?                @db.Float
-  currency            String?               @db.VarChar(6)
+  receipt_id            Int                   @id @default(autoincrement())
+  receipt_type_id       Int?
+  request_id            Int?
+  route_id              Int?
+  society_id            Int?
+  validation            Receipt_validation?   @default(Pendiente)
+  amount                Float                 @db.Float
+  local_amount          Float?                @db.Float
+  currency              String?               @db.VarChar(6)
   exch_rate           Float?                @db.Float
-  refund              Boolean?              @default(true)
-  submission_date     DateTime?             @default(now()) @db.Timestamp(0)
-  receipt_date        DateTime?             @db.Date
-  validation_date     DateTime?             @db.Timestamp(0)
-  pdf_file_id         String?               @db.VarChar(24)
-  pdf_file_name       String?               @db.VarChar(255)
-  xml_file_id         String?               @db.VarChar(24)
-  xml_file_name       String?               @db.VarChar(255)
-  xml_uuid            String?               @unique(map: "xml_uuid") @db.VarChar(36)
-  xml_rfc_emisor      String?               @db.VarChar(13)
-  xml_rfc_receptor    String?               @db.VarChar(13)
-  xml_nombre_emisor   String?               @db.VarChar(255)
-  xml_fecha           DateTime?             @db.DateTime(0)
-  xml_total           Decimal?              @db.Decimal(15, 2)
-  xml_subtotal        Decimal?              @db.Decimal(15, 2)
-  xml_impuestos       Decimal?              @db.Decimal(15, 2)
-  xml_moneda          String?               @db.VarChar(6) // Por qué hay dos
-  Request             Request?              @relation(fields: [request_id], references: [request_id], onDelete: Restrict, onUpdate: Restrict, map: "fk_receipt_request")
-  Route               Route?                @relation(fields: [route_id], references: [route_id], onDelete: Restrict, onUpdate: Restrict, map: "fk_receipt_route")
-  Receipt_Type        Receipt_Type?         @relation(fields: [receipt_type_id], references: [receipt_type_id], onDelete: Restrict, onUpdate: Restrict, map: "fk_receipt_type")
-  Society             Society?              @relation(fields: [society_id], references: [id], map: "fk_receipt_society")
-  ReceiptType_Account ReceiptType_Account[]
+  refund                Boolean?              @default(true)
+  submission_date       DateTime?             @default(now()) @db.Timestamp(0)
+  receipt_date          DateTime?             @db.Date
+  validation_date       DateTime?             @db.Timestamp(0)
+  notes                 String?               @db.LongText
+  pdf_file_id           String?               @db.VarChar(24)
+  pdf_file_name         String?               @db.VarChar(255)
+  xml_file_id           String?               @db.VarChar(24)
+  xml_file_name         String?               @db.VarChar(255)
+  xml_uuid              String?               @unique(map: "xml_uuid") @db.VarChar(36)
+  xml_rfc_emisor        String?               @db.VarChar(13)
+  xml_rfc_receptor      String?               @db.VarChar(13)
+  xml_nombre_emisor     String?               @db.VarChar(255)
+  xml_fecha             DateTime?             @db.DateTime(0)
+  xml_total             Decimal?              @db.Decimal(15, 2)
+  xml_subtotal          Decimal?              @db.Decimal(15, 2)
+  xml_impuestos         Decimal?              @db.Decimal(15, 2)
+  xml_moneda            String?               @db.VarChar(6) // Por qué hay dos
+  exceeds_policy_limit  Boolean?              @default(false)
+  Request               Request?              @relation(fields: [request_id], references: [request_id], onDelete: Restrict, onUpdate: Restrict, map: "fk_receipt_request")
+  Route                 Route?                @relation(fields: [route_id], references: [route_id], onDelete: Restrict, onUpdate: Restrict, map: "fk_receipt_route")
+  Receipt_Type          Receipt_Type?         @relation(fields: [receipt_type_id], references: [receipt_type_id], onDelete: Restrict, onUpdate: Restrict, map: "fk_receipt_type")
+  Society               Society?              @relation(fields: [society_id], references: [id], map: "fk_receipt_society")
+  ReceiptType_Account   ReceiptType_Account[]
 
   @@index([request_id], map: "fk_receipt_request")
   @@index([route_id], map: "fk_receipt_route")
@@ -192,69 +193,27 @@ model Receipt {
 
 /// Categories of expense receipts (e.g., lodging, meals, transportation)
 model Receipt_Type {
-  receipt_type_id           Int                         @id @default(autoincrement())
-  receipt_type_name         String                      @unique @db.VarChar(20)
-  Receipt                   Receipt[]
-  ReceiptType_Account       ReceiptType_Account[]
-  Reimbursement_Policy_Rule Reimbursement_Policy_Rule[]
+  receipt_type_id     Int                 @id @default(autoincrement())
+  receipt_type_name   String              @unique @db.VarChar(20)
+  Receipt             Receipt[]
+  ReceiptType_Account ReceiptType_Account[]
 }
 
-/// Expense reimbursement policies with rules and limits
-model Reimbursement_Policy {
-  policy_id                       Int                               @id @default(autoincrement())
-  policy_code                     String                            @unique(map: "policy_code") @db.VarChar(40)
-  policy_name                     String                            @db.VarChar(120)
-  description                     String?                           @db.LongText
-  base_currency                   String                            @default("MXN") @db.VarChar(6)
-  effective_from                  DateTime                          @db.Date
-  effective_to                    DateTime?                         @db.Date
-  active                          Boolean                           @default(true)
-  created_by                      Int?
-  society_group_id                Int?
-  creation_date                   DateTime?                         @default(now()) @db.Timestamp(0)
-  last_mod_date                   DateTime?                         @default(now()) @db.Timestamp(0)
-  User                            User?                             @relation(fields: [created_by], references: [user_id], onDelete: Restrict, onUpdate: Restrict, map: "fk_reimbursement_policy_user")
-  SocietyGroup                    SocietyGroup?                     @relation(fields: [society_group_id], references: [id], map: "fk_reimbursement_policy_societygroup")
-  Reimbursement_Policy_Assignment Reimbursement_Policy_Assignment[]
-  Reimbursement_Policy_Rule       Reimbursement_Policy_Rule[]
+/// Simplified refund policy with global min/max amounts and deadline
+model RefundPolicy {
+  policy_id                Int        @id @default(autoincrement())
+  policy_name              String     @db.VarChar(120)
+  min_amount               Float
+  max_amount               Float
+  submission_deadline_days Int?
+  society_group_id         Int
+  is_default               Boolean    @default(false)
+  active                   Boolean    @default(true)
+  created_at               DateTime   @default(now()) @db.Timestamp(0)
 
-  @@index([created_by], map: "fk_reimbursement_policy_user")
+  SocietyGroup SocietyGroup @relation(fields: [society_group_id], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fk_refund_policy_societygroup")
+
   @@index([society_group_id])
-}
-
-/// Assignment of reimbursement policies to departments
-model Reimbursement_Policy_Assignment {
-  assignment_id        Int                  @id @default(autoincrement())
-  policy_id            Int
-  department_id        Int?
-  active               Boolean              @default(true)
-  creation_date        DateTime?            @default(now()) @db.Timestamp(0)
-  Department           Department?          @relation(fields: [department_id], references: [department_id], onDelete: Restrict, onUpdate: Restrict, map: "fk_policy_assignment_department")
-  Reimbursement_Policy Reimbursement_Policy @relation(fields: [policy_id], references: [policy_id], onUpdate: Restrict, map: "fk_policy_assignment_policy")
-
-  @@index([department_id], map: "fk_policy_assignment_department")
-  @@index([policy_id], map: "fk_policy_assignment_policy")
-}
-
-/// Specific rules within reimbursement policies (max amounts, deadlines, requirements)
-model Reimbursement_Policy_Rule {
-  rule_id                   Int                                  @id @default(autoincrement())
-  policy_id                 Int
-  receipt_type_id           Int
-  trip_scope                Reimbursement_Policy_Rule_trip_scope @default(TODOS)
-  max_amount_mxn            Decimal                              @db.Decimal(15, 2)
-  submission_deadline_days  Int?
-  requires_xml              Boolean                              @default(false)
-  allow_foreign_without_xml Boolean                              @default(true)
-  refundable                Boolean                              @default(true)
-  active                    Boolean                              @default(true)
-  creation_date             DateTime?                            @default(now()) @db.Timestamp(0)
-  last_mod_date             DateTime?                            @default(now()) @db.Timestamp(0)
-  Reimbursement_Policy      Reimbursement_Policy                 @relation(fields: [policy_id], references: [policy_id], onUpdate: Restrict, map: "fk_policy_rule_policy")
-  Receipt_Type              Receipt_Type                         @relation(fields: [receipt_type_id], references: [receipt_type_id], onUpdate: Restrict, map: "fk_policy_rule_receipt_type")
-
-  @@index([policy_id], map: "fk_policy_rule_policy")
-  @@index([receipt_type_id], map: "fk_policy_rule_receipt_type")
 }
 
 /// Travel requests submitted by users for approval and reimbursement
@@ -380,38 +339,37 @@ model Route_Request {
 
 /// System users with hierarchy and out-of-office delegation
 model User {
-  user_id                  Int                    @id @default(autoincrement())
-  role_id                  Int?
-  department_id            Int?
-  boss_id                  Int?
-  substitute_id            Int?
-  out_of_office_start_date DateTime?              @db.Date
-  out_of_office_end_date   DateTime?              @db.Date
-  user_name                String                 @unique(map: "user_name") @db.VarChar(60)
-  password                 String                 @db.VarChar(60)
-  workstation              String?                @db.VarChar(20)
-  email                    String                 @unique(map: "email") @db.VarChar(254)
-  phone_number             String?                @db.VarChar(254)
-  wallet                   Float?                 @default(0) @db.Float
-  creation_date            DateTime?              @default(now()) @db.Timestamp(0)
-  last_mod_date            DateTime?              @default(now()) @db.Timestamp(0)
-  active                   Boolean                @default(true)
-  password_reset_token     String?                @db.VarChar(64)
-  password_reset_expires   DateTime?              @db.DateTime(0)
-  society_id               Int?                   @db.Int
-  supplier                 BigInt?                @db.BigInt
-  Society                  Society?               @relation(fields: [society_id], references: [id])
-  Audit_Log                Audit_Log[]
-  Reimbursement_Policy     Reimbursement_Policy[]
-  Refund                   Refund[]
-  requestsAssigned         Request[]              @relation("AssignedUser")
-  requestsCreated          Request[]              @relation("RequesterUser")
-  boss                     User?                  @relation("UserBoss", fields: [boss_id], references: [user_id], onDelete: Restrict, onUpdate: Restrict, map: "fk_user_boss")
-  subordinates             User[]                 @relation("UserBoss")
-  department               Department?            @relation(fields: [department_id], references: [department_id], onDelete: Restrict, onUpdate: Restrict, map: "fk_user_department")
-  role                     Role?                  @relation(fields: [role_id], references: [role_id], onDelete: Restrict, onUpdate: Restrict, map: "fk_user_role")
-  substitute               User?                  @relation("UserSubstitute", fields: [substitute_id], references: [user_id], onDelete: Restrict, onUpdate: Restrict, map: "fk_user_substitute")
-  substitutedBy            User[]                 @relation("UserSubstitute")
+  user_id                             Int                    @id @default(autoincrement())
+  role_id                             Int?
+  department_id                       Int?
+  boss_id                             Int?
+  substitute_id                       Int?
+  out_of_office_start_date            DateTime?              @db.Date
+  out_of_office_end_date              DateTime?              @db.Date
+  user_name                           String                 @unique(map: "user_name") @db.VarChar(60)
+  password                            String                 @db.VarChar(60)
+  workstation                         String?                @db.VarChar(20)
+  email                               String                 @unique(map: "email") @db.VarChar(254)
+  phone_number                        String?                @db.VarChar(254)
+  wallet                              Float?                 @default(0) @db.Float
+  creation_date                       DateTime?              @default(now()) @db.Timestamp(0)
+  last_mod_date                       DateTime?              @default(now()) @db.Timestamp(0)
+  active                              Boolean                @default(true)
+  password_reset_token                String?                @db.VarChar(64)
+  password_reset_expires              DateTime?              @db.DateTime(0)
+  society_id                          Int?                   @db.Int
+  supplier                            BigInt?                @db.BigInt
+  Society                             Society?               @relation(fields: [society_id], references: [id])
+  Audit_Log                           Audit_Log[]
+  Refund                              Refund[]
+  requestsAssigned                    Request[]              @relation("AssignedUser")
+  requestsCreated                     Request[]              @relation("RequesterUser")
+  boss                                User?                  @relation("UserBoss", fields: [boss_id], references: [user_id], onDelete: Restrict, onUpdate: Restrict, map: "fk_user_boss")
+  subordinates                        User[]                 @relation("UserBoss")
+  department                          Department?            @relation(fields: [department_id], references: [department_id], onDelete: Restrict, onUpdate: Restrict, map: "fk_user_department")
+  role                                Role?                  @relation(fields: [role_id], references: [role_id], onDelete: Restrict, onUpdate: Restrict, map: "fk_user_role")
+  substitute                          User?                  @relation("UserSubstitute", fields: [substitute_id], references: [user_id], onDelete: Restrict, onUpdate: Restrict, map: "fk_user_substitute")
+  substitutedBy                       User[]                 @relation("UserSubstitute")
 
   @@index([boss_id], map: "fk_user_boss")
   @@index([department_id], map: "fk_user_department")
@@ -426,7 +384,7 @@ model SocietyGroup {
   is_default           Boolean                @default(false)
   Society              Society[]
   AuthorizationRule    AuthorizationRule[]
-  Reimbursement_Policy Reimbursement_Policy[]
+  RefundPolicy         RefundPolicy[]
   CostCenter           CostCenter[]
   Department           Department[]
   Role                 Role[]
@@ -521,13 +479,6 @@ model PolicyExport {
 }
 
 // Enums
-
-/// Scope of reimbursement policy rules (National, International, or All)
-enum Reimbursement_Policy_Rule_trip_scope {
-  NACIONAL
-  INTERNACIONAL
-  TODOS
-}
 
 /// Type of authorization level (Boss, Random, or Superior Level)
 enum AuthorizationRuleLevel_level_type {

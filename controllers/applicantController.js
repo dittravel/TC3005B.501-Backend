@@ -10,7 +10,7 @@
  */
 import Applicant from "../models/applicantModel.js";
 import { cancelTravelRequestValidation, createExpenseValidationBatch, sendReceiptsForValidation } from '../services/applicantService.js';
-import ReimbursementPolicyService from '../services/reimbursementPolicyService.js';
+import RefundPolicyService from '../services/refundPolicyService.js';
 import { decrypt } from '../middleware/decryption.js';
 import { sendEmails } from "../services/email/emailService.js";
 
@@ -142,7 +142,7 @@ export const createTravelRequest = async (req, res) => {
     const requestId = travelRequest.requestId;
 
     // Send email notifications
-    await sendEmails(requestId);
+    sendEmails(requestId);
 
     res.status(201).json(travelRequest);
   } catch (err) {
@@ -175,7 +175,7 @@ export const cancelTravelRequest = async (req, res) => {
     const result = await cancelTravelRequestValidation(Number(request_id));
     
     // Send email notifications
-    await sendEmails(request_id);
+    sendEmails(request_id);
 
     return res.status(200).json(result);
   } catch (err) {
@@ -269,7 +269,7 @@ export const confirmDraftTravelRequest = async (req, res) => {
     const result = await Applicant.confirmDraftTravelRequest(userId, requestId);
     
     // Send email notifications
-    await sendEmails(requestId);
+    sendEmails(requestId);
 
     return res.status(200).json(result);
   } catch (err) {
@@ -289,7 +289,7 @@ export const sendExpenseValidation = async (req, res) => {
     const result = await sendReceiptsForValidation(requestId);
     
     // Send email notifications
-    await sendEmails(requestId);
+    sendEmails(requestId);
 
     return res.status(200).json(result);
   } catch (err) {
@@ -434,25 +434,32 @@ export async function createExpenseWithFilesHandler(req, res) {
       return res.status(400).json({ error: "Missing required fields" });
     }
 
-    // Check submission deadline against active reimbursement policy before saving
-    try {
-      const deadlineStatus = await ReimbursementPolicyService.getRequestDeadlineStatus(Number(request_id));
-      if (deadlineStatus.policy_configured) {
-        const ruleDeadline = deadlineStatus.per_rule_deadlines.find(
-          r => r.receipt_type_id === Number(receipt_type_id)
-        );
-        if (ruleDeadline && !ruleDeadline.is_within_deadline) {
-          return res.status(422).json({
-            error: 'Submission deadline exceeded for this receipt type',
-            deadline_date: ruleDeadline.deadline_date,
-            days_overdue: Math.abs(ruleDeadline.days_remaining),
-          });
+    // Get society group ID to check refund policy
+    const societyGroupId = req.user.society_group_id;
+    const receiptLocalAmount = parseFloat(local_amount || amount);
+    const parsedRequestId = Number(request_id);
+
+    // Get active policy to check deadline
+    const policy = await RefundPolicyService.getActivePolicy(societyGroupId);
+
+    // Check submission deadline
+    if (policy && policy.submission_deadline_days) {
+      const requestData = await Applicant.getApplicantRequest(parsedRequestId);
+      if (requestData) {
+        const creationDate = new Date(requestData.creation_date);
+        const deadlineDate = new Date(creationDate.getTime() + policy.submission_deadline_days * 24 * 60 * 60 * 1000);
+
+        if (new Date() > deadlineDate) {
+          return res.status(400).json({ error: `Deadline de presentación expirado. Límite: ${policy.submission_deadline_days} días desde la creación de la solicitud.` });
         }
       }
-    } catch (deadlineError) {
-      // 404 = no active policy configured — allow submission
-      if (!deadlineError.status || deadlineError.status !== 404) {
-        throw deadlineError;
+    }
+
+    // Check if amount exceeds policy limits
+    let exceedsLimit = false;
+    if (policy) {
+      if (receiptLocalAmount > policy.max_amount) {
+        exceedsLimit = true;
       }
     }
 
@@ -462,11 +469,12 @@ export async function createExpenseWithFilesHandler(req, res) {
       request_id: Number(request_id),
       route_id: Number(route_id),
       amount: parseFloat(amount),
-      local_amount: parseFloat(local_amount || amount),
+      local_amount: receiptLocalAmount,
       currency: currency,
       receipt_date: new Date(receipt_date),
       pdfFile: req.files.pdf[0],
-      xmlFile: req.files.xml ? req.files.xml[0] : null // Optional XML file
+      xmlFile: req.files.xml ? req.files.xml[0] : null, // Optional XML file
+      exceeds_policy_limit: exceedsLimit
     });
 
     // Return message

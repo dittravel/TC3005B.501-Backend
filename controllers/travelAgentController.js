@@ -40,7 +40,7 @@ const attendTravelRequest = async (req, res) => {
     
     if (updated) {
       // Send email notifications
-      await sendEmails(requestId);
+      sendEmails(requestId);
       
       return res.status(200).json({
         message: "Travel request status updated successfully",
@@ -78,7 +78,7 @@ const completeServiceAssignment = async (req, res) => {
     const result = await TravelAgentService.completeServiceAssignment(requestId, userId);
 
     // Send email notifications
-    await sendEmails(requestId);
+    sendEmails(requestId);
     
     return res.status(200).json({
       message: result.message,
