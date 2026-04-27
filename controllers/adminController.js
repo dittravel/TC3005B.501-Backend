@@ -440,10 +440,10 @@ export const importData = async (req, res) => {
       return res.status(400).json({ error: 'Invalid JSON format: ' + parseError.message });
     }
 
-    // Extract data from JSON with admin's society_group_id
-    const extractedData = extractExternalDataFromJSON(
+    // Extract data from JSON with admin's society_id
+    const extractedData = await extractExternalDataFromJSON(
       jsonObj,
-      req.user.society_group_id
+      req.user.society_id
     );
 
     // Check if there were parsing errors

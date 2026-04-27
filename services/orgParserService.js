@@ -84,28 +84,26 @@ export async function extractExternalData(xmlObj) {
 
 /**
 * Parse the organizational structure from a JSON file and extract relevant data.
-* The JSON represents data for a single society group (auto-detected from admin's context).
+* The JSON represents data for a single society (auto-detected from admin's context).
 * @param {Object} jsonObj - JSON object containing the organizational structure data.
-* @param {number} societyGroupId - The society group ID of the admin importing the data (auto-assigned)
+* @param {number} societyId - The society ID of the admin importing the data (auto-assigned)
 * @returns {Object} An object containing the extracted data from the JSON
 */
-export async function extractExternalDataFromJSON(jsonObj, societyGroupId) {
+export async function extractExternalDataFromJSON(jsonObj, societyId) {
   try {
     const users = [];
     const departments = [];
     const costCenters = [];
-    const societies = [];
     const errors = [];
 
-    // Validate that society_group_id is provided
-    if (!societyGroupId) {
-      errors.push('ID del grupo de sociedad no proporcionado. Debe obtenerlo del admin autenticado.');
-      return { users, departments, costCenters, societies, society_group_id: null, errors };
+    // Validate that societyId is provided
+    if (!societyId) {
+      errors.push('ID de la sociedad no proporcionado. Se debe obtener del admin autenticado.');
+      return { users, departments, costCenters, society_id: null, errors };
     }
 
     let groupCecoCatalog = {};
     let groupDepartmentCatalog = {};
-    let societiesToProcess = [];
 
     // Parse Cost Centers catalog
     if (jsonObj.CeCo && Array.isArray(jsonObj.CeCo)) {
@@ -115,7 +113,7 @@ export async function extractExternalDataFromJSON(jsonObj, societyGroupId) {
           costCenters.push({
             cost_center_id: cc.Clave,
             cost_center_name: cc.Descripcion,
-            society_group_id: societyGroupId
+            society_id: societyId
           });
         } else {
           errors.push('Centro de Costo con formato incorrecto: falta Clave o Descripcion');
@@ -134,7 +132,7 @@ export async function extractExternalDataFromJSON(jsonObj, societyGroupId) {
           departments.push({
             department_name: dept.Descripcion,
             cost_center_id: dept.CeCo || null,
-            society_group_id: societyGroupId
+            society_id: societyId
           });
         } else {
           errors.push('Departamento con formato incorrecto: falta Clave o Descripcion');
@@ -142,76 +140,51 @@ export async function extractExternalDataFromJSON(jsonObj, societyGroupId) {
       });
     }
 
-    // Extract societies
-    if (jsonObj.Sociedades && Array.isArray(jsonObj.Sociedades)) {
-      societiesToProcess = jsonObj.Sociedades;
-      jsonObj.Sociedades.forEach((soc) => {
-        if (soc.Clave && soc.Descripcion && soc.MonedaLocal) {
-          societies.push({
-            id: soc.Clave,
-            description: soc.Descripcion,
-            local_currency: soc.MonedaLocal,
-            society_group_id: societyGroupId
-          });
-        } else {
-          errors.push('Sociedad con formato incorrecto: falta Clave, Descripcion o MonedaLocal');
-        }
-      });
-    } else {
-      errors.push('Estructura JSON inválida: falta Sociedades');
-      return { users, departments, costCenters, societies, society_group_id: societyGroupId, errors };
+    // Process employees
+    const empleados = Array.isArray(jsonObj.Empleados) ? jsonObj.Empleados : [jsonObj.Empleados];
+
+    if (!empleados || empleados.length === 0) {
+      errors.push('Estructura JSON inválida: falta Empleados o está vacío');
+      return { users, departments, costCenters, society_id: societyId, errors };
     }
 
-    // Process employees from all societies
-    societiesToProcess.forEach((sociedad) => {
-      const societyId = sociedad.Clave;
-      const empleados = Array.isArray(sociedad.Empleados) ? sociedad.Empleados : [sociedad.Empleados];
+    // Map employee numbers to usernames
+    const employeeToUsername = {};
+    empleados.forEach((emp) => {
+      if (emp.NoEmpleado && emp.Usuario) {
+        employeeToUsername[emp.NoEmpleado] = emp.Usuario;
+      }
+    });
 
-      if (!empleados || empleados.length === 0) {
+    empleados.forEach((emp, index) => {
+      if (!emp || !emp.Usuario || !emp.Email) {
+        errors.push(`Empleado en posición ${index} tiene formato incorrecto: falta Usuario o Email`);
         return;
       }
 
-      // Map employee numbers to usernames for this society
-      const employeeToUsername = {};
-      empleados.forEach((emp) => {
-        if (emp.NoEmpleado && emp.Usuario) {
-          employeeToUsername[emp.NoEmpleado] = emp.Usuario;
-        }
-      });
+      // Get department info from catalog
+      const deptInfo = emp.Departamento ? groupDepartmentCatalog[emp.Departamento] : null;
+      const departamento = deptInfo ? deptInfo.name : 'Sin Departamento';
+      const costCenterId = emp.CeCo || (deptInfo ? deptInfo.cost_center_id : null);
 
-      empleados.forEach((emp, index) => {
-        if (!emp || !emp.Usuario || !emp.Email) {
-          errors.push(`Empleado en posición ${index} de sociedad ${societyId} tiene formato incorrecto: falta Usuario o Email`);
-          return;
-        }
-
-        // Get department info from group catalog
-        const deptInfo = emp.Departamento ? groupDepartmentCatalog[emp.Departamento] : null;
-        const departamento = deptInfo ? deptInfo.name : 'Sin Departamento';
-        const costCenterId = emp.CeCo || (deptInfo ? deptInfo.cost_center_id : null);
-
-        // Add user
-        users.push({
-          user_name: emp.Usuario,
-          email: emp.Email,
-          phone_number: emp.Telefono || null,
-          role: null, // Will be assigned automatically
-          workstation: emp.EstacionTrabajo || null,
-          password: emp.Contraseña || `${emp.Usuario}123`,
-          boss_user: emp.JefeInmediato ? employeeToUsername[emp.JefeInmediato] : null,
-          department_name: departamento,
-          cost_center_id: costCenterId,
-          active: emp.Status === 'A' ? true : false,
-          society_id: societyId,
-          supplier: emp.Proveedor || null
-        });
+      // Add user
+      users.push({
+        user_name: emp.Usuario,
+        email: emp.Email,
+        phone_number: emp.Telefono || null,
+        role: null, // Will be assigned to default role by the import service
+        workstation: emp.EstacionTrabajo || null,
+        password: emp.Contraseña || `${emp.Usuario}123`,
+        boss_user: emp.JefeInmediato ? employeeToUsername[emp.JefeInmediato] : null,
+        department_name: departamento,
+        cost_center_id: costCenterId,
+        active: emp.Status === 'A' ? true : false,
+        society_id: societyId,
+        supplier: emp.Proveedor || null
       });
     });
 
-    // Assign roles automatically based on organizational hierarchy
-    const usersWithRoles = assignRolesByHierarchy(users, 2);
-
-    return { users: usersWithRoles, departments, costCenters, societies, society_group_id: societyGroupId, errors };
+    return { users, departments, costCenters, society_id: societyId, errors };
   } catch (error) {
     const errorMessage = 'Error al extraer los datos del JSON: ' + error.message;
     console.error(errorMessage);
@@ -221,6 +194,8 @@ export async function extractExternalDataFromJSON(jsonObj, societyGroupId) {
 
 /**
 * Assign roles automatically based on organizational hierarchy
+* CURRENTLY NOT IN USE BUT CAN BE USED IN THE FUTURE TO AUTOMATICALLY 
+* ASSIGN ROLES BASED ON THE HIERARCHY OF THE EMPLOYEES IN THE ORGANIGRAM
 * @param {Array} employees - Array of employee objects with department_name and boss_user
 * @param {number} defaultNumLevels - Number of authorization levels (default: 2)
 * @returns {Array} Employees with assigned roles

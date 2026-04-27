@@ -32,23 +32,6 @@ export async function getSocietyById(societyId, currentUser) {
     throw error;
   }
 
-  // Check if user belongs to default group
-  const isDefaultGroupAdmin = await SocietyGroupModel.isDefaultSocietyGroup(currentUser?.society_group_id);
-
-  // Prevent non-default admins from viewing the default society
-  if (society.is_default && !isDefaultGroupAdmin) {
-    const error = new Error('Society not found');
-    error.status = 404;
-    throw error;
-  }
-
-  // Prevent non-default admins from viewing societies outside their group
-  if (!isDefaultGroupAdmin && society.society_group_id !== currentUser?.society_group_id) {
-    const error = new Error('Access denied: society does not belong to your group');
-    error.status = 403;
-    throw error;
-  }
-
   return society;
 }
 

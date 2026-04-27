@@ -204,7 +204,7 @@ const User = {
     });
   },
 
-  async getUserUsername(username, societyGroupId = null) {
+  async getUserUsername(username, societyId = null) {
     const user = await prisma.user.findUnique({
       where: { user_name: username },
       include: {
@@ -222,18 +222,13 @@ const User = {
             },
           },
         },
-        Society: {
-          select: {
-            society_group_id: true,
-          },
-        },
       },
     });
 
     if (!user) return null;
 
-    // Validate that user belongs to the specified society group if provided
-    if (societyGroupId !== null && user.Society?.society_group_id !== Number(societyGroupId)) {
+    // Validate that user belongs to the specified society if provided
+    if (societyId !== null && user.society_id !== Number(societyId)) {
       return null;
     }
 
@@ -248,7 +243,6 @@ const User = {
       permissions: (user.role?.Role_Permission || []).map((row) => row.Permission?.permission_name).filter(Boolean),
       permission_keys: (user.role?.Role_Permission || []).map((row) => row.Permission?.permission_key).filter(Boolean),
       society_id: user.society_id,
-      society_group_id: user.Society?.society_group_id ?? null,
     };
   },
 
@@ -483,14 +477,14 @@ const User = {
     return substitute || null;
   },
 
-  async getRandomUserByRoleName(roleName, departmentId, societyGroupId) {
+  async getRandomUserByRoleName(roleName, departmentId, societyId) {
     const candidates = await prisma.user.findMany({
       where: {
         department_id: Number(departmentId),
         active: true,
         role: {
           role_name: roleName,
-          society_group_id: Number(societyGroupId),
+          society_id: Number(societyId),
         },
       },
       select: {
@@ -531,7 +525,7 @@ const User = {
     return substitute || null;
   },
 
-  async getRandomUserByPermissions(permissionKeys, departmentId, societyGroupId = null) {
+  async getRandomUserByPermissions(permissionKeys, departmentId, societyId = null) {
     const normalizedKeys = Array.isArray(permissionKeys)
       ? permissionKeys.map((permission) => String(permission).trim()).filter(Boolean)
       : [];
@@ -540,8 +534,8 @@ const User = {
       return null;
     }
 
-    const societyGroupFilter = societyGroupId !== null && societyGroupId !== undefined
-      ? { society_group_id: Number(societyGroupId) }
+    const societyFilter = societyId !== null && societyId !== undefined
+      ? { society_id: Number(societyId) }
       : {};
 
     const candidates = await prisma.user.findMany({
@@ -549,11 +543,11 @@ const User = {
         department_id: Number(departmentId),
         active: true,
         role: {
-          ...societyGroupFilter,
+          ...societyFilter,
           Role_Permission: {
             some: {
               Permission: {
-                ...societyGroupFilter,
+                ...societyFilter,
                 permission_key: { in: normalizedKeys },
               },
             },
@@ -598,7 +592,7 @@ const User = {
     return substitute || null;
   },
 
-  async userHasAnyPermission(userId, permissionKeys, societyGroupId = null) {
+  async userHasAnyPermission(userId, permissionKeys, societyId = null) {
     const normalizedKeys = Array.isArray(permissionKeys)
       ? permissionKeys.map((permission) => String(permission).trim()).filter(Boolean)
       : [];
@@ -612,12 +606,12 @@ const User = {
       select: {
         role: {
           select: {
-            society_group_id: true,
+            society_id: true,
             Role_Permission: {
               where: {
                 Permission: {
                   permission_key: { in: normalizedKeys },
-                  ...(societyGroupId !== null && societyGroupId !== undefined ? { society_group_id: Number(societyGroupId) } : {}),
+                  ...(societyId !== null && societyId !== undefined ? { society_id: Number(societyId) } : {}),
                 },
               },
               select: {
@@ -633,7 +627,7 @@ const User = {
       return false;
     }
 
-    if (societyGroupId !== null && societyGroupId !== undefined && user.role.society_group_id !== Number(societyGroupId)) {
+    if (societyId !== null && societyId !== undefined && user.role.society_id !== Number(societyId)) {
       return false;
     }
 

@@ -166,19 +166,7 @@ async function validateUserSocietyAccess(resourceId, user) {
     return { error: 'User not found' };
   }
 
-  if (user.society_group_id) {
-    const targetSociety = await prisma.society.findUnique({
-      where: { id: targetUser.society_id },
-      select: { society_group_id: true }
-    });
-
-    if (!targetSociety || targetSociety.society_group_id !== user.society_group_id) {
-      return { error: 'Access denied: User does not belong to your society group' };
-    }
-
-    return { resource: targetUser };
-  }
-
+  // Validate that target user belongs to the same society
   if (targetUser.society_id !== Number(user.society_id)) {
     return { error: 'Access denied: resource does not belong to your society' };
   }
@@ -237,7 +225,7 @@ const validateReceiptSocietyAccessMiddleware = async (req, res, next) => {
 };
 
 const validateUserSocietyAccessMiddleware = async (req, res, next) => {
-  if (!req.user?.society_id && !req.user?.society_group_id) {
+  if (!req.user?.society_id) {
     return res.status(401).json({ error: 'Society context not found in token' });
   }
 
@@ -282,10 +270,6 @@ export const validateSocietyAccess = (resourceType) => {
  * Detailed authorization is checked in the service layer
  */
 export const requireDefaultAdmin = (req, res, next) => {
-  if (!req.user?.society_group_id) {
-    return res.status(403).json({ error: 'User must belong to a society group' });
-  }
-
   const permissionKeys = Array.isArray(req.user?.permissions)
     ? req.user.permissions.map((permission) => String(permission).trim())
     : [];

@@ -694,61 +694,31 @@ export const getBossList = async (departmentId, societyId = null) => {
 // Create data from JSON import
 export const createDataFromJson = async (jsonObj) => {
   try {
-    const { users, departments, costCenters, societies, society_group_id, errors } = jsonObj;
+    const { users, departments, costCenters, society_id, errors } = jsonObj;
 
     if (errors.length > 0) {
       return { success: false, message: 'Data extracted with some errors', errors };
     }
 
+    if (!society_id) {
+      return { success: false, message: 'Society ID not provided' };
+    }
+
     // Track created and updated records
     const summary = {
-      societies: { created: [], updated: [], skipped: [] },
       departments: { created: [], updated: [], skipped: [] },
       costCenters: { created: [], updated: [], skipped: [] },
       users: { created: [], updated: [], deactivated: [] }
     };
 
-    // Mapping between JSON society IDs and actual database society IDs
-    const societyIdMap = {};
-
-    // 1: Create or update societies
-    if (societies && societies.length > 0) {
-      for (const society of societies) {
-        const existingSociety = await Society.getSocietyByNameAndGroup(
-          society.description,
-          society_group_id
-        );
-        if (!existingSociety) {
-          // Create new society and map the ID
-          const createdSociety = await Society.createSociety(society);
-          societyIdMap[society.id] = createdSociety.id;
-          summary.societies.created.push(society.description);
-        } else {
-          // Map existing society ID
-          societyIdMap[society.id] = existingSociety.id;
-          // Check if description or currency changed
-          if (existingSociety.description !== society.description
-            || existingSociety.local_currency !== society.local_currency) {
-            await Society.updateSociety(existingSociety.id, {
-              description: society.description,
-              local_currency: society.local_currency
-            });
-            summary.societies.updated.push(society.description);
-          } else {
-            summary.societies.skipped.push(society.description);
-          }
-        }
-      }
-    }
-
-    // 2. Create cost centers
+    // 1. Create cost centers
     for (const cc of costCenters) {
       const existingCC = await Admin.findCostCenterByID(cc.cost_center_id);
       if (!existingCC) {
         await Admin.createCostCenter({
           cost_center_id: cc.cost_center_id,
           cost_center_name: cc.cost_center_name,
-          society_group_id
+          society_id
         });
         summary.costCenters.created.push(cc.cost_center_id);
       } else {
@@ -756,7 +726,7 @@ export const createDataFromJson = async (jsonObj) => {
         if (existingCC.cost_center_name !== cc.cost_center_name) {
           await Admin.updateCostCenter(cc.cost_center_id, {
             cost_center_name: cc.cost_center_name,
-            society_group_id
+            society_id
           });
           summary.costCenters.updated.push({
             cost_center_id: cc.cost_center_id,
@@ -769,17 +739,15 @@ export const createDataFromJson = async (jsonObj) => {
       }
     }
 
-    // 3. Create departments
+    // 2. Create departments
     for (const dept of departments) {
-      const existingDeptId = society_group_id
-        ? await Admin.findDepartmentID(dept.department_name, society_group_id)
-        : await Admin.findDepartmentID(dept.department_name);
+      const existingDeptId = await Admin.findDepartmentID(dept.department_name, society_id);
       if (!existingDeptId) {
         // Department doesn't exist, create it
         await Admin.createDepartment({
           department_name: dept.department_name,
           cost_center_id: dept.cost_center_id || null,
-          society_group_id
+          society_id
         });
         summary.departments.created.push({
           name: dept.department_name,
@@ -793,7 +761,7 @@ export const createDataFromJson = async (jsonObj) => {
           await Admin.updateDepartment(existingDeptId, {
             department_name: dept.department_name,
             cost_center_id: dept.cost_center_id || null,
-            society_group_id
+            society_id
           });
           summary.departments.updated.push({
             name: dept.department_name,
@@ -806,11 +774,11 @@ export const createDataFromJson = async (jsonObj) => {
       }
     }
 
-    // 4. Create users
+    // 3. Create users
     for (const user of users) {
       let boss_id = null;
       if (user.boss_user) {
-        const boss = await User.getUserUsername(user.boss_user, society_group_id);
+        const boss = await User.getUserUsername(user.boss_user);
         if (boss) {
           boss_id = boss.user_id;
         }
@@ -819,39 +787,36 @@ export const createDataFromJson = async (jsonObj) => {
       const encryptedEmail = encrypt(user.email);
       const encryptedPhone = user.phone_number ? encrypt(user.phone_number) : null;
 
-      console.log(`[DEBUG] Usuario: ${user.user_name}, Rol asignado: ${user.role}`);
+      const existingUser = await User.getUserUsername(user.user_name);
 
-      let roleId = society_group_id
-        ? await Admin.findRoleID(user.role, society_group_id)
-        : await Admin.findRoleID(user.role);
+      let roleId = null;
 
-      // If role not found, try to find 'Solicitante' as fallback
-      if (!roleId) {
-        roleId = society_group_id
-          ? await Admin.findRoleID('Solicitante', society_group_id)
-          : await Admin.findRoleID('Solicitante');
+      // For new users, assign default role
+      if (!existingUser) {
+        const defaultRole = await Admin.getDefaultRole(society_id);
+        if (defaultRole) {
+          roleId = defaultRole.role_id;
+          console.log(`[DEBUG] Usuario nuevo ${user.user_name}: Asignando rol default ${defaultRole.name}`);
+        } else {
+          console.error(`[ERROR] No se pudo encontrar rol default para la sociedad ${society_id}`);
+        }
+      } else {
+        // For existing users, keep their current role
+        roleId = existingUser.role_id;
+        console.log(`[DEBUG] Usuario existente ${user.user_name}: Manteniendo rol actual`);
       }
-      
-      // If still not found, log all available roles for debugging
-      if (!roleId) {
-        console.error(`[ERROR] No se pudo encontrar ningún rol para '${user.role}' ni fallback 'Solicitante'`);
-      }
-
-      const existingUser = await User.getUserUsername(user.user_name, society_group_id);
 
       // Build userData
       const userData = {
         role_id: roleId,
-        department_id: society_group_id
-          ? await Admin.findDepartmentID(user.department_name, society_group_id)
-          : await Admin.findDepartmentID(user.department_name),
+        department_id: await Admin.findDepartmentID(user.department_name, society_id),
         user_name: user.user_name,
         workstation: user.workstation,
         email: encryptedEmail,
         phone_number: encryptedPhone,
         boss_id: boss_id,
         active: user.active || true,
-        society_id: societyIdMap[user.society_id] || user.society_id,
+        society_id: society_id,
         supplier: user.supplier || null
       };
 
@@ -859,19 +824,20 @@ export const createDataFromJson = async (jsonObj) => {
         // New user: add password
         const hashedPassword = await hash(user.password);
         userData.password = hashedPassword;
-        
+
         await Admin.createUser(userData);
         summary.users.created.push({
           username: userData.user_name,
-          role: user.role,
+          role: user.role || 'Default',
           department: user.department_name
         });
       } else {
-        // Existing user: update without password
+        // Existing user: update without password, keep role unchanged
+        delete userData.role_id;
         await Admin.updateUser(existingUser.user_id, userData);
         summary.users.updated.push({
           username: userData.user_name,
-          role: user.role,
+          role: user.role || 'Sin cambios',
           department: user.department_name
         });
       }
@@ -882,7 +848,7 @@ export const createDataFromJson = async (jsonObj) => {
     const deptIds = [];
 
     for (const dept of departments) {
-      const deptId = await Admin.findDepartmentID(dept.department_name, society_group_id);
+      const deptId = await Admin.findDepartmentID(dept.department_name, society_id);
       if (deptId) {
         deptIds.push(deptId);
       }
