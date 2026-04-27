@@ -19,7 +19,6 @@ const RequestModel = {
       where: {
         OR: [
           { user_id: Number(userId) },
-          { assigned_to: Number(userId) }
         ],
         society_id: Number(societyId),
         active: true,
