@@ -37,7 +37,7 @@ async function upsertOrderedRecords(prismaModel, items, mapData) {
   }
 }
 
-export async function seedReferenceData(prisma, defaultSocietyGroupId) {
+export async function seedReferenceData(prisma, defaultSocietyId) {
   await upsertOrderedRecords(prisma.role, [
     { role_name: 'Solicitante' },
     { role_name: 'Agencia de viajes' },
@@ -46,16 +46,16 @@ export async function seedReferenceData(prisma, defaultSocietyGroupId) {
     { role_name: 'Administrador' },
     { role_name: 'Superadministrador' },
   ], (item) => ({
-    where: { role_name_society_group_id: { role_name: item.role_name, society_group_id: defaultSocietyGroupId } },
+    where: { role_name_society_id: { role_name: item.role_name, society_id: defaultSocietyId } },
     create: {
       role_name: item.role_name,
-      society_group_id: defaultSocietyGroupId,
+      society_id: defaultSocietyId,
       is_default: item.role_name === 'Solicitante',
       is_system: item.role_name === 'Superadministrador',
     },
     update: {
       role_name: item.role_name,
-      society_group_id: defaultSocietyGroupId,
+      society_id: defaultSocietyId,
       is_default: item.role_name === 'Solicitante',
       is_system: item.role_name === 'Superadministrador',
     },
@@ -150,9 +150,9 @@ export async function seedReferenceData(prisma, defaultSocietyGroupId) {
   ];
 
   await upsertOrderedRecords(prisma.permission, permissions, (item) => ({
-    where: { permission_key_society_group_id: { permission_key: item.permission_key, society_group_id: defaultSocietyGroupId } },
-    create: { ...item, society_group_id: defaultSocietyGroupId },
-    update: { ...item, society_group_id: defaultSocietyGroupId },
+    where: { permission_key_society_id: { permission_key: item.permission_key, society_id: defaultSocietyId } },
+    create: { ...item, society_id: defaultSocietyId },
+    update: { ...item, society_id: defaultSocietyId },
   }));
 
   // Ensure system roles keep an exact, segmented baseline on every seed run.
@@ -216,7 +216,7 @@ export async function seedReferenceData(prisma, defaultSocietyGroupId) {
 
   const roles = await prisma.role.findMany({
     where: {
-      society_group_id: defaultSocietyGroupId,
+      society_id: defaultSocietyId,
       role_name: { in: Object.keys(defaultRolePermissions) },
     },
     select: { role_id: true, role_name: true },
@@ -226,7 +226,7 @@ export async function seedReferenceData(prisma, defaultSocietyGroupId) {
 
   const permissionRows = await prisma.permission.findMany({
     where: {
-      society_group_id: defaultSocietyGroupId,
+      society_id: defaultSocietyId,
       permission_key: { in: permissions.map((permission) => permission.permission_key) },
     },
     select: { permission_id: true, permission_key: true },
@@ -246,7 +246,7 @@ export async function seedReferenceData(prisma, defaultSocietyGroupId) {
           permission_key: {
             notIn: Array.from(allowedPermissionKeys),
           },
-          society_group_id: defaultSocietyGroupId,
+          society_id: defaultSocietyId,
         },
       },
     });
@@ -265,12 +265,12 @@ export async function seedReferenceData(prisma, defaultSocietyGroupId) {
   }
 }
 
-export async function seedAdminAccount(prisma, defaultSocietyGroupId) {
+export async function seedAdminAccount(prisma, defaultSocietyId) {
   const adminRole = await prisma.role.findUnique({
     where: {
-      role_name_society_group_id: {
+      role_name_society_id: {
         role_name: 'Administrador',
-        society_group_id: defaultSocietyGroupId
+        society_id: defaultSocietyId
       }
     }
   });
@@ -278,36 +278,23 @@ export async function seedAdminAccount(prisma, defaultSocietyGroupId) {
     throw new Error('Administrator role must exist before seeding the admin account');
   }
 
-  // Get the default society
-  const defaultSociety = await prisma.society.findFirst({
-    where: {
-      is_default: true,
-      society_group_id: defaultSocietyGroupId
-    },
-    select: { id: true }
-  });
-
-  if (!defaultSociety) {
-    throw new Error('Default society must exist before seeding the admin account');
-  }
-
   const costCenter = await prisma.costCenter.upsert({
-    where: { cost_center_name_society_group_id: { cost_center_name: ADMIN_COST_CENTER_NAME, society_group_id: defaultSocietyGroupId } },
-    create: { cost_center_name: ADMIN_COST_CENTER_NAME, society_group_id: defaultSocietyGroupId },
-    update: { cost_center_name: ADMIN_COST_CENTER_NAME, society_group_id: defaultSocietyGroupId },
+    where: { cost_center_name_society_id: { cost_center_name: ADMIN_COST_CENTER_NAME, society_id: defaultSocietyId } },
+    create: { cost_center_name: ADMIN_COST_CENTER_NAME, society_id: defaultSocietyId },
+    update: { cost_center_name: ADMIN_COST_CENTER_NAME, society_id: defaultSocietyId },
   });
 
   const department = await prisma.department.upsert({
-    where: { department_name_society_group_id: { department_name: ADMIN_DEPARTMENT_NAME, society_group_id: defaultSocietyGroupId } },
+    where: { department_name_society_id: { department_name: ADMIN_DEPARTMENT_NAME, society_id: defaultSocietyId } },
     create: {
       department_name: ADMIN_DEPARTMENT_NAME,
       cost_center_id: costCenter.cost_center_id,
-      society_group_id: defaultSocietyGroupId,
+      society_id: defaultSocietyId,
       active: true,
     },
     update: {
       cost_center_id: costCenter.cost_center_id,
-      society_group_id: defaultSocietyGroupId,
+      society_id: defaultSocietyId,
       active: true,
     },
   });
@@ -320,7 +307,7 @@ export async function seedAdminAccount(prisma, defaultSocietyGroupId) {
     create: {
       role: { connect: { role_id: adminRole.role_id } },
       department: { connect: { department_id: department.department_id } },
-      Society: { connect: { id: defaultSociety.id } },
+      Society: { connect: { id: defaultSocietyId } },
       user_name: ADMIN_USER_NAME,
       password,
       workstation: ADMIN_WORKSTATION,
@@ -340,12 +327,12 @@ export async function seedAdminAccount(prisma, defaultSocietyGroupId) {
   });
 }
 
-export async function seedSuperAdminAccount(prisma, defaultSocietyGroupId) {
+export async function seedSuperAdminAccount(prisma, defaultSocietyId) {
   const superAdminRole = await prisma.role.findUnique({
     where: {
-      role_name_society_group_id: {
+      role_name_society_id: {
         role_name: 'Superadministrador',
-        society_group_id: defaultSocietyGroupId,
+        society_id: defaultSocietyId,
       },
     },
   });
@@ -354,35 +341,23 @@ export async function seedSuperAdminAccount(prisma, defaultSocietyGroupId) {
     throw new Error('Superadministrator role must exist before seeding the superadmin account');
   }
 
-  const defaultSociety = await prisma.society.findFirst({
-    where: {
-      is_default: true,
-      society_group_id: defaultSocietyGroupId,
-    },
-    select: { id: true },
-  });
-
-  if (!defaultSociety) {
-    throw new Error('Default society must exist before seeding the superadmin account');
-  }
-
   const costCenter = await prisma.costCenter.upsert({
-    where: { cost_center_name_society_group_id: { cost_center_name: ADMIN_COST_CENTER_NAME, society_group_id: defaultSocietyGroupId } },
-    create: { cost_center_name: ADMIN_COST_CENTER_NAME, society_group_id: defaultSocietyGroupId },
-    update: { cost_center_name: ADMIN_COST_CENTER_NAME, society_group_id: defaultSocietyGroupId },
+    where: { cost_center_name_society_id: { cost_center_name: ADMIN_COST_CENTER_NAME, society_id: defaultSocietyId } },
+    create: { cost_center_name: ADMIN_COST_CENTER_NAME, society_id: defaultSocietyId },
+    update: { cost_center_name: ADMIN_COST_CENTER_NAME, society_id: defaultSocietyId },
   });
 
   const department = await prisma.department.upsert({
-    where: { department_name_society_group_id: { department_name: ADMIN_DEPARTMENT_NAME, society_group_id: defaultSocietyGroupId } },
+    where: { department_name_society_id: { department_name: ADMIN_DEPARTMENT_NAME, society_id: defaultSocietyId } },
     create: {
       department_name: ADMIN_DEPARTMENT_NAME,
       cost_center_id: costCenter.cost_center_id,
-      society_group_id: defaultSocietyGroupId,
+      society_id: defaultSocietyId,
       active: true,
     },
     update: {
       cost_center_id: costCenter.cost_center_id,
-      society_group_id: defaultSocietyGroupId,
+      society_id: defaultSocietyId,
       active: true,
     },
   });
@@ -395,7 +370,7 @@ export async function seedSuperAdminAccount(prisma, defaultSocietyGroupId) {
     create: {
       role: { connect: { role_id: superAdminRole.role_id } },
       department: { connect: { department_id: department.department_id } },
-      Society: { connect: { id: defaultSociety.id } },
+      Society: { connect: { id: defaultSocietyId } },
       user_name: SUPERADMIN_USER_NAME,
       password,
       workstation: SUPERADMIN_WORKSTATION,

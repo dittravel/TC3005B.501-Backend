@@ -108,7 +108,7 @@ const Applicant = {
             select: {
               department_name: true,
               cost_center_id: true,
-              society_group_id: true,
+              society_id: true,
               CostCenter: {
                 select: {
                   cost_center_name: true,
@@ -123,8 +123,8 @@ const Applicant = {
         return null;
       }
 
-      // Validate society_group_id if provided
-      if (societyGroupId && user.department.society_group_id !== Number(societyGroupId)) {
+      // Validate society_id if provided
+      if (societyGroupId && user.department.society_id !== Number(societyGroupId)) {
         return null;
       }
 
@@ -206,7 +206,7 @@ const Applicant = {
           },
           Society: {
             select: {
-              society_group_id: true,
+              id: true,
             },
           },
         },
@@ -217,7 +217,7 @@ const Applicant = {
       }
 
       const departmentId = role.department_id;
-      const societyGroupId = role.Society?.society_group_id ?? null;
+      const societyGroupId = role.Society?.id ?? null;
       const permissionKeys = new Set(
         (role.role?.Role_Permission || [])
           .map((entry) => entry.Permission?.permission_key)
@@ -235,13 +235,14 @@ const Applicant = {
           travel_type,
           request_days,
           requested_fee,
+          role.society_id,
         );
 
         if (applicableRule) {
           authorizationRuleId = applicableRule.rule_id;
           console.log(`Authorization rule selected: ${applicableRule.rule_name} (ID: ${authorizationRuleId})`);
         } else {
-          const defaultRule = await AuthorizationRuleService.getDefaultRule();
+          const defaultRule = await AuthorizationRuleService.getDefaultRule(role.society_id);
           if (defaultRule) {
             authorizationRuleId = defaultRule.rule_id;
             applicableRule = defaultRule;
@@ -504,7 +505,7 @@ const Applicant = {
             select: {
               Society: {
                 select: {
-                  society_group_id: true,
+                  id: true,
                 },
               },
             },
@@ -512,9 +513,9 @@ const Applicant = {
         },
       });
 
-      return request?.requester?.Society?.society_group_id || null;
+      return request?.requester?.Society?.id || null;
     } catch (error) {
-      console.error("Error getting request society_group_id:", error);
+      console.error("Error getting request society_id:", error);
       throw error;
     }
   },

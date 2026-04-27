@@ -53,7 +53,7 @@ const completeServiceAssignment = async (request_id, user_id) => {
     }
 
     // Get Accounts Payable user from same department
-    const accountsPayable = await User.getRandomUserByPermissions(ACCOUNTS_PAYABLE_PERMISSIONS, travelAgentUser.department_id, travelAgentUser.society_group_id);
+    const accountsPayable = await User.getRandomUserByPermissions(ACCOUNTS_PAYABLE_PERMISSIONS, travelAgentUser.department_id, travelAgentUser.society_id);
     if (!accountsPayable) {
       throw {
         status: 500,

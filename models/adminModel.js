@@ -81,7 +81,7 @@ const ensureSocietyGroupExists = async (societyGroupId) => {
   return id;
 };
 
-const findOrCreatePermissionId = async (permissionValue, societyGroupId) => {
+const findOrCreatePermissionId = async (permissionValue, societyId) => {
   const normalizedPermissionValue = String(permissionValue || '').trim();
   if (!normalizedPermissionValue) {
     throw new Error('Invalid permission value provided');
@@ -94,7 +94,7 @@ const findOrCreatePermissionId = async (permissionValue, societyGroupId) => {
 
   const existingPermission = await prisma.permission.findFirst({
     where: {
-      society_group_id: societyGroupId,
+      society_id: societyId,
       OR: [
         { permission_key: normalizedPermissionValue },
         { permission_name: normalizedPermissionValue },
@@ -115,7 +115,7 @@ const findOrCreatePermissionId = async (permissionValue, societyGroupId) => {
       module: 'custom',
       action: 'custom',
       description: `Permission ${normalizedPermissionValue}`,
-      society_group_id: societyGroupId,
+      society_id: societyId,
     },
     select: { permission_id: true },
   });
@@ -205,13 +205,13 @@ const Admin = {
   },
     
   // Find role ID by role name
-  async findRoleID(role_name, society_group_id = null) {
+  async findRoleID(role_name, society_id = null) {
     try {
       const role = await prisma.role.findUnique({
         where: {
-          role_name_society_group_id: {
+          role_name_society_id: {
             role_name,
-            society_group_id
+            society_id
           }
         },
         select: { role_id: true }
@@ -234,15 +234,15 @@ const Admin = {
     });
   },
   
-  // Find department ID by department name and society_group_id
-  async findDepartmentID(department_name, society_group_id = null) {
+  // Find department ID by department name and society_id
+  async findDepartmentID(department_name, society_id = null) {
     try {
-      const department = society_group_id !== null && society_group_id !== undefined
+      const department = society_id !== null && society_id !== undefined
         ? await prisma.department.findUnique({
             where: {
-              department_name_society_group_id: {
+              department_name_society_id: {
                 department_name,
-                society_group_id
+                society_id
               }
             },
             select: { department_id: true }
@@ -409,7 +409,7 @@ const Admin = {
     const superadminRole = await prisma.role.findFirst({
       where: {
         role_name: SUPERADMIN_ROLE_NAME,
-        society_group_id: Number(requester.society_group_id),
+        society_id: Number(requester.society_id),
       },
       select: { role_id: true },
     });
@@ -450,29 +450,17 @@ const Admin = {
   },
 
   // Get departments
-  async getDepartments(societyGroupId = null, societyId = null) {
+  async getDepartments(societyId = null) {
     try {
       const where = {};
 
       if (societyId) {
-        // Departments are scoped by society group, so resolve the group's id from the selected society.
-        const society = await prisma.society.findUnique({
-          where: { id: Number(societyId) },
-          select: { society_group_id: true },
-        });
-
-        if (!society?.society_group_id) {
-          return [];
-        }
-
-        where.society_group_id = Number(society.society_group_id);
-      } else if (societyGroupId) {
-        where.society_group_id = Number(societyGroupId);
+        where.society_id = Number(societyId);
       }
 
       const departments = await prisma.department.findMany({
         where,
-        select: { department_id: true, department_name: true, society_group_id: true }
+        select: { department_id: true, department_name: true, society_id: true }
       });
       return departments;
     } catch (error) {
@@ -482,9 +470,9 @@ const Admin = {
   },
 
   // Get roles with their permissions
-  async getRoles(societyGroupId = null, societyId = null, requester = null) {
+  async getRoles(societyId = null, requester = null) {
     try {
-      const where = societyGroupId ? { society_group_id: Number(societyGroupId) } : {};
+      const where = societyId ? { society_id: Number(societyId) } : {};
 
       if (societyId) {
         where.OR = [
@@ -526,7 +514,7 @@ const Admin = {
   },
 
   // Get role details by ID, including assigned permissions
-  async getRoleById(roleId, societyGroupId = null, societyId = null, requester = null) {
+  async getRoleById(roleId, societyId = null, requester = null) {
     const id = Number(roleId);
     const role = await prisma.role.findUnique({
       where: { role_id: id },
@@ -550,7 +538,7 @@ const Admin = {
       throw new Error('Unauthorized: Role is restricted');
     }
 
-    if (societyGroupId && role.society_group_id !== Number(societyGroupId)) {
+    if (societyId && role.society_id !== Number(societyId)) {
       throw new Error('Unauthorized: Role does not belong to your society group');
     }
 
@@ -570,9 +558,9 @@ const Admin = {
     };
   },
 
-  async getDefaultRole(societyGroupId = null, societyId = null, requester = null) {
-    const where = societyGroupId
-      ? { society_group_id: Number(societyGroupId), is_default: true }
+  async getDefaultRole(societyId = null, requester = null) {
+    const where = societyId
+      ? { society_id: Number(societyId), is_default: true }
       : { is_default: true };
 
     where.role_name = { not: SUPERADMIN_ROLE_NAME };
@@ -609,8 +597,8 @@ const Admin = {
       };
     }
 
-    const fallbackWhere = societyGroupId
-      ? { society_group_id: Number(societyGroupId), role_name: 'Solicitante' }
+    const fallbackWhere = societyId
+      ? { society_id: Number(societyId), role_name: 'Solicitante' }
       : { role_name: 'Solicitante' };
 
     const fallback = await prisma.role.findFirst({
@@ -633,7 +621,7 @@ const Admin = {
     };
   },
 
-  async setDefaultRole(roleId, societyGroupId = null, societyId = null, requester = null) {
+  async setDefaultRole(roleId, societyId = null, requester = null) {
     const id = Number(roleId);
     const requesterIsSuperAdmin = isRequesterSuperAdmin(requester);
     const role = await prisma.role.findUnique({
@@ -643,16 +631,11 @@ const Admin = {
         role_name: true,
         is_system: true,
         society_id: true,
-        society_group_id: true,
       },
     });
 
     if (!role) {
       return false;
-    }
-
-    if (societyGroupId && role.society_group_id !== Number(societyGroupId)) {
-      throw new Error('Unauthorized: Role does not belong to your society group');
     }
 
     if (!requesterIsSuperAdmin && (role.role_name === SUPERADMIN_ROLE_NAME || role.is_system)) {
@@ -679,12 +662,12 @@ const Admin = {
       }
     }
 
-    const targetSocietyGroupId = societyGroupId ? Number(societyGroupId) : role.society_group_id;
+    const targetSocietyId = societyId ? Number(societyId) : role.society_id;
 
     await prisma.$transaction([
       prisma.role.updateMany({
         where: {
-          society_group_id: targetSocietyGroupId,
+          society_id: targetSocietyId,
           is_default: true,
         },
         data: { is_default: false },
@@ -699,8 +682,7 @@ const Admin = {
   },
 
   // Create role and optionally assign permissions
-  async createRole(roleData, societyGroupId = null, _societyId = null, requester = null) {
-    const validSocietyGroupId = await ensureSocietyGroupExists(societyGroupId);
+  async createRole(roleData, _societyId = null, requester = null) {
     const validSocietyId = _societyId ? Number(_societyId) : null;
     const requesterIsSuperAdmin = isRequesterSuperAdmin(requester);
 
@@ -716,7 +698,6 @@ const Admin = {
       data: {
         role_name: roleData.name,
         description: roleData.description || null,
-        society_group_id: validSocietyGroupId,
         society_id: validSocietyId,
         active: true,
         is_system: false,
@@ -728,7 +709,7 @@ const Admin = {
       const permissionIds = [];
 
       for (const name of permissionNames) {
-        const permissionId = await findOrCreatePermissionId(name, validSocietyGroupId);
+        const permissionId = await findOrCreatePermissionId(name, validSocietyId);
         permissionIds.push(permissionId);
       }
 
@@ -745,9 +726,8 @@ const Admin = {
   },
 
   // Update role and replace its permissions
-  async updateRole(roleId, roleData, societyGroupId = null, societyId = null, requester = null) {
+  async updateRole(roleId, roleData, societyId = null, requester = null) {
     const id = Number(roleId);
-    const validSocietyGroupId = await ensureSocietyGroupExists(societyGroupId);
     const requesterIsSuperAdmin = isRequesterSuperAdmin(requester);
     const existingRole = await prisma.role.findUnique({ where: { role_id: id } });
     if (!existingRole) return null;
@@ -762,10 +742,6 @@ const Admin = {
 
     if (!requesterIsSuperAdmin && containsRestrictedManagementPermission(roleData?.permissions)) {
       throw new Error('Unauthorized: cannot assign restricted management permissions');
-    }
-
-    if (validSocietyGroupId && existingRole.society_group_id !== validSocietyGroupId) {
-      throw new Error('Unauthorized: Role does not belong to your society group');
     }
 
     if (societyId) {
@@ -803,7 +779,7 @@ const Admin = {
       const permissionIds = [];
 
       for (const name of permissionNames) {
-        const permissionId = await findOrCreatePermissionId(name, validSocietyGroupId);
+        const permissionId = await findOrCreatePermissionId(name, existingRole.society_id);
         permissionIds.push(permissionId);
       }
 
@@ -820,7 +796,7 @@ const Admin = {
   },
 
   // Delete role after checking dependencies
-  async deleteRole(roleId, societyGroupId = null, societyId = null, requester = null) {
+  async deleteRole(roleId, societyId = null, requester = null) {
     const id = Number(roleId);
     const requesterIsSuperAdmin = isRequesterSuperAdmin(requester);
     const role = await prisma.role.findUnique({ where: { role_id: id } });
@@ -828,10 +804,6 @@ const Admin = {
 
     if (!requesterIsSuperAdmin && (role.role_name === SUPERADMIN_ROLE_NAME || role.is_system)) {
       throw new Error('Unauthorized: Role is restricted');
-    }
-
-    if (societyGroupId && role.society_group_id !== Number(societyGroupId)) {
-      throw new Error('Unauthorized: Role does not belong to your society group');
     }
 
     if (societyId) {
@@ -866,7 +838,7 @@ const Admin = {
   },
 
   // Get an auth rule by ID
-  async getAuthRuleById(ruleId, societyGroupId = null, societyId = null) {
+  async getAuthRuleById(ruleId, societyId = null) {
     try {
       const id = Number(ruleId);
       const rule = await prisma.authorizationRule.findUnique({
@@ -885,21 +857,8 @@ const Admin = {
 
       if (!rule) return null;
 
-      if (societyGroupId && rule.society_group_id !== Number(societyGroupId)) {
-        throw new Error('Unauthorized: Rule does not belong to your society group');
-      }
-
-      if (societyId) {
-        const requestCountInSociety = await prisma.request.count({
-          where: {
-            authorization_rule_id: id,
-            society_id: Number(societyId),
-          },
-        });
-
-        if (requestCountInSociety === 0) {
-          throw new Error('Unauthorized: Rule is not assigned in your society');
-        }
+      if (societyId && rule.society_id !== null && rule.society_id !== Number(societyId)) {
+        throw new Error('Unauthorized: Rule does not belong to your society');
       }
 
       return rule;
@@ -910,22 +869,14 @@ const Admin = {
   },
 
   // Get auth rules
-  async getAuthRules(societyGroupId = null, societyId = null) {
+  async getAuthRules(societyId = null) {
     try {
-      const where = societyGroupId ? { society_group_id: Number(societyGroupId) } : {};
+      const where = {};
 
       if (societyId) {
         where.OR = [
-          {
-            Request: {
-              some: {
-                society_id: Number(societyId),
-              },
-            },
-          },
-          {
-            is_default: true,
-          },
+          { society_id: Number(societyId) },
+          { society_id: null },
         ];
       }
 
@@ -950,7 +901,7 @@ const Admin = {
   },
 
   // Create auth rule
-  async createAuthRule(ruleData, societyGroupId = null, _societyId = null) {
+  async createAuthRule(ruleData, _societyId = null) {
     try {
       // Step 1: Create the new authorization rule
       const rule = await prisma.authorizationRule.create({
@@ -964,7 +915,7 @@ const Admin = {
           max_duration: ruleData.max_duration,
           min_amount: ruleData.min_amount,
           max_amount: ruleData.max_amount,
-          society_group_id: societyGroupId ? Number(societyGroupId) : null,
+          society_id: _societyId ? Number(_societyId) : null,
           levels: {
             create: (Array.isArray(ruleData.levels) ? ruleData.levels : []).map(level => ({
               level_number: level.level_number,
@@ -987,23 +938,20 @@ const Admin = {
   },
 
   // Update auth rule
-  async updateAuthRule(ruleId, ruleData, societyGroupId = null, societyId = null) {
+  async updateAuthRule(ruleId, ruleData, societyId = null) {
     try {
       const id = Number(ruleId);
 
-      // Validate society_group_id if provided
-      if (societyGroupId) {
+      if (societyId) {
         const rule = await prisma.authorizationRule.findUnique({
           where: { rule_id: id },
-          select: { society_group_id: true }
+          select: { society_id: true }
         });
 
-        if (rule && rule.society_group_id !== Number(societyGroupId)) {
-          throw new Error('Unauthorized: Rule does not belong to your society group');
+        if (rule && rule.society_id && rule.society_id !== Number(societyId)) {
+          throw new Error('Unauthorized: Rule does not belong to your society');
         }
-      }
 
-      if (societyId) {
         const requestCountOutsideSociety = await prisma.request.count({
           where: {
             authorization_rule_id: id,
@@ -1062,23 +1010,20 @@ const Admin = {
   },
 
   // Delete auth rule
-  async deleteAuthRule(ruleId, societyGroupId = null, societyId = null) {
+  async deleteAuthRule(ruleId, societyId = null) {
     try {
       const id = Number(ruleId);
 
-      // Validate society_group_id if provided
-      if (societyGroupId) {
+      if (societyId) {
         const rule = await prisma.authorizationRule.findUnique({
           where: { rule_id: id },
-          select: { society_group_id: true }
+          select: { society_id: true }
         });
 
-        if (rule && rule.society_group_id !== Number(societyGroupId)) {
-          throw new Error('Unauthorized: Rule does not belong to your society group');
+        if (rule && rule.society_id && rule.society_id !== Number(societyId)) {
+          throw new Error('Unauthorized: Rule does not belong to your society');
         }
-      }
 
-      if (societyId) {
         const requestCountOutsideSociety = await prisma.request.count({
           where: {
             authorization_rule_id: id,
@@ -1107,20 +1052,18 @@ const Admin = {
 
   // Get boss list for a department.
   // A boss is any active user in the department whose role can approve/reject travel.
-  async getBossList(departmentId, societyGroupId = null, societyId = null) {
+  async getBossList(departmentId, societyId = null) {
     try {
       const scopeWhere = {};
       if (societyId) {
         scopeWhere.society_id = Number(societyId);
-      } else if (societyGroupId) {
-        scopeWhere.Society = { society_group_id: Number(societyGroupId) };
       }
 
-      const permissionScope = societyGroupId
+      const permissionScope = societyId
         ? {
             OR: [
-              { society_group_id: Number(societyGroupId) },
-              { society_group_id: null },
+              { society_id: Number(societyId) },
+              { society_id: null },
             ],
           }
         : {};
@@ -1165,7 +1108,7 @@ const Admin = {
         data: {
           department_name: departmentData.department_name,
           cost_center_id: departmentData.cost_center_id ?? null,
-          society_group_id: departmentData.society_group_id ?? null
+          society_id: departmentData.society_id ?? null
         }
       });
     } catch (error) {
@@ -1182,7 +1125,7 @@ const Admin = {
         data: {
           department_name: departmentData.department_name,
           cost_center_id: departmentData.cost_center_id ?? null,
-          ...(departmentData.society_group_id !== undefined && { society_group_id: departmentData.society_group_id })
+          ...(departmentData.society_id !== undefined && { society_id: departmentData.society_id })
         }
       });
     } catch (error) {
@@ -1196,7 +1139,7 @@ const Admin = {
     try {
       const dept = await prisma.department.findUnique({
         where: { department_id: departmentId },
-        select: { department_id: true, department_name: true, cost_center_id: true, society_group_id: true }
+        select: { department_id: true, department_name: true, cost_center_id: true, society_id: true }
       });
       return dept;
     } catch (error) {
@@ -1241,7 +1184,7 @@ const Admin = {
         where: { cost_center_id },
         data: {
           cost_center_name: costCenterData.cost_center_name,
-          ...(costCenterData.society_group_id !== undefined && { society_group_id: costCenterData.society_group_id })
+          ...(costCenterData.society_id !== undefined && { society_id: costCenterData.society_id })
         }
       });
     } catch (error) {
@@ -1255,7 +1198,7 @@ const Admin = {
     try {
       const data = {
         cost_center_name: costCenterData.cost_center_name,
-        society_group_id: costCenterData.society_group_id ?? null
+        society_id: costCenterData.society_id ?? null
       };
 
       // If cost_center_id is provided, use it (manual ID).

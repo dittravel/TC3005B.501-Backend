@@ -449,18 +449,18 @@ const DUMMY_RECEIPTS = [
 async function seedDummyCostCenters() {
   console.log('Creating dummy cost centers...');
 
-  // Get all society groups
-  const societyGroups = await prisma.societyGroup.findMany({
+  // Get all societies
+  const societies = await prisma.society.findMany({
     select: { id: true },
   });
 
-  // Create cost centers for each society group
-  for (const societyGroup of societyGroups) {
+  // Create cost centers for each society
+  for (const society of societies) {
     for (const cost_center_name of COST_CENTER_NAMES) {
       await prisma.costCenter.upsert({
-        where: { cost_center_name_society_group_id: { cost_center_name, society_group_id: societyGroup.id } },
-        create: { cost_center_name, society_group_id: societyGroup.id },
-        update: { cost_center_name, society_group_id: societyGroup.id },
+        where: { cost_center_name_society_id: { cost_center_name, society_id: society.id } },
+        create: { cost_center_name, society_id: society.id },
+        update: { cost_center_name, society_id: society.id },
       });
     }
   }
@@ -469,16 +469,16 @@ async function seedDummyCostCenters() {
 async function seedDummyDepartments() {
   console.log('Creating dummy departments...');
 
-  // Get all society groups
-  const societyGroups = await prisma.societyGroup.findMany({
+  // Get all societies
+  const societies = await prisma.society.findMany({
     select: { id: true },
   });
 
-  // Create departments for each society group
-  for (const societyGroup of societyGroups) {
+  // Create departments for each society
+  for (const society of societies) {
     for (const department of DEPARTMENT_NAMES) {
       const costCenter = await prisma.costCenter.findUnique({
-        where: { cost_center_name_society_group_id: { cost_center_name: department.costCenter, society_group_id: societyGroup.id } },
+        where: { cost_center_name_society_id: { cost_center_name: department.costCenter, society_id: society.id } },
         select: { cost_center_id: true },
       });
 
@@ -487,16 +487,16 @@ async function seedDummyDepartments() {
       }
 
       await prisma.department.upsert({
-        where: { department_name_society_group_id: { department_name: department.name, society_group_id: societyGroup.id } },
+        where: { department_name_society_id: { department_name: department.name, society_id: society.id } },
         create: {
           department_name: department.name,
           cost_center_id: costCenter.cost_center_id,
-          society_group_id: societyGroup.id,
+          society_id: society.id,
           active: department.active,
         },
         update: {
           cost_center_id: costCenter.cost_center_id,
-          society_group_id: societyGroup.id,
+          society_id: society.id,
           active: department.active,
         },
       });
@@ -530,20 +530,12 @@ async function seedDummyUsers() {
   console.log('Creating hardcoded dummy users...');
 
   for (const userData of DUMMY_USERS) {
-    // Find the society_group_id based on the user's society_id
-    const society = await prisma.society.findUnique({
-      where: { id: userData.society_id },
-      select: { society_group_id: true },
-    });
-
-    const societyGroupId = society?.society_group_id || 1;
-
     const role = await prisma.role.findUnique({
-      where: { role_name_society_group_id: { role_name: userData.role_name, society_group_id: societyGroupId } },
+      where: { role_name_society_id: { role_name: userData.role_name, society_id: userData.society_id } },
       select: { role_id: true },
     });
     const department = await prisma.department.findUnique({
-      where: { department_name_society_group_id: { department_name: userData.department_name, society_group_id: societyGroupId } },
+      where: { department_name_society_id: { department_name: userData.department_name, society_id: userData.society_id } },
       select: { department_id: true },
     });
 
@@ -972,7 +964,7 @@ const requestsData = [
         max_duration: 5,
         min_amount: 0,
         max_amount: 5000.0,
-        society_group_id: 1,
+        society_id: 1,
       },
     });
 
@@ -1083,7 +1075,7 @@ async function seedDummySocieties() {
 }
 
 async function seedDummyRoles() {
-  console.log('Creating dummy roles for society groups...');
+  console.log('Creating dummy roles for societies...');
   const ROLE_NAMES = [
     'Solicitante',
     'Agencia de viajes',
@@ -1092,45 +1084,43 @@ async function seedDummyRoles() {
     'Administrador',
   ];
 
-  // Get all society groups except 'Default'
-  const societyGroups = await prisma.societyGroup.findMany({
-    where: { description: { not: 'Default' } },
-    select: { id: true, description: true },
-  });
-
-  // Create roles for each society group
-  for (const societyGroup of societyGroups) {
-    for (const role_name of ROLE_NAMES) {
-      await prisma.role.upsert({
-        where: { role_name_society_group_id: { role_name, society_group_id: societyGroup.id } },
-        create: { role_name, society_group_id: societyGroup.id },
-        update: { role_name, society_group_id: societyGroup.id },
-      });
-    }
-  }
-  console.log('Created roles for all society groups');
-}
-
-async function seedReferenceDataForDummySocietyGroups() {
-  console.log('Creating permissions and role-permission mappings for dummy society groups...');
-
-  const societyGroups = await prisma.societyGroup.findMany({
-    where: { description: { not: 'Default' } },
+  // Get all societies
+  const societies = await prisma.society.findMany({
     select: { id: true },
   });
 
-  for (const societyGroup of societyGroups) {
-    await seedReferenceData(prisma, societyGroup.id);
+  // Create roles for each society
+  for (const society of societies) {
+    for (const role_name of ROLE_NAMES) {
+      await prisma.role.upsert({
+        where: { role_name_society_id: { role_name, society_id: society.id } },
+        create: { role_name, society_id: society.id },
+        update: { role_name, society_id: society.id },
+      });
+    }
+  }
+  console.log('Created roles for all societies');
+}
+
+async function seedReferenceDataForDummySocieties() {
+  console.log('Creating permissions and role-permission mappings for dummy societies...');
+
+  const societies = await prisma.society.findMany({
+    select: { id: true },
+  });
+
+  for (const society of societies) {
+    await seedReferenceData(prisma, society.id);
   }
 
-  console.log(`Permissions and role mappings seeded for ${societyGroups.length} dummy society groups`);
+  console.log(`Permissions and role mappings seeded for ${societies.length} dummy societies`);
 }
 
 async function seedDummyLocationsAndUsers() {
   await seedDummySocietyGroups();
   await seedDummySocieties();
   await seedDummyRoles();
-  await seedReferenceDataForDummySocietyGroups();
+  await seedReferenceDataForDummySocieties();
   await seedDummyCostCenters();
   await seedDummyDepartments();
   await seedDummyCountries();

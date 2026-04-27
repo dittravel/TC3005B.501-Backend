@@ -10,7 +10,7 @@ const RefundPolicyModel = {
   async getPolicyList(societyGroupId, _societyId = null) {
     return prisma.refundPolicy.findMany({
       where: { 
-        society_group_id: societyGroupId,
+        society_id: societyGroupId,
         active: true
       },
       orderBy: { created_at: 'desc' }
@@ -24,7 +24,7 @@ const RefundPolicyModel = {
 
     if (!policy) return null;
 
-    if (societyGroupId && policy.society_group_id !== Number(societyGroupId)) {
+    if (societyGroupId && policy.society_id !== Number(societyGroupId)) {
       throw new Error('Unauthorized: Policy does not belong to your society group');
     }
 
@@ -34,7 +34,7 @@ const RefundPolicyModel = {
   async getActivePolicy(societyGroupId) {
     return prisma.refundPolicy.findFirst({
       where: {
-        society_group_id: societyGroupId,
+        society_id: societyGroupId,
         active: true
       }
     });
@@ -47,7 +47,7 @@ const RefundPolicyModel = {
         min_amount: policyData.min_amount,
         max_amount: policyData.max_amount,
         submission_deadline_days: policyData.submission_deadline_days,
-        society_group_id: policyData.society_group_id,
+        society_id: policyData.society_id,
         is_default: false,
         active: true
       }
@@ -57,14 +57,14 @@ const RefundPolicyModel = {
   async updatePolicy(policyId, policyData, societyGroupId = null, _societyId = null) {
     const current = await prisma.refundPolicy.findUnique({
       where: { policy_id: parseInt(policyId, 10) },
-      select: { policy_id: true, society_group_id: true },
+      select: { policy_id: true, society_id: true },
     });
 
     if (!current) {
       throw new Error('Policy not found');
     }
 
-    if (societyGroupId && current.society_group_id !== Number(societyGroupId)) {
+    if (societyGroupId && current.society_id !== Number(societyGroupId)) {
       throw new Error('Unauthorized: Policy does not belong to your society group');
     }
 
@@ -82,14 +82,14 @@ const RefundPolicyModel = {
   async deactivatePolicy(policyId, societyGroupId = null, _societyId = null) {
     const current = await prisma.refundPolicy.findUnique({
       where: { policy_id: parseInt(policyId, 10) },
-      select: { policy_id: true, society_group_id: true },
+      select: { policy_id: true, society_id: true },
     });
 
     if (!current) {
       throw new Error('Policy not found');
     }
 
-    if (societyGroupId && current.society_group_id !== Number(societyGroupId)) {
+    if (societyGroupId && current.society_id !== Number(societyGroupId)) {
       throw new Error('Unauthorized: Policy does not belong to your society group');
     }
 

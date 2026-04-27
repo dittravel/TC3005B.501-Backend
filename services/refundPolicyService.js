@@ -21,8 +21,8 @@ const RefundPolicyService = {
   },
 
   async createPolicy(policyData) {
-    if (!policyData.policy_name || !policyData.min_amount || !policyData.max_amount || !policyData.society_group_id) {
-      throw new Error("Missing required fields: policy_name, min_amount, max_amount, society_group_id");
+    if (!policyData.policy_name || !policyData.min_amount || !policyData.max_amount || !policyData.society_id) {
+      throw new Error("Missing required fields: policy_name, min_amount, max_amount, society_id");
     }
 
     if (policyData.min_amount >= policyData.max_amount) {
@@ -72,7 +72,7 @@ const RefundPolicyService = {
         creation_date: true,
         Society: {
           select: {
-            society_group_id: true,
+            id: true,
           },
         },
         Route_Request: {
@@ -93,8 +93,8 @@ const RefundPolicyService = {
       throw error;
     }
 
-    const societyGroupId = request.Society?.society_group_id;
-    if (!societyGroupId) {
+    const societyId = request.Society?.id;
+    if (!societyId) {
       return {
         request_id: request.request_id,
         is_open: true,
@@ -104,7 +104,7 @@ const RefundPolicyService = {
       };
     }
 
-    const policy = await this.getActivePolicy(societyGroupId);
+    const policy = await this.getActivePolicy(societyId);
     const deadlineDays = policy?.submission_deadline_days;
 
     if (!deadlineDays || deadlineDays <= 0) {

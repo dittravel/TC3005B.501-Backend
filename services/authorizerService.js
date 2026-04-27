@@ -87,7 +87,7 @@ const authorizeRequest = async (request_id, user_id, options = {}) => {
       
       if (needsTravelAgent) {
         // Trip requires flights or hotels: assign to Travel Agent
-        const travelAgent = await User.getRandomUserByPermissions(TRAVEL_AGENT_PERMISSIONS, requesterUser.department_id, requesterUser.society_group_id);
+        const travelAgent = await User.getRandomUserByPermissions(TRAVEL_AGENT_PERMISSIONS, requesterUser.department_id, requesterUser.society_id);
         if (!travelAgent) {
           throw {
             status: 500,
@@ -98,7 +98,7 @@ const authorizeRequest = async (request_id, user_id, options = {}) => {
         new_status_id = 4; // Agency travel
       } else {
         // Trip doesn't require flights or hotels: assign to Accounts Payable
-        const accountsPayable = await User.getRandomUserByPermissions(ACCOUNTS_PAYABLE_PERMISSIONS, requesterUser.department_id, requesterUser.society_group_id);
+        const accountsPayable = await User.getRandomUserByPermissions(ACCOUNTS_PAYABLE_PERMISSIONS, requesterUser.department_id, requesterUser.society_id);
         if (!accountsPayable) {
           throw { 
             status: 500, 
@@ -118,7 +118,7 @@ const authorizeRequest = async (request_id, user_id, options = {}) => {
           const bossCanApprove = await User.userHasAnyPermission(
             bossId,
             ['travel:approve', 'travel:reject'],
-            requesterUser.society_group_id,
+            requesterUser.society_id,
           );
 
           if (bossCanApprove) {
@@ -128,11 +128,11 @@ const authorizeRequest = async (request_id, user_id, options = {}) => {
             // Boss cannot approve, route to next step (Travel Agent or Accounts Payable)
             const needsTravelAgent = await Authorizer.requiresTravelAgencyServices(request_id);
             if (needsTravelAgent) {
-              const travelAgent = await User.getRandomUserByPermissions(TRAVEL_AGENT_PERMISSIONS, requesterUser.department_id, requesterUser.society_group_id);
+              const travelAgent = await User.getRandomUserByPermissions(TRAVEL_AGENT_PERMISSIONS, requesterUser.department_id, requesterUser.society_id);
               new_assigned_to = travelAgent ? travelAgent.user_id : null;
               new_status_id = 4;
             } else {
-              const accountsPayable = await User.getRandomUserByPermissions(ACCOUNTS_PAYABLE_PERMISSIONS, requesterUser.department_id, requesterUser.society_group_id);
+              const accountsPayable = await User.getRandomUserByPermissions(ACCOUNTS_PAYABLE_PERMISSIONS, requesterUser.department_id, requesterUser.society_id);
               new_assigned_to = accountsPayable ? accountsPayable.user_id : null;
               new_status_id = 3;
             }
@@ -141,11 +141,11 @@ const authorizeRequest = async (request_id, user_id, options = {}) => {
           // No boss found, route to Travel Agent or Accounts Payable
           const needsTravelAgent = await Authorizer.requiresTravelAgencyServices(request_id);
           if (needsTravelAgent) {
-            const travelAgent = await User.getRandomUserByPermissions(TRAVEL_AGENT_PERMISSIONS, requesterUser.department_id, requesterUser.society_group_id);
+            const travelAgent = await User.getRandomUserByPermissions(TRAVEL_AGENT_PERMISSIONS, requesterUser.department_id, requesterUser.society_id);
             new_assigned_to = travelAgent ? travelAgent.user_id : null;
             new_status_id = 4;
           } else {
-            const accountsPayable = await User.getRandomUserByPermissions(ACCOUNTS_PAYABLE_PERMISSIONS, requesterUser.department_id, requesterUser.society_group_id);
+            const accountsPayable = await User.getRandomUserByPermissions(ACCOUNTS_PAYABLE_PERMISSIONS, requesterUser.department_id, requesterUser.society_id);
             new_assigned_to = accountsPayable ? accountsPayable.user_id : null;
             new_status_id = 3;
           }
@@ -169,7 +169,7 @@ const authorizeRequest = async (request_id, user_id, options = {}) => {
           nextRuleLevel,
           request.user_id, // requester (original applicant)
           requesterUser.department_id,
-          requesterUser.society_group_id
+          requesterUser.society_id
         );
 
         if (!new_assigned_to) {

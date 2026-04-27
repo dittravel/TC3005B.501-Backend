@@ -79,12 +79,12 @@ async function assertDepartmentScopeAllowed(departmentId, actor = null) {
   }
 
   if (
-    department.society_group_id !== null &&
-    actor?.society_group_id !== null &&
-    actor?.society_group_id !== undefined &&
-    Number(department.society_group_id) !== Number(actor.society_group_id)
+    department.society_id !== null &&
+    actor?.society_id !== null &&
+    actor?.society_id !== undefined &&
+    Number(department.society_id) !== Number(actor.society_id)
   ) {
-    throw { status: 403, message: 'No puedes asignar departamentos fuera de tu grupo de sociedades' };
+    throw { status: 403, message: 'No puedes asignar departamentos fuera de tu sociedad' };
   }
 }
 
@@ -241,7 +241,6 @@ const getForeignKeyValues = async (rowData, rowNumber, options = {}) => {
   const rowErrors = [];
   let userData = {...rowData};
   const actor = options?.actor || null;
-  const scopedSocietyGroupId = actor?.society_group_id ? Number(actor.society_group_id) : null;
   let effectiveSocietyId = null;
 
   try {
@@ -254,7 +253,7 @@ const getForeignKeyValues = async (rowData, rowNumber, options = {}) => {
   }
 
   try {
-    const roleId = await Admin.findRoleID(userData.role_name, scopedSocietyGroupId);
+    const roleId = await Admin.findRoleID(userData.role_name, effectiveSocietyId);
     if (roleId === null) {
       rowErrors.push(`Invalid role name: '${userData.role_name}'`);
     } else {
@@ -262,7 +261,7 @@ const getForeignKeyValues = async (rowData, rowNumber, options = {}) => {
       userData.role_id = roleId;
     }
 
-    const departmentId = await Admin.findDepartmentID(userData.department_name, scopedSocietyGroupId);
+    const departmentId = await Admin.findDepartmentID(userData.department_name, effectiveSocietyId);
     if (departmentId === null) {
       rowErrors.push (`Invalid department name: '${userData.department_name}'`);
     } else {
@@ -537,9 +536,9 @@ export const updateUserData = async (userId, newUserData, options = {}) => {
 };
 
 // Get list of departments
-export const getDepartments = async (societyGroupId = null, societyId = null) => {
+export const getDepartments = async (societyId = null) => {
   try {
-    const departments = await Admin.getDepartments(societyGroupId, societyId);
+    const departments = await Admin.getDepartments(societyId);
     return departments;
   } catch (error) {
     throw new Error(`Error fetching departments: ${error.message}`);
@@ -547,9 +546,9 @@ export const getDepartments = async (societyGroupId = null, societyId = null) =>
 }
 
 // Get list of roles
-export const getRoles = async (societyGroupId = null, societyId = null, requester = null) => {
+export const getRoles = async (societyId = null, requester = null) => {
   try {
-    const roles = await Admin.getRoles(societyGroupId, societyId, requester);
+    const roles = await Admin.getRoles(societyId, requester);
     return roles;
   } catch (error) {
     throw new Error(`Error fetching roles: ${error.message}`);
@@ -557,9 +556,9 @@ export const getRoles = async (societyGroupId = null, societyId = null, requeste
 }
 
 // Get role details by ID
-export const getRoleById = async (roleId, societyGroupId = null, societyId = null, requester = null) => {
+export const getRoleById = async (roleId, societyId = null, requester = null) => {
   try {
-    const role = await Admin.getRoleById(roleId, societyGroupId, societyId, requester);
+    const role = await Admin.getRoleById(roleId, societyId, requester);
     return role;
   } catch (error) {
     throw new Error(`Error fetching role: ${error.message}`);
@@ -567,9 +566,9 @@ export const getRoleById = async (roleId, societyGroupId = null, societyId = nul
 };
 
 // Create a new role
-export const createRole = async (roleData, societyGroupId = null, societyId = null, requester = null) => {
+export const createRole = async (roleData, societyId = null, requester = null) => {
   try {
-    const role = await Admin.createRole(roleData, societyGroupId, societyId, requester);
+    const role = await Admin.createRole(roleData, societyId, requester);
     return role;
   } catch (error) {
     throw new Error(`Error creating role: ${error.message}`);
@@ -577,35 +576,35 @@ export const createRole = async (roleData, societyGroupId = null, societyId = nu
 };
 
 // Update an existing role
-export const updateRole = async (roleId, roleData, societyGroupId = null, societyId = null, requester = null) => {
+export const updateRole = async (roleId, roleData, societyId = null, requester = null) => {
   try {
-    const updated = await Admin.updateRole(roleId, roleData, societyGroupId, societyId, requester);
+    const updated = await Admin.updateRole(roleId, roleData, societyId, requester);
     return updated;
   } catch (error) {
     throw new Error(`Error updating role: ${error.message}`);
   }
 };
 
-export const getDefaultRole = async (societyGroupId = null, societyId = null, requester = null) => {
+export const getDefaultRole = async (societyId = null, requester = null) => {
   try {
-    return await Admin.getDefaultRole(societyGroupId, societyId, requester);
+    return await Admin.getDefaultRole(societyId, requester);
   } catch (error) {
     throw new Error(`Error fetching default role: ${error.message}`);
   }
 };
 
-export const setDefaultRole = async (roleId, societyGroupId = null, societyId = null, requester = null) => {
+export const setDefaultRole = async (roleId, societyId = null, requester = null) => {
   try {
-    return await Admin.setDefaultRole(roleId, societyGroupId, societyId, requester);
+    return await Admin.setDefaultRole(roleId, societyId, requester);
   } catch (error) {
     throw new Error(`Error setting default role: ${error.message}`);
   }
 };
 
 // Delete an existing role
-export const deleteRole = async (roleId, societyGroupId = null, societyId = null, requester = null) => {
+export const deleteRole = async (roleId, societyId = null, requester = null) => {
   try {
-    const deleted = await Admin.deleteRole(roleId, societyGroupId, societyId, requester);
+    const deleted = await Admin.deleteRole(roleId, societyId, requester);
     return deleted;
   } catch (error) {
     throw new Error(`Error deleting role: ${error.message}`);
@@ -633,9 +632,9 @@ export const createMasterAdmin = async (userData, requester = null) => {
 };
 
 // Get an auth rule by ID
-export const getAuthRuleById = async (ruleId, societyGroupId = null, societyId = null) => {
+export const getAuthRuleById = async (ruleId, societyId = null) => {
   try {
-    const rule = await Admin.getAuthRuleById(ruleId, societyGroupId, societyId);
+    const rule = await Admin.getAuthRuleById(ruleId, societyId);
     return rule;
   } catch (error) {
     throw new Error(`Error fetching authorization rule: ${error.message}`);
@@ -643,9 +642,9 @@ export const getAuthRuleById = async (ruleId, societyGroupId = null, societyId =
 };
 
 // Get auth rules
-export const getAuthRules = async (societyGroupId = null, societyId = null) => {
+export const getAuthRules = async (societyId = null) => {
   try {
-    const authRules = await Admin.getAuthRules(societyGroupId, societyId);
+    const authRules = await Admin.getAuthRules(societyId);
     return authRules;
   } catch (error) {
     throw new Error(`Error fetching authorization rules: ${error.message}`);
@@ -653,9 +652,9 @@ export const getAuthRules = async (societyGroupId = null, societyId = null) => {
 };
 
 // Create auth rule
-export const createAuthRule = async (ruleData, societyGroupId = null, societyId = null) => {
+export const createAuthRule = async (ruleData, societyId = null) => {
   try {
-    await Admin.createAuthRule(ruleData, societyGroupId, societyId);
+    await Admin.createAuthRule(ruleData, societyId);
     return { success: true, message: 'Authorization rule created successfully' };
   } catch (error) {
     throw new Error(`Error creating authorization rule: ${error.message}`);
@@ -663,9 +662,9 @@ export const createAuthRule = async (ruleData, societyGroupId = null, societyId 
 };
 
 // Update auth rule
-export const updateAuthRule = async (ruleId, updatedData, societyGroupId = null, societyId = null) => {
+export const updateAuthRule = async (ruleId, updatedData, societyId = null) => {
   try {
-    await Admin.updateAuthRule(ruleId, updatedData, societyGroupId, societyId);
+    await Admin.updateAuthRule(ruleId, updatedData, societyId);
     return { success: true, message: 'Authorization rule updated successfully' };
   } catch (error) {
     throw new Error(`Error updating authorization rule: ${error.message}`);
@@ -673,9 +672,9 @@ export const updateAuthRule = async (ruleId, updatedData, societyGroupId = null,
 };
 
 // Delete auth rule
-export const deleteAuthRule = async (ruleId, societyGroupId = null, societyId = null) => {
+export const deleteAuthRule = async (ruleId, societyId = null) => {
   try {
-    await Admin.deleteAuthRule(ruleId, societyGroupId, societyId);
+    await Admin.deleteAuthRule(ruleId, societyId);
     return { success: true, message: 'Authorization rule deleted successfully' };
   } catch (error) {
     throw new Error(`Error deleting authorization rule: ${error.message}`);
@@ -683,9 +682,9 @@ export const deleteAuthRule = async (ruleId, societyGroupId = null, societyId = 
 };
 
 // Get boss list for a department
-export const getBossList = async (departmentId, societyGroupId = null, societyId = null) => {
+export const getBossList = async (departmentId, societyId = null) => {
   try {
-    const bosses = await Admin.getBossList(departmentId, societyGroupId, societyId);
+    const bosses = await Admin.getBossList(departmentId, societyId);
     return bosses;
   } catch (error) {
     throw new Error(`Error fetching boss list: ${error.message}`);

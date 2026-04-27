@@ -19,7 +19,7 @@ const AuthorizationRuleService = {
    * @param {number} amount - Amount requested in MXN
    * @returns {object|null} The selected authorization rule with levels, or null if none found
    */
-  async selectApplicableRule(travelType, duration, amount) {
+  async selectApplicableRule(travelType, duration, amount, societyId) {
     try {
       // Normalize travel type if needed
       let normalizedTravelType = travelType;
@@ -32,12 +32,13 @@ const AuthorizationRuleService = {
       const matchingRules = await AuthorizationRuleModel.getRulesByCriteria(
         normalizedTravelType,
         duration,
-        amount
+        amount,
+        societyId
       );
 
       // If no matching rules found, try to get the default rule as fallback
       if (matchingRules.length === 0) {
-        const defaultRule = await AuthorizationRuleModel.getDefaultRule();
+        const defaultRule = await AuthorizationRuleModel.getDefaultRule(societyId);
         return defaultRule;
       }
 

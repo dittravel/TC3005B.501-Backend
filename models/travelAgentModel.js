@@ -91,19 +91,10 @@ const TravelAgent = {
           user_name: true,
           department_id: true,
           role_id: true,
-          Society: {
-            select: {
-              society_group_id: true,
-            },
-          },
+          society_id: true,
         },
       });
-      if (!user) return null;
-      return {
-        ...user,
-        society_group_id: user.Society?.society_group_id || null,
-        Society: undefined,
-      };
+      return user || null;
     } catch (error) {
       console.error('Error getting user with department:', error);
       throw error;

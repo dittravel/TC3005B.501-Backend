@@ -116,6 +116,16 @@ async function seedDefaultAuthorizationRule(defaultSocietyGroupId) {
     return;
   }
 
+  // Get the default society ID
+  const defaultSociety = await prisma.society.findFirst({
+    where: { is_default: true },
+    select: { id: true },
+  });
+
+  if (!defaultSociety) {
+    throw new Error('Default society not found');
+  }
+
   await prisma.authorizationRule.create({
     data: {
       rule_name: 'Regla predeterminada',
@@ -123,7 +133,7 @@ async function seedDefaultAuthorizationRule(defaultSocietyGroupId) {
       num_levels: 2,
       automatic: true,
       travel_type: 'Todos',
-      society_group_id: defaultSocietyGroupId,
+      society_id: defaultSociety.id,
     },
   });
 }
@@ -138,13 +148,23 @@ async function seedDefaultRefundPolicy(defaultSocietyGroupId) {
     return;
   }
 
+  // Get the default society ID
+  const defaultSociety = await prisma.society.findFirst({
+    where: { is_default: true },
+    select: { id: true },
+  });
+
+  if (!defaultSociety) {
+    throw new Error('Default society not found');
+  }
+
   await prisma.refundPolicy.create({
     data: {
       policy_name: 'Política por Defecto',
       min_amount: 10,
       max_amount: 5000,
       submission_deadline_days: 30,
-      society_group_id: defaultSocietyGroupId,
+      society_id: defaultSociety.id,
       is_default: true,
       active: true,
     },
