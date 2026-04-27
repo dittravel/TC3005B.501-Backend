@@ -1,18 +1,21 @@
 /**
  * User Controller
- * 
+ *
  * This module handles general user operations and business logic
  * for all user roles in the travel request system. It includes functionality
  * for authentication (login/logout), user data retrieval, travel request queries,
  * and wallet management.
- * 
+ *
  * Role-based access control is implemented to ensure users can only access
  * data and operations appropriate to their role and department.
  */
-import * as userService from '../services/userService.js';
-import { requestPasswordReset, resetPassword as resetPasswordService } from '../services/userService.js';
-import User from '../models/userModel.js';
-import { decrypt } from '../middleware/decryption.js';
+import * as userService from "../services/userService.js";
+import {
+  requestPasswordReset,
+  resetPassword as resetPasswordService,
+} from "../services/userService.js";
+import User from "../models/userModel.js";
+import { decrypt } from "../middleware/decryption.js";
 
 /**
  * Get user data by ID
@@ -106,7 +109,7 @@ export const login = async (req, res) => {
   } catch (error) {
     res.status(400).json({ error: error.message });
   }
-}
+};
 
 // Get travel requests filtered by department and status with optional limit
 export const getTravelRequestsByUserStatus = async (req, res) => {
@@ -166,6 +169,8 @@ export const getTravelRequestById = async (req, res) => {
       imposed_fee: base.imposed_fee,
       request_days: base.request_days,
       creation_date: formatDate(base.creation_date),
+      currency: base.currency || 'MXN',
+      exch_rate: base.exch_rate,
       user: {
         user_name: base.user_name,
         user_email: decryptedEmail,
@@ -184,8 +189,12 @@ export const getTravelRequestById = async (req, res) => {
         ending_date: formatDate(row.ending_date),
         ending_time: row.ending_time,
         hotel_needed: row.hotel_needed,
-        plane_needed: row.plane_needed
-      }))
+        plane_needed: row.plane_needed,
+        flight_pdf_file_id: row.flight_pdf_file_id,
+        flight_pdf_file_name: row.flight_pdf_file_name,
+        hotel_pdf_file_id: row.hotel_pdf_file_id,
+        hotel_pdf_file_name: row.hotel_pdf_file_name,
+      })),
     };
 
     return res.status(200).json(response);
@@ -197,13 +206,24 @@ export const getTravelRequestById = async (req, res) => {
 
 // Get user's wallet information and balance
 export const getUserWallet = async (req, res) => {
-  const { user_id } = req.params;
+  const requestedUserId = req.params.user_id
+    ? Number.parseInt(req.params.user_id, 10)
+    : Number(req.user?.user_id);
+
+  if (!requestedUserId || Number.isNaN(requestedUserId)) {
+    return res.status(400).json({ error: 'Invalid user ID format' });
+  }
+
+  // Security: users can only read their own wallet information.
+  if (Number(req.user?.user_id) !== requestedUserId) {
+    return res.status(403).json({ error: 'Forbidden: You can only access your own wallet information' });
+  }
 
   try {
-    const user = await User.getUserWallet(user_id);
+    const user = await User.getUserWallet(requestedUserId);
 
     if (!user) {
-      return res.status(404).json({ error: `No user with id ${user_id} found`  });
+      return res.status(404).json({ error: `No user with id ${requestedUserId} found`  });
     }
 
     // Return formatted wallet data
@@ -215,6 +235,7 @@ export const getUserWallet = async (req, res) => {
 
     return res.status(200).json(formatted);
   } catch (err) {
+    console.error('Error in getUserWallet controller:', err);
     return res.status(500).json({ error: "Internal server error" });
   }
 };
@@ -285,8 +306,53 @@ export const resetPassword = async (req, res) => {
     if (err.status === 400) {
       return res.status(400).json({ error: err.message });
     }
-    console.error('Error in resetPassword controller:', err);
-    return res.status(500).json({ error: 'Internal server error' });
+    console.error("Error in resetPassword controller:", err);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+export const getDashboardPreferences = async (req, res) => {
+  try {
+    const userId = parseInt(req.params.user_id, 10);
+
+    if (isNaN(userId)) {
+      return res.status(400).json({ error: "Invalid user ID" });
+    }
+
+    if (Number(req.user.user_id) !== userId) {
+      return res.status(403).json({ error: "Forbidden" });
+    }
+
+    const routes = await User.getDashboardPreferences(userId);
+    return res.status(200).json({ routes });
+  } catch (error) {
+    console.error("Error getting dashboard preferences:", error);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+export const updateDashboardPreferences = async (req, res) => {
+  try {
+    const userId = parseInt(req.params.user_id, 10);
+
+    if (isNaN(userId)) {
+      return res.status(400).json({ error: "Invalid user ID" });
+    }
+
+    if (Number(req.user.user_id) !== userId) {
+      return res.status(403).json({ error: "Forbidden" });
+    }
+
+    const { routes } = req.body;
+    if (!Array.isArray(routes)) {
+      return res.status(400).json({ error: "routes must be an array" });
+    }
+
+    const saved = await User.setDashboardPreferences(userId, routes);
+    return res.status(200).json({ routes: saved });
+  } catch (error) {
+    console.error("Error updating dashboard preferences:", error);
+    return res.status(500).json({ error: "Internal server error" });
   }
 };
 
@@ -294,7 +360,7 @@ export const resetPassword = async (req, res) => {
 export const logout = (req, res) => {
   // Cookie options for secure clearing
   const cookieOptions = {
-    path: '/',
+    path: "/",
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "Strict",

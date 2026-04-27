@@ -69,6 +69,10 @@ function normalizeBoolean(value, defaultValue) {
 
 function normalizeAuditLogFilters(rawFilters = {}) {
   return {
+    society_group_id:
+      rawFilters.society_group_id === undefined || rawFilters.society_group_id === null
+        ? null
+        : Number(rawFilters.society_group_id),
     actor_user_id:
       rawFilters.actor_user_id === undefined || rawFilters.actor_user_id === null
         ? null

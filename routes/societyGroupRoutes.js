@@ -6,7 +6,7 @@
 
 import express from 'express';
 import * as societyGroupController from '../controllers/societyGroupController.js';
-import { authenticateToken, authorizePermission, requireDefaultAdmin } from '../middleware/auth.js';
+import { authenticateToken, authorizePermission, authorizeRole, requireDefaultAdmin } from '../middleware/auth.js';
 import { validateId, validateInputs } from '../middleware/validation.js';
 import { generalRateLimiter } from '../middleware/rateLimiters.js';
 
@@ -16,13 +16,15 @@ router.route('/')
   .get(
     generalRateLimiter,
     authenticateToken,
-    authorizePermission(['society_groups:view', 'societies:create', 'societies:edit'], { mode: 'any' }),
+    authorizeRole(['Superadministrador']),
+    authorizePermission(['superadmin:manage_groups']),
     societyGroupController.getSocietyGroups
   )
   .post(
     generalRateLimiter,
     authenticateToken,
-    authorizePermission(['society_groups:create']),
+    authorizeRole(['Superadministrador']),
+    authorizePermission(['superadmin:manage_groups']),
     requireDefaultAdmin,
     validateInputs,
     societyGroupController.createSocietyGroup
@@ -32,7 +34,8 @@ router.route('/:group_id')
   .get(
     generalRateLimiter,
     authenticateToken,
-    authorizePermission(['society_groups:view', 'societies:create', 'societies:edit'], { mode: 'any' }),
+    authorizeRole(['Superadministrador']),
+    authorizePermission(['superadmin:manage_groups']),
     validateId,
     validateInputs,
     societyGroupController.getSocietyGroupById
@@ -40,7 +43,8 @@ router.route('/:group_id')
   .put(
     generalRateLimiter,
     authenticateToken,
-    authorizePermission(['society_groups:edit']),
+    authorizeRole(['Superadministrador']),
+    authorizePermission(['superadmin:manage_groups']),
     requireDefaultAdmin,
     validateId,
     validateInputs,
@@ -49,11 +53,24 @@ router.route('/:group_id')
   .delete(
     generalRateLimiter,
     authenticateToken,
-    authorizePermission(['society_groups:delete']),
+    authorizeRole(['Superadministrador']),
+    authorizePermission(['superadmin:manage_groups']),
     requireDefaultAdmin,
     validateId,
     validateInputs,
     societyGroupController.deleteSocietyGroup
+  );
+
+router.route('/:group_id/societies/:society_id/transfer')
+  .put(
+    generalRateLimiter,
+    authenticateToken,
+    authorizeRole(['Superadministrador']),
+    authorizePermission(['superadmin:manage_groups']),
+    requireDefaultAdmin,
+    validateId,
+    validateInputs,
+    societyGroupController.transferSocietyToGroup
   );
 
 export default router;

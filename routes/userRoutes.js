@@ -22,7 +22,7 @@ router.route("/get-user-data/:user_id")
   .get(
     generalRateLimiter,
     authenticateToken,
-    authorizePermission(['travel:view', 'users:view', 'users:edit'], { mode: 'any' }),
+    authorizePermission(['travel:view', 'users:view', 'users:edit', 'superadmin:manage_groups'], { mode: 'any' }),
     validateSocietyAccess('user'),
     validateId,
     validateInputs,
@@ -55,14 +55,27 @@ router.route('/get-travel-requests/:user_id/:status_id/:n?')
 
 // Get user wallet information by user ID
 router.route('/get-user-wallet/:user_id?')
-  .get(generalRateLimiter, authenticateToken, authorizePermission(['users:view']), validateId, validateInputs, userController.getUserWallet);
+  .get(
+    generalRateLimiter,
+    authenticateToken,
+    authorizePermission(['users:view', 'refunds:request', 'refunds:budget', 'refunds:approve'], { mode: 'any' }),
+    validateSocietyAccess('user'),
+    validateId,
+    validateInputs,
+    userController.getUserWallet,
+  );
 
 // Update user's out-of-office dates and substitute
 router.route('/update-out-of-office/:user_id')
-  .put(generalRateLimiter, authenticateToken, authorizePermission(['travel:edit', 'receipts:edit'], { mode: 'any' }), validateSocietyAccess('user'), validateOutOfOffice, validateInputs, userController.updateOutOfOffice);
+  .put(generalRateLimiter, authenticateToken, authorizePermission(['travel:edit', 'receipts:edit', 'superadmin:manage_groups'], { mode: 'any' }), validateSocietyAccess('user'), validateOutOfOffice, validateInputs, userController.updateOutOfOffice);
 
 // Get list of users in the same department with the same role for substitution purposes
 router.route('/get-substitute-users/:user_id')
-  .get(generalRateLimiter, authenticateToken, authorizePermission(['users:view', 'travel:view'], { mode: 'any' }), validateSocietyAccess('user'), validateId, validateInputs, userController.getSubstituteUsers);
+  .get(generalRateLimiter, authenticateToken, authorizePermission(['users:view', 'travel:view', 'superadmin:manage_groups'], { mode: 'any' }), validateSocietyAccess('user'), validateId, validateInputs, userController.getSubstituteUsers);
+
+// Dashboard quick-action preferences for a user
+router.route('/dashboard-preferences/:user_id')
+  .get(generalRateLimiter, authenticateToken, validateId, validateInputs, userController.getDashboardPreferences)
+  .put(generalRateLimiter, authenticateToken, validateId, validateInputs, userController.updateDashboardPreferences);
 
 export default router;

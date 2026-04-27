@@ -20,6 +20,87 @@ import { parse } from 'csv-parse';
 import fs, { unlink } from 'fs';
 import { decrypt } from '../middleware/decryption.js';
 
+const SUPERADMIN_ROLE_NAME = 'Superadministrador';
+
+function getActorPermissionKeys(actor = null) {
+  return new Set(
+    Array.isArray(actor?.permissions)
+      ? actor.permissions.map((permission) => String(permission).trim()).filter(Boolean)
+      : []
+  );
+}
+
+function canManageSuperAdmins(actor = null) {
+  if (!actor) return false;
+  const permissionKeys = getActorPermissionKeys(actor);
+  return actor.role === SUPERADMIN_ROLE_NAME || permissionKeys.has('superadmin:manage_master_admins');
+}
+
+function canManageGroups(actor = null) {
+  if (!actor) return false;
+  const permissionKeys = getActorPermissionKeys(actor);
+  return actor.role === SUPERADMIN_ROLE_NAME || permissionKeys.has('superadmin:manage_groups');
+}
+
+function resolveEffectiveSocietyId(requestedSocietyId, actor = null) {
+  if (!actor) {
+    return requestedSocietyId || null;
+  }
+
+  const actorSocietyId = actor?.society_id ? Number(actor.society_id) : null;
+
+  if (canManageGroups(actor)) {
+    if (requestedSocietyId === null || requestedSocietyId === undefined || requestedSocietyId === '') {
+      return actorSocietyId;
+    }
+    return Number(requestedSocietyId);
+  }
+
+  if (!actorSocietyId) {
+    throw { status: 400, message: 'El usuario actual no tiene una sociedad asignada' };
+  }
+
+  if (requestedSocietyId !== null && requestedSocietyId !== undefined && requestedSocietyId !== '') {
+    const parsedRequestedSocietyId = Number(requestedSocietyId);
+    if (parsedRequestedSocietyId !== actorSocietyId) {
+      throw { status: 403, message: 'No puedes crear o mover usuarios fuera de tu sociedad' };
+    }
+  }
+
+  return actorSocietyId;
+}
+
+async function assertDepartmentScopeAllowed(departmentId, actor = null) {
+  if (!departmentId || !actor || canManageGroups(actor)) return;
+
+  const department = await Admin.getDepartmentById(Number(departmentId));
+  if (!department) {
+    throw { status: 400, message: 'Departamento inválido' };
+  }
+
+  if (
+    department.society_group_id !== null &&
+    actor?.society_group_id !== null &&
+    actor?.society_group_id !== undefined &&
+    Number(department.society_group_id) !== Number(actor.society_group_id)
+  ) {
+    throw { status: 403, message: 'No puedes asignar departamentos fuera de tu grupo de sociedades' };
+  }
+}
+
+async function assertRoleAssignmentAllowed(roleId, actor = null) {
+  if (!roleId) return;
+
+  const role = await Admin.getRoleMetaById(roleId);
+  if (!role) {
+    throw { status: 400, message: 'Rol inválido' };
+  }
+
+  if (role.role_name === SUPERADMIN_ROLE_NAME && !canManageSuperAdmins(actor)) {
+    throw { status: 403, message: 'No tienes permisos para asignar el rol de superadministrador' };
+  }
+}
+
 // Required columns for CSV validation
 const requiredColumns = ['role_name', 'department_name', 'user_name', 'password', 'workstation', 'email'];
 
@@ -44,6 +125,10 @@ const hash = async (data) => {
  */
 export async function createUser(userData, options = {}) {
   try {
+    await assertRoleAssignmentAllowed(userData.role_id, options.actor);
+    await assertDepartmentScopeAllowed(userData.department_id, options.actor);
+    const effectiveSocietyId = resolveEffectiveSocietyId(userData.society_id, options.actor);
+
     const hashedPassword = await hash(userData.password);
 
     const allEmails = await Admin.getAllEmails();
@@ -67,7 +152,7 @@ export async function createUser(userData, options = {}) {
     const newUser = {
       role_id: userData.role_id,
       department_id: userData.department_id,
-      society_id: userData.society_id,
+      society_id: effectiveSocietyId,
       user_name: userData.user_name,
       password: hashedPassword,
       workstation: userData.workstation,
@@ -152,22 +237,36 @@ const validateUserRow = async (rowData, rowNumber, existingEmailsInCsv, existing
  * @param {number} rowNumber - Row number in the CSV file
  * @returns {Promise<Object>} Processed user data with foreign keys and encrypted fields, or error information
  */
-const getForeignKeyValues = async (rowData, rowNumber) => {
+const getForeignKeyValues = async (rowData, rowNumber, options = {}) => {
   const rowErrors = [];
   let userData = {...rowData};
+  const actor = options?.actor || null;
+  const scopedSocietyGroupId = actor?.society_group_id ? Number(actor.society_group_id) : null;
+  let effectiveSocietyId = null;
 
   try {
-    const roleId = await Admin.findRoleID(userData.role_name);
+    effectiveSocietyId = resolveEffectiveSocietyId(userData.society_id, actor);
+  } catch (scopeError) {
+    return {
+      row_number: rowNumber,
+      error: scopeError?.message || 'Invalid society scope for user creation',
+    };
+  }
+
+  try {
+    const roleId = await Admin.findRoleID(userData.role_name, scopedSocietyGroupId);
     if (roleId === null) {
       rowErrors.push(`Invalid role name: '${userData.role_name}'`);
     } else {
+      await assertRoleAssignmentAllowed(roleId, actor);
       userData.role_id = roleId;
     }
 
-    const departmentId = await Admin.findDepartmentID(userData.department_name);
+    const departmentId = await Admin.findDepartmentID(userData.department_name, scopedSocietyGroupId);
     if (departmentId === null) {
       rowErrors.push (`Invalid department name: '${userData.department_name}'`);
     } else {
+      await assertDepartmentScopeAllowed(departmentId, actor);
       userData.department_id = departmentId;
     }
 
@@ -204,6 +303,7 @@ const getForeignKeyValues = async (rowData, rowNumber) => {
 
   delete userData.role_name;
   delete userData.department_name;
+  userData.society_id = effectiveSocietyId;
 
   return userData;
 };
@@ -214,7 +314,7 @@ const getForeignKeyValues = async (rowData, rowNumber) => {
  * @param {boolean} dummy - Flag to indicate if the file should be deleted after processing
  * @returns {Promise<Object>} Result of the CSV processing with counts and errors
  */
-export const parseCSV = async (filePath, dummy) => {
+export const parseCSV = async (filePath, dummy, options = {}) => {
   const results = {
     total_records: 0,
     created: 0,
@@ -260,7 +360,7 @@ export const parseCSV = async (filePath, dummy) => {
         continue;
       }
 
-      const idValidation = await getForeignKeyValues(record, rowNumber);
+      const idValidation = await getForeignKeyValues(record, rowNumber, options);
       
       if (idValidation && idValidation.error) {
         results.failed++;
@@ -339,6 +439,10 @@ export const updateUserData = async (userId, newUserData, options = {}) => {
     throw { status: 404, message: 'No information found for the user' };
   }
 
+  if (newUserData.role_id !== undefined) {
+    await assertRoleAssignmentAllowed(newUserData.role_id, options.actor);
+  }
+
   let currPhoneNumber = null;
   if (userData.phone_number) {
     if (typeof userData.phone_number !== 'string') {
@@ -412,7 +516,9 @@ export const updateUserData = async (userId, newUserData, options = {}) => {
           fieldsToUpdateInDb[key] = newUserData[key] === '' ? null : newUserData[key];
           updatedFields.push(key);
         } else if (key === 'society_id') {
-          fieldsToUpdateInDb[key] = newUserData[key] === '' ? null : newUserData[key];
+          fieldsToUpdateInDb[key] = newUserData[key] === ''
+            ? null
+            : resolveEffectiveSocietyId(newUserData[key], options.actor);
           updatedFields.push(key);
         } else {
           fieldsToUpdateInDb[key] = newUserData[key];
@@ -431,9 +537,9 @@ export const updateUserData = async (userId, newUserData, options = {}) => {
 };
 
 // Get list of departments
-export const getDepartments = async (societyGroupId = null) => {
+export const getDepartments = async (societyGroupId = null, societyId = null) => {
   try {
-    const departments = await Admin.getDepartments(societyGroupId);
+    const departments = await Admin.getDepartments(societyGroupId, societyId);
     return departments;
   } catch (error) {
     throw new Error(`Error fetching departments: ${error.message}`);
@@ -441,9 +547,9 @@ export const getDepartments = async (societyGroupId = null) => {
 }
 
 // Get list of roles
-export const getRoles = async (societyGroupId = null) => {
+export const getRoles = async (societyGroupId = null, societyId = null, requester = null) => {
   try {
-    const roles = await Admin.getRoles(societyGroupId);
+    const roles = await Admin.getRoles(societyGroupId, societyId, requester);
     return roles;
   } catch (error) {
     throw new Error(`Error fetching roles: ${error.message}`);
@@ -451,9 +557,9 @@ export const getRoles = async (societyGroupId = null) => {
 }
 
 // Get role details by ID
-export const getRoleById = async (roleId, societyGroupId = null) => {
+export const getRoleById = async (roleId, societyGroupId = null, societyId = null, requester = null) => {
   try {
-    const role = await Admin.getRoleById(roleId, societyGroupId);
+    const role = await Admin.getRoleById(roleId, societyGroupId, societyId, requester);
     return role;
   } catch (error) {
     throw new Error(`Error fetching role: ${error.message}`);
@@ -461,9 +567,9 @@ export const getRoleById = async (roleId, societyGroupId = null) => {
 };
 
 // Create a new role
-export const createRole = async (roleData, societyGroupId = null) => {
+export const createRole = async (roleData, societyGroupId = null, societyId = null, requester = null) => {
   try {
-    const role = await Admin.createRole(roleData, societyGroupId);
+    const role = await Admin.createRole(roleData, societyGroupId, societyId, requester);
     return role;
   } catch (error) {
     throw new Error(`Error creating role: ${error.message}`);
@@ -471,45 +577,65 @@ export const createRole = async (roleData, societyGroupId = null) => {
 };
 
 // Update an existing role
-export const updateRole = async (roleId, roleData, societyGroupId = null) => {
+export const updateRole = async (roleId, roleData, societyGroupId = null, societyId = null, requester = null) => {
   try {
-    const updated = await Admin.updateRole(roleId, roleData, societyGroupId);
+    const updated = await Admin.updateRole(roleId, roleData, societyGroupId, societyId, requester);
     return updated;
   } catch (error) {
     throw new Error(`Error updating role: ${error.message}`);
   }
 };
 
-export const getDefaultRole = async (societyGroupId = null) => {
+export const getDefaultRole = async (societyGroupId = null, societyId = null, requester = null) => {
   try {
-    return await Admin.getDefaultRole(societyGroupId);
+    return await Admin.getDefaultRole(societyGroupId, societyId, requester);
   } catch (error) {
     throw new Error(`Error fetching default role: ${error.message}`);
   }
 };
 
-export const setDefaultRole = async (roleId, societyGroupId = null) => {
+export const setDefaultRole = async (roleId, societyGroupId = null, societyId = null, requester = null) => {
   try {
-    return await Admin.setDefaultRole(roleId, societyGroupId);
+    return await Admin.setDefaultRole(roleId, societyGroupId, societyId, requester);
   } catch (error) {
     throw new Error(`Error setting default role: ${error.message}`);
   }
 };
 
 // Delete an existing role
-export const deleteRole = async (roleId, societyGroupId = null) => {
+export const deleteRole = async (roleId, societyGroupId = null, societyId = null, requester = null) => {
   try {
-    const deleted = await Admin.deleteRole(roleId, societyGroupId);
+    const deleted = await Admin.deleteRole(roleId, societyGroupId, societyId, requester);
     return deleted;
   } catch (error) {
     throw new Error(`Error deleting role: ${error.message}`);
   }
 };
 
-// Get an auth rule by ID
-export const getAuthRuleById = async (ruleId) => {
+export const getMasterAdmins = async (requester = null) => {
   try {
-    const rule = await Admin.getAuthRuleById(ruleId);
+    return await Admin.getMasterAdmins(requester);
+  } catch (error) {
+    const wrapped = new Error(`Error fetching master admins: ${error.message}`);
+    wrapped.status = error.status || 500;
+    throw wrapped;
+  }
+};
+
+export const createMasterAdmin = async (userData, requester = null) => {
+  try {
+    return await Admin.createMasterAdmin(userData, requester);
+  } catch (error) {
+    const wrapped = new Error(`Error creating master admin: ${error.message}`);
+    wrapped.status = error.status || 500;
+    throw wrapped;
+  }
+};
+
+// Get an auth rule by ID
+export const getAuthRuleById = async (ruleId, societyGroupId = null, societyId = null) => {
+  try {
+    const rule = await Admin.getAuthRuleById(ruleId, societyGroupId, societyId);
     return rule;
   } catch (error) {
     throw new Error(`Error fetching authorization rule: ${error.message}`);
@@ -517,9 +643,9 @@ export const getAuthRuleById = async (ruleId) => {
 };
 
 // Get auth rules
-export const getAuthRules = async (societyGroupId = null) => {
+export const getAuthRules = async (societyGroupId = null, societyId = null) => {
   try {
-    const authRules = await Admin.getAuthRules(societyGroupId);
+    const authRules = await Admin.getAuthRules(societyGroupId, societyId);
     return authRules;
   } catch (error) {
     throw new Error(`Error fetching authorization rules: ${error.message}`);
@@ -527,9 +653,9 @@ export const getAuthRules = async (societyGroupId = null) => {
 };
 
 // Create auth rule
-export const createAuthRule = async (ruleData, societyGroupId = null) => {
+export const createAuthRule = async (ruleData, societyGroupId = null, societyId = null) => {
   try {
-    await Admin.createAuthRule(ruleData, societyGroupId);
+    await Admin.createAuthRule(ruleData, societyGroupId, societyId);
     return { success: true, message: 'Authorization rule created successfully' };
   } catch (error) {
     throw new Error(`Error creating authorization rule: ${error.message}`);
@@ -537,9 +663,9 @@ export const createAuthRule = async (ruleData, societyGroupId = null) => {
 };
 
 // Update auth rule
-export const updateAuthRule = async (ruleId, updatedData, societyGroupId = null) => {
+export const updateAuthRule = async (ruleId, updatedData, societyGroupId = null, societyId = null) => {
   try {
-    await Admin.updateAuthRule(ruleId, updatedData, societyGroupId);
+    await Admin.updateAuthRule(ruleId, updatedData, societyGroupId, societyId);
     return { success: true, message: 'Authorization rule updated successfully' };
   } catch (error) {
     throw new Error(`Error updating authorization rule: ${error.message}`);
@@ -547,9 +673,9 @@ export const updateAuthRule = async (ruleId, updatedData, societyGroupId = null)
 };
 
 // Delete auth rule
-export const deleteAuthRule = async (ruleId, societyGroupId = null) => {
+export const deleteAuthRule = async (ruleId, societyGroupId = null, societyId = null) => {
   try {
-    await Admin.deleteAuthRule(ruleId, societyGroupId);
+    await Admin.deleteAuthRule(ruleId, societyGroupId, societyId);
     return { success: true, message: 'Authorization rule deleted successfully' };
   } catch (error) {
     throw new Error(`Error deleting authorization rule: ${error.message}`);
@@ -726,7 +852,8 @@ export const createDataFromJson = async (jsonObj) => {
         phone_number: encryptedPhone,
         boss_id: boss_id,
         active: user.active || true,
-        society_id: societyIdMap[user.society_id] || user.society_id
+        society_id: societyIdMap[user.society_id] || user.society_id,
+        supplier: user.supplier || null
       };
 
       if (!existingUser) {
@@ -793,6 +920,8 @@ export default {
   createRole,
   updateRole,
   deleteRole,
+  getMasterAdmins,
+  createMasterAdmin,
   // Auth rules
   getAuthRules,
   createAuthRule,

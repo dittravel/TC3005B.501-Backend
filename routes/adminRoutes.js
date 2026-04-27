@@ -10,6 +10,7 @@ import multer from "multer";
 import * as adminController from "../controllers/adminController.js";
 import { authenticateToken, authorizePermission, validateSocietyAccess } from "../middleware/auth.js";
 import { validateCreateUser, validateInputs } from "../middleware/validation.js";
+import { validateAuthorizationRule } from "../middleware/validation.js";
 import { generalRateLimiter } from "../middleware/rateLimiters.js";
 
 const router = express.Router();
@@ -33,6 +34,11 @@ router.route("/get-user-list")
 // Create a new user
 router.route('/create-user')
   .post(generalRateLimiter, authenticateToken, authorizePermission(['users:create']), validateCreateUser, validateInputs, adminController.createUser);
+
+// List master superadmins
+router.route('/master-admins')
+  .get(generalRateLimiter, authenticateToken, authorizePermission(['superadmin:manage_master_admins']), adminController.getMasterAdmins)
+  .post(generalRateLimiter, authenticateToken, authorizePermission(['superadmin:manage_master_admins']), validateInputs, adminController.createMasterAdmin);
 
 // Create multiple
 // Expects a CSV file
@@ -109,11 +115,25 @@ router.route("/get-auth-rules")
 
 // Create auth rule
 router.route("/create-auth-rule")
-  .post(generalRateLimiter, authenticateToken, authorizePermission(['travel:def_amount']), adminController.createAuthRule);
+  .post(
+    generalRateLimiter,
+    authenticateToken,
+    authorizePermission(['travel:def_amount']),
+    validateAuthorizationRule,
+    validateInputs,
+    adminController.createAuthRule
+  );
 
 // Update auth rule
 router.route("/update-auth-rule/:rule_id")
-  .put(generalRateLimiter, authenticateToken, authorizePermission(['travel:def_amount']), adminController.updateAuthRule);
+  .put(
+    generalRateLimiter,
+    authenticateToken,
+    authorizePermission(['travel:def_amount']),
+    validateAuthorizationRule,
+    validateInputs,
+    adminController.updateAuthRule
+  );
 
 // Delete auth rule
 router.route("/delete-auth-rule/:rule_id")

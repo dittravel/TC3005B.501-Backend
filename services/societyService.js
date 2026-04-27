@@ -120,7 +120,8 @@ export async function deleteSociety(societyId, currentUser) {
     throw error;
   }
 
-  return await SocietyModel.deleteSociety(societyId);
+  await SocietyModel.deleteSociety(societyId);
+  return society;
 }
 
 export async function getSocietyName(societyId) {

@@ -16,7 +16,7 @@ router.route('/get-logs')
   .get(
     generalRateLimiter,
     authenticateToken,
-    authorizePermission(['system:audit_log']),
+    authorizePermission(['system:audit_log', 'superadmin:view_group_audit_log'], { mode: 'any' }),
     validateAuditLogQuery,
     validateInputs,
     auditLogController.getAuditLogs

@@ -8,7 +8,20 @@ import AuditLogService from '../services/auditLogService.js';
 
 export async function getAuditLogs(req, res) {
   try {
-    const response = await AuditLogService.getAuditLogs(req.query);
+    const permissionKeys = Array.isArray(req.user?.permissions)
+      ? req.user.permissions.map((permission) => String(permission).trim())
+      : [];
+    const canViewByGroup = permissionKeys.includes('superadmin:view_group_audit_log') || req.user?.role === 'Superadministrador';
+
+    const requestedGroupId = req.query?.society_group_id ? Number(req.query.society_group_id) : null;
+    const scopedFilters = {
+      ...req.query,
+      society_group_id: canViewByGroup
+        ? requestedGroupId ?? req.user?.society_group_id ?? null
+        : req.user?.society_group_id ?? null,
+    };
+
+    const response = await AuditLogService.getAuditLogs(scopedFilters);
     return res.status(200).json(response);
   } catch (error) {
     console.error('Error getting audit logs:', error);

@@ -50,7 +50,7 @@ export const authorizeRole = (roles) => {
 export const authorizePermission = (requiredPermissions = [], options = {}) => {
   const {
     mode = 'all',
-    allowAdminByRole = true,
+    allowAdminByRole = false,
   } = options;
 
   const required = Array.isArray(requiredPermissions)
@@ -237,8 +237,8 @@ const validateReceiptSocietyAccessMiddleware = async (req, res, next) => {
 };
 
 const validateUserSocietyAccessMiddleware = async (req, res, next) => {
-  if (!req.user?.society_id) {
-    return res.status(401).json({ error: 'Society ID not found in token' });
+  if (!req.user?.society_id && !req.user?.society_group_id) {
+    return res.status(401).json({ error: 'Society context not found in token' });
   }
 
   try {
@@ -282,10 +282,20 @@ export const validateSocietyAccess = (resourceType) => {
  * Detailed authorization is checked in the service layer
  */
 export const requireDefaultAdmin = (req, res, next) => {
-  // Basic check: admin must have a society_group_id
-  // Detailed authorization will be checked in the service
   if (!req.user?.society_group_id) {
     return res.status(403).json({ error: 'User must belong to a society group' });
   }
+
+  const permissionKeys = Array.isArray(req.user?.permissions)
+    ? req.user.permissions.map((permission) => String(permission).trim())
+    : [];
+
+  const isSuperAdminRole = req.user?.role === 'Superadministrador';
+  const canManageGroups = permissionKeys.includes('superadmin:manage_groups');
+
+  if (!isSuperAdminRole && !canManageGroups) {
+    return res.status(403).json({ error: 'Access denied: requires superadmin privileges' });
+  }
+
   next();
 };

@@ -38,6 +38,7 @@ test('sanitizeAuditMetadata removes sensitive keys recursively', () => {
 
 test('normalizeAuditLogFilters applies stable defaults', () => {
   assert.deepEqual(normalizeAuditLogFilters({}), {
+    society_group_id: null,
     actor_user_id: null,
     action_type: null,
     entity_type: null,

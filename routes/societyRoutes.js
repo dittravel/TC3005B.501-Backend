@@ -6,11 +6,18 @@
 
 import express from 'express';
 import * as societyController from '../controllers/societyController.js';
-import { authenticateToken, authorizePermission } from '../middleware/auth.js';
+import { authenticateToken, authorizePermission, authorizeRole } from '../middleware/auth.js';
 import { validateId, validateInputs } from '../middleware/validation.js';
 import { generalRateLimiter } from '../middleware/rateLimiters.js';
 
 const router = express.Router();
+
+router.route('/current')
+  .get(
+    generalRateLimiter,
+    authenticateToken,
+    societyController.getCurrentUserSociety
+  );
 
 router.route('/name/:society_id')
   .get(
@@ -24,13 +31,15 @@ router.route('/')
   .get(
     generalRateLimiter,
     authenticateToken,
-    authorizePermission(['societies:view', 'users:view', 'users:create', 'users:edit'], { mode: 'any' }),
+    authorizeRole(['Superadministrador']),
+    authorizePermission(['superadmin:manage_groups']),
     societyController.getSocieties
   )
   .post(
     generalRateLimiter,
     authenticateToken,
-    authorizePermission(['societies:create']),
+    authorizeRole(['Superadministrador']),
+    authorizePermission(['superadmin:manage_groups']),
     validateInputs,
     societyController.createSociety
   );
@@ -39,7 +48,8 @@ router.route('/:society_id')
   .get(
     generalRateLimiter,
     authenticateToken,
-    authorizePermission(['societies:view', 'users:view', 'users:create', 'users:edit'], { mode: 'any' }),
+    authorizeRole(['Superadministrador']),
+    authorizePermission(['superadmin:manage_groups']),
     validateId,
     validateInputs,
     societyController.getSocietyById
@@ -47,7 +57,8 @@ router.route('/:society_id')
   .put(
     generalRateLimiter,
     authenticateToken,
-    authorizePermission(['societies:edit']),
+    authorizeRole(['Superadministrador']),
+    authorizePermission(['superadmin:manage_groups']),
     validateId,
     validateInputs,
     societyController.updateSociety
@@ -55,7 +66,8 @@ router.route('/:society_id')
   .delete(
     generalRateLimiter,
     authenticateToken,
-    authorizePermission(['societies:delete']),
+    authorizeRole(['Superadministrador']),
+    authorizePermission(['superadmin:manage_groups']),
     validateId,
     validateInputs,
     societyController.deleteSociety
