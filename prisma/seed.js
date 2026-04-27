@@ -7,7 +7,7 @@
 
 import { pathToFileURL } from 'node:url';
 import { prisma } from '../lib/prisma.js';
-import { seedAdminAccount, seedReferenceData } from './seedShared.js';
+import { seedAdminAccount, seedReferenceData, seedSuperAdminAccount } from './seedShared.js';
 
 const CURRENCY_CATALOG = [
   { currency_code: 'MXN', currency_name: 'Peso Mexicano', country: 'Mexico', banxico_series_id: null, frequency: 'daily' },
@@ -28,42 +28,42 @@ const CURRENCY_CATALOG = [
 ];
 
 const CITY_CATALOG = [
-  'CDMX',
-  'Guadalajara',
-  'Monterrey',
-  'Cancún',
-  'Mérida',
-  'Nueva York',
-  'Los Ángeles',
-  'San Francisco',
-  'Chicago',
-  'Las Vegas',
-  'Toronto',
-  'Vancouver',
-  'Rio de Janeiro',
-  'Sao Paulo',
-  'Buenos Aires',
-  'Cordoba',
-  'Santiago',
-  'Valparaíso',
-  'Bogotá',
-  'Barranquilla',
-  'Madrid',
-  'Barcelona',
-  'Paris',
-  'Lyon',
-  'Londres',
-  'Manchester',
-  'Berlín',
-  'Munich',
-  'Roma',
-  'Venecia',
-  'Tokyo',
-  'Kyoto',
-  'Pekín',
-  'Hong Kong',
-  'Bombay',
-  'Nueva Delhi',
+  { city_name: 'CDMX',          iata_code: 'MEX' },
+  { city_name: 'Guadalajara',   iata_code: 'GDL' },
+  { city_name: 'Monterrey',     iata_code: 'MTY' },
+  { city_name: 'Cancún',        iata_code: 'CUN' },
+  { city_name: 'Mérida',        iata_code: 'MID' },
+  { city_name: 'Nueva York',    iata_code: 'JFK' },
+  { city_name: 'Los Ángeles',   iata_code: 'LAX' },
+  { city_name: 'San Francisco', iata_code: 'SFO' },
+  { city_name: 'Chicago',       iata_code: 'ORD' },
+  { city_name: 'Las Vegas',     iata_code: 'LAS' },
+  { city_name: 'Toronto',       iata_code: 'YYZ' },
+  { city_name: 'Vancouver',     iata_code: 'YVR' },
+  { city_name: 'Rio de Janeiro',iata_code: 'GIG' },
+  { city_name: 'Sao Paulo',     iata_code: 'GRU' },
+  { city_name: 'Buenos Aires',  iata_code: 'EZE' },
+  { city_name: 'Cordoba',       iata_code: 'COR' },
+  { city_name: 'Santiago',      iata_code: 'SCL' },
+  { city_name: 'Valparaíso',    iata_code: 'SCL' },
+  { city_name: 'Bogotá',        iata_code: 'BOG' },
+  { city_name: 'Barranquilla',  iata_code: 'BAQ' },
+  { city_name: 'Madrid',        iata_code: 'MAD' },
+  { city_name: 'Barcelona',     iata_code: 'BCN' },
+  { city_name: 'Paris',         iata_code: 'CDG' },
+  { city_name: 'Lyon',          iata_code: 'LYS' },
+  { city_name: 'Londres',       iata_code: 'LHR' },
+  { city_name: 'Manchester',    iata_code: 'MAN' },
+  { city_name: 'Berlín',        iata_code: 'BER' },
+  { city_name: 'Munich',        iata_code: 'MUC' },
+  { city_name: 'Roma',          iata_code: 'FCO' },
+  { city_name: 'Venecia',       iata_code: 'VCE' },
+  { city_name: 'Tokyo',         iata_code: 'NRT' },
+  { city_name: 'Kyoto',         iata_code: 'ITM' },
+  { city_name: 'Pekín',         iata_code: 'PEK' },
+  { city_name: 'Hong Kong',     iata_code: 'HKG' },
+  { city_name: 'Bombay',        iata_code: 'BOM' },
+  { city_name: 'Nueva Delhi',   iata_code: 'DEL' },
 ];
 
 async function seedDefaultSocietyGroupAndSociety() {
@@ -128,6 +128,29 @@ async function seedDefaultAuthorizationRule(defaultSocietyGroupId) {
   });
 }
 
+async function seedDefaultRefundPolicy(defaultSocietyGroupId) {
+  const existingDefault = await prisma.refundPolicy.findFirst({
+    where: { is_default: true },
+    select: { policy_id: true },
+  });
+
+  if (existingDefault) {
+    return;
+  }
+
+  await prisma.refundPolicy.create({
+    data: {
+      policy_name: 'Política por Defecto',
+      min_amount: 10,
+      max_amount: 5000,
+      submission_deadline_days: 30,
+      society_group_id: defaultSocietyGroupId,
+      is_default: true,
+      active: true,
+    },
+  });
+}
+
 async function seedCurrencyCatalog() {
   for (const currency of CURRENCY_CATALOG) {
     await prisma.currency.upsert({
@@ -145,11 +168,11 @@ async function seedCurrencyCatalog() {
 }
 
 async function seedCityCatalog() {
-  for (const cityName of CITY_CATALOG) {
+  for (const city of CITY_CATALOG) {
     await prisma.city.upsert({
-      where: { city_name: cityName },
-      create: { city_name: cityName },
-      update: { city_name: cityName },
+      where: { city_name: city.city_name },
+      create: { city_name: city.city_name, iata_code: city.iata_code },
+      update: { iata_code: city.iata_code },
     });
   }
 }
@@ -160,8 +183,10 @@ export async function seedEmptyDatabase() {
   await seedReferenceData(prisma, defaultSocietyGroupId);
   await seedCityCatalog();
   await seedDefaultAuthorizationRule(defaultSocietyGroupId);
+  await seedDefaultRefundPolicy(defaultSocietyGroupId);
   await seedCurrencyCatalog();
   await seedAdminAccount(prisma, defaultSocietyGroupId);
+  await seedSuperAdminAccount(prisma, defaultSocietyGroupId);
   console.log('Base Prisma data created');
 }
 

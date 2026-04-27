@@ -1,0 +1,39 @@
+/**
+ * Request Controller
+ *
+ * HTTP handlers for requests
+ */
+
+import RequestService from '../services/requestService.js';
+
+export const getUserRequests = async (req, res) => {
+  const userId = Number(req.params.user_id);
+  const societyId = Number(req.user.society_id);
+  const { status, sort = 'desc' } = req.query;
+
+  try {
+    const requests = await RequestService.getUserRequests(userId, societyId, { status, sort });
+    return res.status(200).json(requests);
+  } catch (err) {
+    console.error('Error in getUserRequests controller:', err);
+    if (err.status) {
+      return res.status(err.status).json({ error: err.message });
+    }
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+export const deleteDraftRequest = async (req, res) => {
+  const requestId = Number(req.params.request_id);
+
+  try {
+    await RequestService.deleteDraftRequest(requestId);
+    return res.status(200).json({ message: 'Draft request deleted successfully' });
+  } catch (err) {
+    console.error('Error in deleteDraftRequest controller:', err);
+    if (err.status) {
+      return res.status(err.status).json({ error: err.message });
+    }
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+};

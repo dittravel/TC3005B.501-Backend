@@ -5,6 +5,7 @@
  */
 
 import { prisma } from "../lib/prisma.js";
+import RequestModel from "../models/requestModel.js";
 
 const RequestService = {
   /**
@@ -115,6 +116,71 @@ const RequestService = {
       throw error;
     }
   },
+
+  /**
+   * Get requests visible to a user (requester OR assignee) with filtering and sorting
+   * @param {number} userId - User ID making the request
+   * @param {number} societyId - User's society ID for access control
+   * @param {Object} rawFilters - Raw query filters from request: { status, sort }
+   * @returns {Promise<Array>} Formatted requests array
+   * @throws {Error} If userId or societyId missing or database error
+   */
+  async getUserRequests(userId, societyId, rawFilters = {}) {
+    if (!userId || !societyId) {
+      throw new Error('userId and societyId are required');
+    }
+
+    const filters = normalizeRequestFilters(rawFilters);
+
+    try {
+      return await RequestModel.getUserRequests(userId, societyId, filters);
+    } catch (error) {
+      console.error('Error in getUserRequests service:', error);
+      throw error;
+    }
+  },
+};
+
+/**
+ * Normalize and validate filter parameters from query string
+ * @param {Object} rawFilters - Raw filters object
+ * @returns {Object} Normalized { status, sort }
+ */
+function normalizeRequestFilters({ status, sort } = {}) {
+  return {
+    status: typeof status === 'string' ? status.trim() || null : null,
+    sort: sort === 'asc' ? 'asc' : 'desc',
+  };
+}
+
+/**
+ * Deactivate (delete) a draft request by ID.
+ * @param {number} requestId - The ID of the request to delete
+ * @returns {Promise<void>}
+ * @throws {Error} If request not found, not a draft, or database error occurs
+ */
+RequestService.deleteDraftRequest = async (requestId) => {
+  try {
+    const result = await prisma.request.updateMany({
+      where: {
+        request_id: Number(requestId),
+        Request_status: {
+          status: 'Borrador',
+        },
+      },
+      data: {
+        active: false,
+      },
+    });
+
+    if (result.count === 0) {
+      throw new Error('Draft request not found or cannot be deleted');
+    }
+
+  } catch (error) {
+    console.error('Error deleting draft request:', error);
+    throw error;
+  }
 };
 
 export default RequestService;

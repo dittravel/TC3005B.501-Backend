@@ -13,6 +13,7 @@
 import TravelAgent from "../models/travelAgentModel.js";
 import TravelAgentService from "../services/travelAgentService.js";
 import { searchFlights } from "../services/travelAgency/flightService.js";
+import { searchHotels } from "../services/travelAgency/hotelService.js";
 import { getUserById } from "../services/userService.js";
 import { sendEmails } from "../services/email/emailService.js";
 
@@ -39,7 +40,7 @@ const attendTravelRequest = async (req, res) => {
     
     if (updated) {
       // Send email notifications
-      await sendEmails(requestId);
+      sendEmails(requestId);
       
       return res.status(200).json({
         message: "Travel request status updated successfully",
@@ -70,14 +71,14 @@ const completeServiceAssignment = async (req, res) => {
   const userId = req.user?.user_id;
 
   try {
-    if (!user_id) {
+    if (!userId) {
       return res.status(401).json({ error: "User not authenticated" });
     }
 
     const result = await TravelAgentService.completeServiceAssignment(requestId, userId);
 
     // Send email notifications
-    await sendEmails(request_id);
+    sendEmails(requestId);
     
     return res.status(200).json({
       message: result.message,
@@ -169,10 +170,149 @@ const searchFlightOffers = async (req, res) => {
   }
 };
 
+/**
+ * Search available hotel options in SerpApi (read-only, no booking)
+ * Retrieves hotel options based on destination and stay dates.
+ *
+ * @param {Object} req - Express request object with authenticated user and search params in body
+ * @param {string} req.body.checkInDate - Check-in date in YYYY-MM-DD format
+ * @param {string} req.body.checkOutDate - Check-out date in YYYY-MM-DD format
+ * @param {number} req.body.guests - Number of guests
+ * @param {string} req.body.address - Destination or address text
+ * @param {number} [req.body.page=1] - Internal page number
+ * @param {number} [req.body.pageSize] - Number of hotels per page
+ * @param {string} [req.body.nextPageToken] - SerpApi next page token
+ * @param {Object} res - Express response object
+ * @returns {void} Sends JSON with hotels sorted by rating and price, or error
+ */
+const searchHotelOffers = async (req, res) => {
+  try {
+    const userId = req.user?.user_id;
+
+    if (!userId) {
+      return res.status(401).json({ error: "User not authenticated" });
+    }
+
+    const {
+      checkInDate,
+      checkOutDate,
+      guests,
+      address,
+      page,
+      pageSize,
+      nextPageToken,
+    } = req.body;
+
+    const hotelsResult = await searchHotels({
+      checkInDate,
+      checkOutDate,
+      guests,
+      address,
+      page,
+      pageSize,
+      nextPageToken,
+    });
+
+    return res.status(200).json(hotelsResult);
+  } catch (err) {
+    console.error("Error in searchHotelOffers controller:", err);
+
+    return res.status(500).json({
+      error: "Failed to search hotels",
+      details: err?.message || "Unknown error",
+    });
+  }
+};
+
+/**
+ * Save selected flight/hotel fees into a specific route.
+ * Allows updating either field independently.
+ *
+ * @param {Object} req - Express request object with route_id param and fee fields in body
+ * @param {Object} res - Express response object
+ * @returns {void} Sends JSON with updated fee values or error
+ */
+const updateRouteFees = async (req, res) => {
+  try {
+    const { route_id: routeId } = req.params;
+    const { flight_fee: flightFee, hotel_fee: hotelFee } = req.body;
+
+    const updatedRoute = await TravelAgent.updateRouteFees(routeId, {
+      flight_fee: flightFee,
+      hotel_fee: hotelFee,
+    });
+
+    return res.status(200).json({
+      message: 'Route fees updated successfully',
+      route: updatedRoute,
+    });
+  } catch (err) {
+    console.error('Error in updateRouteFees controller:', err);
+
+    if (err?.code === 'P2025') {
+      return res.status(404).json({ error: 'Route not found' });
+    }
+
+    return res.status(500).json({
+      error: 'Failed to update route fees',
+      details: err?.message || 'Unknown error',
+    });
+  }
+};
+
+// Handler to create an expense with file uploads (PDF/XML)
+// This is used to create a receipt along with uploading the associated files to MongoDB
+export async function createReservationWithFilesHandler(req, res) {
+  try {
+    // Check if files are present
+    if (!req.files || (!req.files.flightPdf && !req.files.hotelPdf)) {
+      return res.status(400).json({ error: "At least a PDF file is required" });
+    }
+
+    // Extract receipt details from request body
+    const { route_id } = req.body;
+
+    // Validate required fields
+    if (!route_id) {
+      return res.status(400).json({ error: "Missing required fields" });
+    }
+
+    // Create the expense and upload files
+    const result = await TravelAgent.createReservationWithFiles({
+      route_id: Number(route_id),
+      flightPdf: req.files.flightPdf ? req.files.flightPdf[0] : null,
+      hotelPdf: req.files.hotelPdf ? req.files.hotelPdf[0] : null
+    });
+
+    // Return message
+    return res.status(201).json({
+      message: "Reservation files uploaded",
+      route_id: result.route_id,
+      flightPdf: result.flightPdf,
+      hotelPdf: result.hotelPdf
+    });
+
+  } catch (err) {
+    if (err.code === "DUPLICATE_UUID") {
+      return res.status(409).json({ error: err.message });
+    }
+    if (err.code === "BAD_REQUEST") {
+      return res.status(400).json({ error: err.message });
+    }
+    if (err.code === "CONFLICT") {
+      return res.status(409).json({ error: err.message });
+    }
+    return res.status(500).json({ error: "Internal server error" });
+  }
+}
+
 // Export travel agent controller functions for router configuration
 export default {
   attendTravelRequest,
   completeServiceAssignment,
   searchFlightOffers,
   getCities,
+  searchHotelOffers,
+  updateRouteFees,
+  createReservationWithFilesHandler
 };

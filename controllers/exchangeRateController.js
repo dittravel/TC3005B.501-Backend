@@ -10,15 +10,17 @@ import * as exchangeRateService from '../services/exchangeRateService.js';
 import * as exchangeRateCatalog from '../services/exchangeRateCatalog.js';
 
 /**
- * Returns the current exchange rate for a given Banxico series.
+ * Returns the exchange rate for a given Banxico series.
  * Defaults to USD/MXN (SF43718) if no series is specified.
- * @param {Object} req - Express request. Query: series (string, optional)
+ * Supports optional historical dates.
+ * @param {Object} req - Express request. Query: series (string, optional), date (string, optional, format: YYYY-MM-DD)
  * @param {Object} res - Express response. Returns { success, data }
  */
 export async function getCurrentExchangeRate(req, res) {
   try {
-    const { series = 'SF43718' } = req.query;
-    const data = await exchangeRateService.getExchangeRate(series);
+    const { series = 'SF43718', date } = req.query;
+    const parsedDate = date ? new Date(date) : null;
+    const data = await exchangeRateService.getExchangeRate(series, parsedDate);
     res.status(200).json({ success: true, data });
   } catch (error) {
     console.error('Error in getCurrentExchangeRate:', error.message);

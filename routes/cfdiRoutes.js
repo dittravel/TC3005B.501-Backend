@@ -22,7 +22,7 @@ const upload = multer({ storage: multer.memoryStorage() });
 /**
  * POST /api/cfdi/validate
  *
- * Validates a CFDI XML file against the SAT through the ValidaCFDI API.
+ * Validates a CFDI XML file against the SAT through the SAT's official SOAP service.
  * Requires authentication and the "Solicitante" or "Autorizador" role.
  *
  * Request: multipart/form-data with field "xml" containing the XML file.

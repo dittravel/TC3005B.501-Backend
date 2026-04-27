@@ -4,21 +4,25 @@
  * Orchestrates the full CFDI validation flow:
  *   1. Parses the uploaded XML buffer using the existing xmlParserService.
  *   2. Extracts the required fields (UUID, RFCs, total, date).
- *   3. Sends those fields to ValidaCFDI for SAT status validation.
+ *   3. Sends those fields to the SAT SOAP service for status validation.
  *   4. Returns a structured validation result to the caller.
+ *
+ * Validation is split across two services, each with a single responsibility:
+ *   - SATCfdiService.js       → communicates with the SAT SOAP service
+ *   - cfdiValidationService.js → orchestrates: parses the XML and calls SATCfdiService (this file)
  *
  * This service is the single entry point for the /api/cfdi/validate endpoint.
  */
 
-import { parseXmlData, extractXmlData } from './xmlParserService.js';
-import { validateCFDI } from './validaCfdiService.js';
+import { parseXmlData, extractXmlData } from '../xmlParserService.js';
+import { validateCFDIviaSAT } from './SATCfdiService.js';
 
 /**
  * Validate a CFDI from a raw XML buffer.
  *
- * Parses the XML, extracts CFDI fields, and forwards them to ValidaCFDI for
- * SAT validation. Returns a structured object containing both the extracted
- * CFDI data and the validation result.
+ * Parses the XML, extracts CFDI fields, and forwards them to the SAT SOAP
+ * service for validation. Returns a structured object containing both the
+ * extracted CFDI data and the validation result.
  *
  * @param {Buffer} xmlBuffer - Raw buffer of the uploaded XML file.
  * @returns {Promise<Object>} Object with cfdiData and validationResult fields.
@@ -34,8 +38,8 @@ export async function validateCFDIFromXml(xmlBuffer) {
   // Extract the CFDI fields we need for validation and display
   const cfdiData = extractXmlData(parsedXml);
 
-  // Send CFDI fields to ValidaCFDI for SAT status validation
-  const validationResult = await validateCFDI(
+  // Send CFDI fields to the SAT SOAP service for validation
+  const validationResult = await validateCFDIviaSAT(
     cfdiData.uuid,
     cfdiData.rfcEmisor,
     cfdiData.rfcReceptor,

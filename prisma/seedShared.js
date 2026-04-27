@@ -3,8 +3,12 @@ import crypto from 'node:crypto';
 
 export const ADMIN_USER_NAME = 'admin';
 export const ADMIN_PASSWORD = 'admin123';
-export const ADMIN_EMAIL = 'admin@cocoscheme.local';
+export const ADMIN_EMAIL = 'admin@cocoscheme.com';
 export const ADMIN_WORKSTATION = 'ADMIN-WS';
+export const SUPERADMIN_USER_NAME = 'superadmin';
+export const SUPERADMIN_PASSWORD = '123';
+export const SUPERADMIN_EMAIL = 'superadmin@cocoscheme.com';
+export const SUPERADMIN_WORKSTATION = 'SUPERADMIN-WS';
 export const ADMIN_DEPARTMENT_NAME = 'Admin';
 export const ADMIN_COST_CENTER_NAME = 'CC-ADMIN';
 
@@ -40,17 +44,20 @@ export async function seedReferenceData(prisma, defaultSocietyGroupId) {
     { role_name: 'Cuentas por pagar' },
     { role_name: 'Autorizador' },
     { role_name: 'Administrador' },
+    { role_name: 'Superadministrador' },
   ], (item) => ({
     where: { role_name_society_group_id: { role_name: item.role_name, society_group_id: defaultSocietyGroupId } },
     create: {
       role_name: item.role_name,
       society_group_id: defaultSocietyGroupId,
       is_default: item.role_name === 'Solicitante',
+      is_system: item.role_name === 'Superadministrador',
     },
     update: {
       role_name: item.role_name,
       society_group_id: defaultSocietyGroupId,
       is_default: item.role_name === 'Solicitante',
+      is_system: item.role_name === 'Superadministrador',
     },
   }));
 
@@ -131,9 +138,15 @@ export async function seedReferenceData(prisma, defaultSocietyGroupId) {
     { permission_key: 'receipts:edit', permission_name: 'Editar comprobantes', module: 'receipts', action: 'edit', description: 'Modify submitted receipts' },
     { permission_key: 'receipts:delete', permission_name: 'Eliminar comprobantes', module: 'receipts', action: 'delete', description: 'Remove receipts' },
     { permission_key: 'receipts:approve', permission_name: 'Aprobar/Rechazar comprobantes', module: 'receipts', action: 'approve_reject', description: 'Approve or reject expense receipts' },
+    { permission_key: 'refunds:request', permission_name: 'Solicitar reembolso', module: 'refunds', action: 'request', description: 'Submit a refund request' },
+    { permission_key: 'refunds:budget', permission_name: 'Asignar presupuesto impuesto', module: 'refunds', action: 'assign_budget', description: 'Assign tax budget to a refund' },
+    { permission_key: 'refunds:approve', permission_name: 'Aprobar/Rechazar reembolso', module: 'refunds', action: 'approve_reject', description: 'Approve or reject refund requests' },
     { permission_key: 'system:audit_log', permission_name: 'Ver bitácora', module: 'system', action: 'audit_log', description: 'Access the system audit log of critical actions' },
     { permission_key: 'system:import_data', permission_name: 'Importar datos', module: 'system', action: 'import_data', description: 'Import organizational data from files' },
     { permission_key: 'system:export_accounting', permission_name: 'Exportar datos contables', module: 'system', action: 'export_accounting', description: 'Export accounting and travel expense data' },
+    { permission_key: 'superadmin:manage_groups', permission_name: 'Administrar grupos de sociedades', module: 'superadmin', action: 'manage_groups', description: 'Create, update and delete society groups and bootstrap tenant data' },
+    { permission_key: 'superadmin:manage_master_admins', permission_name: 'Administrar administradores maestros', module: 'superadmin', action: 'manage_master_admins', description: 'Manage top-level superadmin users' },
+    { permission_key: 'superadmin:view_group_audit_log', permission_name: 'Ver bitácora por grupo', module: 'superadmin', action: 'view_group_audit_log', description: 'Read audit logs filtered by society group' },
   ];
 
   await upsertOrderedRecords(prisma.permission, permissions, (item) => ({
@@ -142,36 +155,70 @@ export async function seedReferenceData(prisma, defaultSocietyGroupId) {
     update: { ...item, society_group_id: defaultSocietyGroupId },
   }));
 
-  // Ensure default hardcoded roles always have a base permission set.
+  // Ensure system roles keep an exact, segmented baseline on every seed run.
   const defaultRolePermissions = {
     'Solicitante': [
       'travel:view',
       'travel:create',
       'travel:edit',
+      'travel:view_flights',
+      'travel:view_hotels',
       'receipts:create',
       'receipts:edit',
+      'refunds:request',
     ],
     'Agencia de viajes': [
       'travel:view',
       'travel:edit',
+      'travel:approve',
       'travel:view_flights',
       'travel:view_hotels',
-      'travel:approve',
+      'travel:finalize',
+      'travel:cancel',
     ],
     'Cuentas por pagar': [
+      'travel:view',
       'receipts:view',
+      'receipts:create',
+      'receipts:edit',
+      'receipts:delete',
       'receipts:approve',
+      'refunds:request',
+      'refunds:approve',
     ],
     'Autorizador': [
+      'users:view',
       'travel:view',
       'travel:create',
       'travel:edit',
+      'travel:delete',
       'travel:approve',
+      'travel:def_amount',
+      'travel:finalize',
+      'travel:cancel',
       'travel:reject',
+      'receipts:view',
       'receipts:create',
       'receipts:edit',
+      'receipts:approve',
+      'refunds:request',
+      'refunds:approve',
     ],
-    'Administrador': permissions.map((permission) => permission.permission_key),
+    'Administrador': [
+      'users:view',
+      'users:create',
+      'users:edit',
+      'users:delete',
+      'travel:def_amount',
+      'system:audit_log',
+      'system:import_data',
+      'system:export_accounting',
+    ],
+    'Superadministrador': [
+      'superadmin:manage_groups',
+      'superadmin:manage_master_admins',
+      'superadmin:view_group_audit_log',
+    ],
   };
 
   const roles = await prisma.role.findMany({
@@ -197,6 +244,19 @@ export async function seedReferenceData(prisma, defaultSocietyGroupId) {
   for (const [roleName, permissionKeys] of Object.entries(defaultRolePermissions)) {
     const roleId = roleByName.get(roleName);
     if (!roleId) continue;
+
+    const allowedPermissionKeys = new Set(permissionKeys);
+    await prisma.role_Permission.deleteMany({
+      where: {
+        role_id: roleId,
+        Permission: {
+          permission_key: {
+            notIn: Array.from(allowedPermissionKeys),
+          },
+          society_group_id: defaultSocietyGroupId,
+        },
+      },
+    });
 
     const rolePermissionRows = permissionKeys
       .map((permissionKey) => permissionByKey.get(permissionKey))
@@ -280,6 +340,81 @@ export async function seedAdminAccount(prisma, defaultSocietyGroupId) {
       department: { connect: { department_id: department.department_id } },
       password,
       workstation: ADMIN_WORKSTATION,
+      email,
+      phone_number: null,
+      active: true,
+    },
+  });
+}
+
+export async function seedSuperAdminAccount(prisma, defaultSocietyGroupId) {
+  const superAdminRole = await prisma.role.findUnique({
+    where: {
+      role_name_society_group_id: {
+        role_name: 'Superadministrador',
+        society_group_id: defaultSocietyGroupId,
+      },
+    },
+  });
+
+  if (!superAdminRole) {
+    throw new Error('Superadministrator role must exist before seeding the superadmin account');
+  }
+
+  const defaultSociety = await prisma.society.findFirst({
+    where: {
+      is_default: true,
+      society_group_id: defaultSocietyGroupId,
+    },
+    select: { id: true },
+  });
+
+  if (!defaultSociety) {
+    throw new Error('Default society must exist before seeding the superadmin account');
+  }
+
+  const costCenter = await prisma.costCenter.upsert({
+    where: { cost_center_name_society_group_id: { cost_center_name: ADMIN_COST_CENTER_NAME, society_group_id: defaultSocietyGroupId } },
+    create: { cost_center_name: ADMIN_COST_CENTER_NAME, society_group_id: defaultSocietyGroupId },
+    update: { cost_center_name: ADMIN_COST_CENTER_NAME, society_group_id: defaultSocietyGroupId },
+  });
+
+  const department = await prisma.department.upsert({
+    where: { department_name_society_group_id: { department_name: ADMIN_DEPARTMENT_NAME, society_group_id: defaultSocietyGroupId } },
+    create: {
+      department_name: ADMIN_DEPARTMENT_NAME,
+      cost_center_id: costCenter.cost_center_id,
+      society_group_id: defaultSocietyGroupId,
+      active: true,
+    },
+    update: {
+      cost_center_id: costCenter.cost_center_id,
+      society_group_id: defaultSocietyGroupId,
+      active: true,
+    },
+  });
+
+  const password = await bcrypt.hash(SUPERADMIN_PASSWORD, 10);
+  const email = encryptSeedValue(SUPERADMIN_EMAIL);
+
+  await prisma.user.upsert({
+    where: { user_name: SUPERADMIN_USER_NAME },
+    create: {
+      role: { connect: { role_id: superAdminRole.role_id } },
+      department: { connect: { department_id: department.department_id } },
+      Society: { connect: { id: defaultSociety.id } },
+      user_name: SUPERADMIN_USER_NAME,
+      password,
+      workstation: SUPERADMIN_WORKSTATION,
+      email,
+      phone_number: null,
+      active: true,
+    },
+    update: {
+      role: { connect: { role_id: superAdminRole.role_id } },
+      department: { connect: { department_id: department.department_id } },
+      password,
+      workstation: SUPERADMIN_WORKSTATION,
       email,
       phone_number: null,
       active: true,

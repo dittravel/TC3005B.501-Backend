@@ -1,7 +1,7 @@
 /**
  * Accounts Payable Routes
  * 
- * This module defines the routes and role-based access control
+ * This module defines the routes and permission-based access control
  * for the "Cuentas por pagar" functionalities
  */
 
@@ -36,5 +36,17 @@ router.route("/get-expense-validations/:request_id")
 // Search receipts across all requests by user_id, date range, and/or validation status
 router.route("/search-receipts")
   .get(generalRateLimiter, authenticateToken, authorizePermission(['receipts:view']), validateReceiptSearchQuery, validateInputs, AccountsPayableController.searchReceipts);
+
+// Edit receipt amount (for exceeding policy limits)
+router.route("/edit-receipt-amount/:receipt_id")
+  .put(generalRateLimiter, authenticateToken, authorizePermission(['receipts:approve']), validateSocietyAccess('receipt'), validateId, validateInputs, AccountsPayableController.editReceiptAmount);
+
+// Edit receipt notes (for providing feedback on corrections)
+router.route("/edit-receipt-notes/:receipt_id")
+  .put(generalRateLimiter, authenticateToken, authorizePermission(['receipts:approve']), validateSocietyAccess('receipt'), validateId, validateInputs, AccountsPayableController.editReceiptNotes);
+
+// Return receipts for correction (marks request as pending again)
+router.route("/return-receipts/:request_id")
+  .put(generalRateLimiter, authenticateToken, authorizePermission(['receipts:approve']), validateSocietyAccess('request'), validateId, validateInputs, AccountsPayableController.returnReceiptsForCorrection);
 
 export default router;

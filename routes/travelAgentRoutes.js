@@ -1,6 +1,6 @@
 /**
  * Travel Agent Routes
- * 
+ *
  * This module defines the routes and role-based access control
  * for the "Agencia de viajes" functionalities
  */
@@ -9,7 +9,14 @@ import express from "express";
 import travelAgentController from "../controllers/travelAgentController.js";
 import { validateId, validateInputs, validateFlightSearch } from "../middleware/validation.js";
 import { authenticateToken, authorizePermission, validateSocietyAccess } from "../middleware/auth.js";
+import { validateHotelSearch, validateRouteFeeUpdate } from "../middleware/validation.js";
 import { generalRateLimiter } from "../middleware/rateLimiters.js";
+
+// Import multer for file uploads
+// Ref: https://www.npmjs.com/package/multer
+// It adds a files property to the request object, which contains the uploaded files
+import multer from 'multer';
+const upload = multer();
 
 const router = express.Router();
 
@@ -37,30 +44,54 @@ router.route("/cities")
 /**
  * Search available flight offers in Duffel
  * POST /api/travel-agent/flights/search
- *
- * Request body (camelCase):
- * {
- *   "tripType": "one_way" | "round",
- *   "origin": "MEX",
- *   "destination": "CUN",
- *   "departureDate": "2026-05-10",
- *   "returnDate": "2026-05-15" (required for round trips only),
- *   "cabinClass": "economy" | "premium_economy" | "business" | "first" (optional),
- *   "page": 1 (optional, defaults to 1),
- *   "pageSize": 10 (optional, defaults to FLIGHT_SEARCH_PAGE_SIZE)
- * }
- *
- * Returns paginated offers with search metadata and passenger information.
- * No booking is performed; results are for display purposes only.
  */
-router.route("/flights/search")
+router
+  .route("/flights/search")
   .post(
     generalRateLimiter,
     authenticateToken,
     authorizePermission(['travel:view_flights']),
     validateFlightSearch,
     validateInputs,
-    travelAgentController.searchFlightOffers
+    travelAgentController.searchFlightOffers,
   );
+
+/**
+ * Search available hotel options in SerpApi (Google Hotels)
+ * POST /api/travel-agent/hotels/search
+ */
+router
+  .route("/hotels/search")
+  .post(
+    generalRateLimiter,
+    authenticateToken,
+    authorizePermission(['travel:view_hotels']),
+    validateHotelSearch,
+    validateInputs,
+    travelAgentController.searchHotelOffers,
+  );
+
+// Persist selected flight/hotel fees for a specific route
+router.route('/route-fees/:route_id')
+  .put(
+    generalRateLimiter,
+    authenticateToken,
+    authorizePermission(['travel:edit']),
+    validateRouteFeeUpdate,
+    validateInputs,
+    travelAgentController.updateRouteFees
+  );
+
+router.route("/create-reservation-file").post(
+  generalRateLimiter,
+  authenticateToken,
+  authorizePermission(['travel:edit']),
+  upload.fields([
+    { name: "flightPdf", maxCount: 1 }, // Allow one single file
+    { name: "hotelPdf", maxCount: 1 }, // Allow one single file
+
+  ]),
+  travelAgentController.createReservationWithFilesHandler,
+);
 
 export default router;

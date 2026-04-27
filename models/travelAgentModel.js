@@ -7,6 +7,7 @@
  */
 
 import { prisma } from "../lib/prisma.js";
+import { uploadReservationFiles } from "../services/reservationFileService.js";
 
 
 const TravelAgent = {
@@ -16,6 +17,7 @@ const TravelAgent = {
         select: {
           city_id: true,
           city_name: true,
+          iata_code: true,
         },
         orderBy: {
           city_name: 'asc',
@@ -124,6 +126,54 @@ const TravelAgent = {
       throw error;
     }
   },
+
+  // Update optional fee fields on a specific route
+  async updateRouteFees(route_id, { flight_fee, hotel_fee }) {
+    try {
+      const data = {};
+
+      if (flight_fee !== undefined) {
+        data.flight_fee = Number(flight_fee);
+      }
+
+      if (hotel_fee !== undefined) {
+        data.hotel_fee = Number(hotel_fee);
+      }
+
+      if (Object.keys(data).length === 0) {
+        throw new Error('No fee fields provided');
+      }
+
+      return await prisma.route.update({
+        where: { route_id: Number(route_id) },
+        data,
+        select: {
+          route_id: true,
+          flight_fee: true,
+          hotel_fee: true,
+        },
+      });
+    } catch (error) {
+      console.error('Error updating route fees:', error);
+      throw error;
+    }
+  },
+  // Upload flight and hotel PDF files for a reservation
+  async createReservationWithFiles(data) {
+    const { route_id, flightPdf, hotelPdf } = data;
+
+    const fileResult = await uploadReservationFiles(
+      Number(route_id),
+      flightPdf,
+      hotelPdf
+    );
+
+    return {
+      route_id: Number(route_id),
+      flightPdf: fileResult.flightPdf,
+      hotelPdf: fileResult.hotelPdf,
+    };
+  }
 };
 
 export default TravelAgent;

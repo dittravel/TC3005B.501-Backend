@@ -12,7 +12,7 @@
         "dummy_db": "node ./database/config/dev_db.js dev",
         "empty_db": "node ./database/config/dev_db.js prod",
         "test": "node --test",
-        "test:policy": "node --test tests/reimbursementPolicyService.test.js",
+        "test:refund-policy": "node --test tests/refundPolicy*.test.js",
         "test:erp": "node --test tests/integration*.test.js",
         "test:audit": "node --test tests/auditLog*.test.js",
         "prisma:generate": "prisma generate",
@@ -58,6 +58,7 @@
         "mongodb": "^5.0.0",
         "multer": "^2.0.1",
         "nodemailer": "^7.0.3",
+        "serpapi": "^2.2.1",
         "xlsx": "^0.18.5",
         "xml2js": "^0.6.2"
     },

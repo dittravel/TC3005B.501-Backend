@@ -64,7 +64,7 @@ const authorizeTravelRequest = async (req, res) => {
     });
     try {
       // Send email notifications
-      await sendEmails(requestId);
+      sendEmails(requestId);
     } catch (mailError) {
       console.error("Failed to send request authorization email:", mailError);
     }
@@ -99,7 +99,7 @@ const declineTravelRequest = async (req, res) => {
     });
     try {
       // Send email notifications
-      await sendEmails(requestId);
+      sendEmails(requestId);
     } catch (mailError) {
       console.error("Failed to send request decline email:", mailError);
     }

@@ -726,6 +726,11 @@ export const validateERPEmployeeQuery = [
 
 // Validate audit log query parameters
 export const validateAuditLogQuery = [
+  query('society_group_id')
+    .optional()
+    .isInt({ min: 1 })
+    .toInt()
+    .withMessage('society_group_id must be a valid positive integer'),
   query('actor_user_id')
     .optional()
     .isInt({ min: 1 })
@@ -829,6 +834,80 @@ export const validateFlightSearch = [
   })
 ];
 
+/**
+ * Validate SerpApi hotel search request payload.
+ * Ensures required fields are present and pagination/localization params are valid.
+ */
+export const validateHotelSearch = [
+  body("checkInDate")
+    .isISO8601({ strict: true, strictSeparator: true })
+    .withMessage("checkInDate must be in YYYY-MM-DD format"),
+  body("checkOutDate")
+    .isISO8601({ strict: true, strictSeparator: true })
+    .withMessage("checkOutDate must be in YYYY-MM-DD format"),
+  body("guests")
+    .isInt({ min: 1, max: 5 })
+    .toInt()
+    .withMessage("guests must be an integer between 1 and 5"),
+  body("address")
+    .isString()
+    .trim()
+    .notEmpty()
+    .isLength({ min: 2, max: 120 })
+    .withMessage("address must be a non-empty string between 2 and 120 characters"),
+  body("page")
+    .optional()
+    .isInt({ min: 1 })
+    .toInt()
+    .withMessage("page must be an integer greater than 0"),
+  body("pageSize")
+    .optional()
+    .isInt({ min: 1, max: 50 })
+    .toInt()
+    .withMessage("pageSize must be an integer between 1 and 50"),
+  body("nextPageToken")
+    .optional({ nullable: true })
+    .isString()
+    .trim()
+    .isLength({ min: 5, max: 500 })
+    .withMessage("nextPageToken must be a valid non-empty string when provided"),
+  body().custom((value) => {
+    if (!value) {
+      return true;
+    }
+
+    if (value.checkInDate && value.checkOutDate && value.checkOutDate <= value.checkInDate) {
+      throw new Error("checkOutDate must be after checkInDate");
+    }
+
+    return true;
+  }),
+];
+
+// Validate route fee updates from travel agency selections
+export const validateRouteFeeUpdate = [
+  param('route_id')
+    .isInt({ min: 1 })
+    .toInt()
+    .withMessage('route_id must be a valid positive integer'),
+  body('flight_fee')
+    .optional({ nullable: true })
+    .isFloat({ min: 0 })
+    .toFloat()
+    .withMessage('flight_fee must be a non-negative number'),
+  body('hotel_fee')
+    .optional({ nullable: true })
+    .isFloat({ min: 0 })
+    .toFloat()
+    .withMessage('hotel_fee must be a non-negative number'),
+  body().custom((value) => {
+    if (value.flight_fee === undefined && value.hotel_fee === undefined) {
+      throw new Error('At least one fee field must be provided');
+    }
+    return true;
+  }),
+];
+
 // Validate forgot-password request body
 export const validateForgotPassword = [
   body('email')
@@ -881,6 +960,122 @@ export const validateReceiptSearchQuery = [
     .withMessage('offset must be a non-negative integer'),
 ];
 
+// Validate authorization rule create/update payload
+export const validateAuthorizationRule = [
+  body('rule_name')
+    .isString()
+    .trim()
+    .notEmpty()
+    .isLength({ max: 100 })
+    .withMessage('rule_name is required and must be 100 characters or fewer'),
+  
+  body('is_default')
+    .isBoolean()
+    .toBoolean()
+    .withMessage('is_default must be a boolean'),
+  
+  body('num_levels')
+    .isInt({ min: 1, max: 10 })
+    .toInt()
+    .withMessage('num_levels must be an integer between 1 and 10'),
+
+  body('automatic')
+    .isBoolean()
+    .toBoolean()
+    .withMessage('automatic must be a boolean'),
+  
+  // Conditional fields for non-default rules
+  body('travel_type')
+    .optional()
+    .isString()
+    .trim()
+    .notEmpty()
+    .withMessage('travel_type is required'),
+  
+  body('min_duration')
+    .optional()
+    .isInt({ min: 0 })
+    .toInt(),
+  
+  body('max_duration')
+    .optional()
+    .isInt({ min: 0 })
+    .toInt(),
+  
+  body('min_amount')
+    .optional()
+    .isFloat({ min: 0 })
+    .toFloat(),
+  
+  body('max_amount')
+    .optional()
+    .isFloat({ min: 0 })
+    .toFloat(),
+  
+  body('levels')
+    .optional()
+    .isArray()
+    .withMessage('levels must be an array'),
+  
+  body('levels.*.level_number')
+    .optional()
+    .isInt({ min: 1 })
+    .toInt()
+    .withMessage('level_number must be a positive integer'),
+  
+  body('levels.*.level_type')
+    .optional({ nullable: true, checkFalsy: true })
+    .isIn(['Jefe', 'Aleatorio', 'Nivel_Superior'])
+    .withMessage('level_type must be one of: Jefe, Aleatorio, Nivel_Superior'),
+  
+  body('levels.*.superior_level_number')
+    .optional({ nullable: true, checkFalsy: true })
+    .if((value) => value !== null && value !== undefined && value !== '')
+    .isInt()
+    .toInt(),
+  
+  // Custom validation for non-default rules
+  body().custom((value) => {
+    if (!value.is_default) {
+      if (!value.travel_type) {
+        throw new Error('travel_type is required for non-default rules');
+      }
+      if (value.min_duration === undefined || value.min_duration === null) {
+        throw new Error('min_duration is required for non-default rules');
+      }
+      if (value.max_duration === undefined || value.max_duration === null) {
+        throw new Error('max_duration is required for non-default rules');
+      }
+      if (value.min_duration >= value.max_duration) {
+        throw new Error('min_duration must be less than max_duration');
+      }
+      if (value.min_amount === undefined || value.min_amount === null) {
+        throw new Error('min_amount is required for non-default rules');
+      }
+      if (value.max_amount === undefined || value.max_amount === null) {
+        throw new Error('max_amount is required for non-default rules');
+      }
+      if (value.min_amount >= value.max_amount) {
+        throw new Error('min_amount must be less than max_amount');
+      }
+    }
+
+    // Validate levels if not automatic
+    if (!value.automatic && value.levels && value.levels.length > 0) {
+      for (let i = 0; i < value.levels.length; i++) {
+        if (!value.levels[i].level_type) {
+          throw new Error(`Level ${i + 1} must have a level_type`);
+        }
+        if (value.levels[i].level_type === 'Nivel_Superior' && !value.levels[i].superior_level_number) {
+          throw new Error(`Level ${i + 1} with type "Nivel_Superior" must have a superior_level_number`);
+        }
+      }
+    }
+
+    return true;
+  })
+];
+
 // Generic validation error handler
 export const validateInputs = (req, res, next) => {
   const errors = validationResult(req);
@@ -901,6 +1096,12 @@ export default {
   validateReimbursementPolicyPayload,
   validateERPEmployeeQuery,
   validateAuditLogQuery,
-  validateFlightSearch
+  validateFlightSearch,
+  validateHotelSearch,
+  validateRouteFeeUpdate,
+  validateForgotPassword,
+  validateResetPassword,
+  validateReceiptSearchQuery,
+  validateAuthorizationRule,
 };
 

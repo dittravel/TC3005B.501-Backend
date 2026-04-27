@@ -149,6 +149,7 @@ const Applicant = {
         notes,
         requested_fee = 0,
         imposed_fee = 0,
+        currency = 'MXN',
         origin_country_name,
         origin_city_name,
         destination_country_name,
@@ -240,7 +241,14 @@ const Applicant = {
           authorizationRuleId = applicableRule.rule_id;
           console.log(`Authorization rule selected: ${applicableRule.rule_name} (ID: ${authorizationRuleId})`);
         } else {
-          console.warn("No applicable authorization rule found, proceeding without rule assignment");
+          const defaultRule = await AuthorizationRuleService.getDefaultRule();
+          if (defaultRule) {
+            authorizationRuleId = defaultRule.rule_id;
+            applicableRule = defaultRule;
+            console.log(`No applicable rule found, assigned default rule: ${defaultRule.rule_name} (ID: ${authorizationRuleId})`);
+          } else {
+            console.warn("No applicable or default authorization rule found");
+          }
         }
       } catch (error) {
         console.error("Error selecting authorization rule:", error);
@@ -315,6 +323,7 @@ const Applicant = {
             society_id: role.society_id,
             notes,
             requested_fee,
+            currency,
             imposed_fee,
             request_days,
           },
@@ -348,6 +357,7 @@ const Applicant = {
         notes,
         requested_fee = 0,
         imposed_fee = 0,
+        currency = 'MXN',
         origin_country_name,
         origin_city_name,
         destination_country_name,
@@ -392,6 +402,7 @@ const Applicant = {
           data: {
             notes,
             requested_fee,
+            currency,
             imposed_fee,
             request_days,
             last_mod_date: new Date(),
@@ -597,6 +608,7 @@ const Applicant = {
         },
         select: {
           request_id: true,
+          creation_date: true,
           assigned_to: true,
           Request_status: {
             select: { status: true },
@@ -629,6 +641,7 @@ const Applicant = {
           destination_country: firstRoute?.destinationCountry?.country_name ?? null,
           beginning_date: firstRoute?.beginning_date ?? null,
           ending_date: firstRoute?.ending_date ?? null,
+          creation_date: request.creation_date,
           assigned_to: request.assigned_to,
           assigned_to_name: request.assignedUser?.user_name ?? null,
         };
@@ -685,6 +698,7 @@ const Applicant = {
         request_status: request.Request_status?.status ?? null,
         notes: request.notes,
         requested_fee: request.requested_fee,
+        currency: request.currency ?? 'MXN',
         imposed_fee: request.imposed_fee,
         request_days: request.request_days,
         creation_date: request.creation_date,
@@ -740,7 +754,7 @@ const Applicant = {
       throw error;
     }
   },
-  
+
   /**
   * Inserts multiple receipts using receipt_type_id and amount.
   * @param {Array<{receipt_type_id: number, request_id: number, amount: number}>} receipts
@@ -784,6 +798,7 @@ const Applicant = {
         notes = '',                                     // Default value empty string
         requested_fee = 0,                              // Default value 0
         imposed_fee = 0,                                // Default value 0
+        currency = 'MXN',                               // Default value 'MXN'
         origin_country_name = 'notSelected',            // Default value 'notSelected'
         origin_city_name = 'notSelected',               // Default value 'notSelected'
         destination_country_name = 'notSelected',       // Default value 'notSelected'
@@ -817,8 +832,7 @@ const Applicant = {
       // Step 1: Insert into Request table
       const request_days = getRequestDays(allRoutes);
 
-      // Get the boss (checking if they're out of office) and user's society_id
-      const bossId = await User.getBossId(user_id);
+      // Get user's society_id for the request
       const user = await prisma.user.findUnique({
         where: { user_id: Number(user_id) },
         select: { society_id: true },
@@ -833,11 +847,12 @@ const Applicant = {
           data: {
             user_id: Number(user_id),
             request_status_id: 1,
-            assigned_to: bossId,
+            assigned_to: null, // No assigned approver for draft requests
             authorization_level: 0,
             society_id: user.society_id,
             notes,
             requested_fee,
+            currency,
             imposed_fee,
             request_days,
           },
@@ -956,6 +971,7 @@ const Applicant = {
         amount: receipt.amount,
         currency: receipt.currency,
         submission_date: receipt.submission_date,
+        receipt_date: receipt.receipt_date,
         receipt_type_name: receipt.Receipt_Type?.receipt_type_name ?? null,
         pdf_id: receipt.pdf_file_id,
         pdf_name: receipt.pdf_file_name,
@@ -991,20 +1007,28 @@ const Applicant = {
           throw new Error("Invalid receipt type");
         }
 
+        const updateData = {
+          route_id: Number(data.route_id),
+          receipt_type_id: receiptType.receipt_type_id,
+          amount: Number(data.amount),
+          local_amount: Number(data.local_amount || data.amount),
+          currency: data.currency,
+          receipt_date: new Date(data.receipt_date),
+        };
+
+        if (data.validation) {
+          updateData.validation = data.validation;
+        }
+
         await tx.receipt.update({
           where: { receipt_id: Number(receiptId) },
-          data: {
-            route_id: Number(data.route_id),
-            receipt_type_id: receiptType.receipt_type_id,
-            amount: Number(data.amount),
-            currency: data.currency,
-          },
+          data: updateData,
         });
       });
-      
+
       // Return the updated receipt
       return this.getReceipt(receiptId);
-      
+
     } catch (error) {
       console.error('Error updating receipt:', error);
       throw error;
@@ -1047,9 +1071,12 @@ const Applicant = {
       request_id,
       route_id,
       amount,
+      local_amount,
       currency,
+      receipt_date,
       pdfFile,
-      xmlFile
+      xmlFile,
+      exceeds_policy_limit
     } = data;
 
     // Get the request to obtain its society_id
@@ -1069,8 +1096,11 @@ const Applicant = {
           request_id: Number(request_id),
           route_id: Number(route_id),
           amount: Number(amount),
+          local_amount: Number(local_amount || amount),
           currency,
+          receipt_date: receipt_date || null,
           society_id: request.society_id,
+          exceeds_policy_limit: exceeds_policy_limit || false,
         },
         select: { receipt_id: true },
       });
