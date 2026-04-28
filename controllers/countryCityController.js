@@ -25,9 +25,8 @@ export async function getCountries(req, res) {
  */
 export async function getCitiesByCountry(req, res) {
   const { countryId } = req.query;
-  if (!countryId) return res.status(400).json({ error: 'countryId es requerido' });
   const cities = await prisma.city.findMany({
-    where: { country_id: Number(countryId) },
+    where: countryId ? { country_id: Number(countryId) } : undefined,
     orderBy: { city_name: 'asc' },
   });
   return res.status(200).json(cities);
