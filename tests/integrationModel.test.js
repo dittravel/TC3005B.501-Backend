@@ -29,6 +29,7 @@ integrationTest('getERPEmployees falls back to null reports_to when boss_id is m
 
   const costCenter = await prisma.costCenter.create({
     data: {
+      cost_center_code: 1001,
       cost_center_name: 'TEST-CC',
     },
   });

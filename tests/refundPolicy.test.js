@@ -65,7 +65,7 @@ refundPolicyTest('Refund policy limits can be represented on receipts with a sel
         min_amount: 100,
         max_amount: 5000,
         submission_deadline_days: 30,
-        society_group_id: societyGroup.id,
+        society_id: society.id,
         is_default: false,
         active: true,
       },
@@ -79,7 +79,7 @@ refundPolicyTest('Refund policy limits can be represented on receipts with a sel
     const role = await prisma.role.create({
       data: {
         role_name: `Rol Test ${runId}`,
-        society_group_id: societyGroup.id,
+        society_id: society.id,
         active: true,
         is_default: false,
         is_system: false,
