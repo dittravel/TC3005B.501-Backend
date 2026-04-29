@@ -80,6 +80,8 @@ model AuthorizationRuleLevel {
 model City {
   city_id    Int     @id @default(autoincrement())
   city_name  String  @unique(map: "city_name") @db.VarChar(200)
+  country_id Int?
+  Country    Country? @relation(fields: [country_id], references: [country_id])
   routesTo   Route[] @relation("DestinationCity")
   routesFrom Route[] @relation("OriginCity")
 }
@@ -101,6 +103,7 @@ model CostCenter {
 model Country {
   country_id   Int     @id @default(autoincrement())
   country_name String  @unique(map: "country_name") @db.VarChar(60)
+  cities       City[]
   routesTo     Route[] @relation("DestinationCountry")
   routesFrom   Route[] @relation("OriginCountry")
 }

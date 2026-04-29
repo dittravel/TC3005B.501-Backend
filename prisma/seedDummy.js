@@ -34,61 +34,24 @@ const DEPARTMENT_NAMES = [
   { name: ADMIN_DEPARTMENT_NAME, costCenter: ADMIN_COST_CENTER_NAME, active: true },
 ];
 
-const COUNTRIES = [
-  'México',
-  'Estados Unidos',
-  'Canadá',
-  'Brásil',
-  'Argentina',
-  'Chile',
-  'Colombia',
-  'España',
-  'Francia',
-  'Reino Unido',
-  'Alemania',
-  'Italia',
-  'Japón',
-  'China',
-  'India',
-];
+const CITIES_BY_COUNTRY = {
+  'México':         ['CDMX', 'Guadalajara', 'Monterrey', 'Cancún', 'Mérida'],
+  'Estados Unidos': ['Nueva York', 'Los Ángeles', 'San Francisco', 'Chicago', 'Las Vegas'],
+  'Canadá':         ['Toronto', 'Vancouver'],
+  'Brásil':         ['Rio de Janeiro', 'Sao Paulo'],
+  'Argentina':      ['Buenos Aires', 'Cordoba'],
+  'Chile':          ['Santiago', 'Valparaíso'],
+  'Colombia':       ['Bogotá'],
+  'España':         ['Madrid', 'Barcelona'],
+  'Francia':        ['Paris', 'Lyon'],
+  'Reino Unido':    ['Londres', 'Manchester'],
+  'Alemania':       ['Berlín', 'Munich'],
+  'Italia':         ['Roma', 'Venecia'],
+  'Japón':          ['Tokyo', 'Kyoto'],
+  'China':          ['Pekín', 'Hong Kong'],
+  'India':          ['Bombay', 'Nueva Delhi'],
+};
 
-const CITIES = [
-  'CDMX',
-  'Guadalajara',
-  'Monterrey',
-  'Cancún',
-  'Mérida',
-  'Nueva York',
-  'Los Ángeles',
-  'San Francisco',
-  'Chicago',
-  'Las Vegas',
-  'Toronto',
-  'Vancouver',
-  'Rio de Janeiro',
-  'Sao Paulo',
-  'Buenos Aires',
-  'Cordoba',
-  'Santiago',
-  'Valparaíso',
-  'Bogotá',
-  'Madrid',
-  'Barcelona',
-  'Paris',
-  'Lyon',
-  'Londres',
-  'Manchester',
-  'Berlín',
-  'Munich',
-  'Roma',
-  'Venecia',
-  'Tokyo',
-  'Kyoto',
-  'Pekín',
-  'Hong Kong',
-  'Bombay',
-  'Nueva Delhi',
-];
 
 const DUMMY_USERS = [
   {
@@ -503,25 +466,21 @@ async function seedDummyDepartments() {
   }
 }
 
-async function seedDummyCountries() {
-  console.log('Creating dummy countries...');
-  for (const country_name of COUNTRIES) {
-    await prisma.country.upsert({
+async function seedDummyCountriesAndCities() {
+  console.log('Creating dummy countries and cities...');
+  for (const [country_name, cities] of Object.entries(CITIES_BY_COUNTRY)) {
+    const country = await prisma.country.upsert({
       where: { country_name },
       create: { country_name },
       update: { country_name },
     });
-  }
-}
-
-async function seedDummyCities() {
-  console.log('Creating dummy cities...');
-  for (const city_name of CITIES) {
-    await prisma.city.upsert({
-      where: { city_name },
-      create: { city_name },
-      update: { city_name },
-    });
+    for (const city_name of cities) {
+      await prisma.city.upsert({
+        where: { city_name },
+        create: { city_name, country_id: country.country_id },
+        update: { country_id: country.country_id },
+      });
+    }
   }
 }
 
@@ -1116,8 +1075,7 @@ async function seedDummyLocationsAndUsers() {
   await seedDummyRoles();
   await seedDummyCostCenters();
   await seedDummyDepartments();
-  await seedDummyCountries();
-  await seedDummyCities();
+  await seedDummyCountriesAndCities();
   await seedDummyUsers();
   await seedDummyAccountability();
   await seedDummyTravelFixtures();
