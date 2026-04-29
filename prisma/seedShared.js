@@ -110,40 +110,47 @@ export async function seedReferenceData(prisma, defaultSocietyId) {
   }));
 
   const permissions = [
+    // Users
     { permission_key: 'users:view', permission_name: 'Ver usuario', module: 'users', action: 'view', description: 'View user profiles and list' },
     { permission_key: 'users:create', permission_name: 'Crear usuario', module: 'users', action: 'create', description: 'Create new user accounts' },
     { permission_key: 'users:edit', permission_name: 'Editar usuario', module: 'users', action: 'edit', description: 'Modify existing user data' },
     { permission_key: 'users:delete', permission_name: 'Eliminar usuario', module: 'users', action: 'delete', description: 'Deactivate or remove users' },
+    // Societies
     { permission_key: 'societies:view', permission_name: 'Ver sociedad', module: 'societies', action: 'view', description: 'View societies and their details' },
     { permission_key: 'societies:create', permission_name: 'Crear sociedad', module: 'societies', action: 'create', description: 'Create new societies' },
     { permission_key: 'societies:edit', permission_name: 'Editar sociedad', module: 'societies', action: 'edit', description: 'Modify existing societies' },
     { permission_key: 'societies:delete', permission_name: 'Eliminar sociedad', module: 'societies', action: 'delete', description: 'Delete societies' },
-    { permission_key: 'society_groups:view', permission_name: 'Ver grupo de sociedad', module: 'society_groups', action: 'view', description: 'View society groups and their details' },
-    { permission_key: 'society_groups:create', permission_name: 'Crear grupo de sociedad', module: 'society_groups', action: 'create', description: 'Create new society groups' },
-    { permission_key: 'society_groups:edit', permission_name: 'Editar grupo de sociedad', module: 'society_groups', action: 'edit', description: 'Modify existing society groups' },
-    { permission_key: 'society_groups:delete', permission_name: 'Eliminar grupo de sociedad', module: 'society_groups', action: 'delete', description: 'Delete society groups' },
+    // Requests
     { permission_key: 'travel:view', permission_name: 'Ver solicitud', module: 'travel_requests', action: 'view', description: 'View travel requests' },
     { permission_key: 'travel:create', permission_name: 'Crear solicitud', module: 'travel_requests', action: 'create', description: 'Submit new travel requests' },
     { permission_key: 'travel:edit', permission_name: 'Editar solicitud', module: 'travel_requests', action: 'edit', description: 'Modify pending travel requests' },
     { permission_key: 'travel:delete', permission_name: 'Eliminar solicitud', module: 'travel_requests', action: 'delete', description: 'Remove travel requests' },
-    { permission_key: 'travel:approve', permission_name: 'Aprobar/Rechazar solicitud', module: 'travel_requests', action: 'approve_reject', description: 'Approve or reject travel requests' },
-    { permission_key: 'travel:def_amount', permission_name: 'Definir monto a autorizar', module: 'travel_requests', action: 'define_amount', description: 'Set the authorized monetary amount' },
-    { permission_key: 'travel:view_flights', permission_name: 'Ver opciones de vuelos', module: 'travel_requests', action: 'view_flights', description: 'View available flight options' },
-    { permission_key: 'travel:view_hotels', permission_name: 'Ver opciones de hoteles', module: 'travel_requests', action: 'view_hotels', description: 'View available hotel options' },
     { permission_key: 'travel:finalize', permission_name: 'Finalizar viaje', module: 'travel_requests', action: 'finalize', description: 'Mark a trip as completed' },
     { permission_key: 'travel:cancel', permission_name: 'Cancelar viaje', module: 'travel_requests', action: 'cancel', description: 'Cancel an approved trip' },
+    // Authorization
+    { permission_key: 'travel:approve', permission_name: 'Aprobar/Rechazar solicitud', module: 'travel_requests', action: 'approve_reject', description: 'Approve or reject travel requests' },
     { permission_key: 'travel:reject', permission_name: 'Rechazar viaje', module: 'travel_requests', action: 'reject', description: 'Reject a travel request' },
+    // Imposed fee
+    { permission_key: 'travel:def_amount', permission_name: 'Definir monto a autorizar', module: 'travel_requests', action: 'define_amount', description: 'Set the authorized monetary amount' },
+    // Travel services
+    { permission_key: 'travel:view_flights', permission_name: 'Ver opciones de vuelos', module: 'travel_requests', action: 'view_flights', description: 'View available flight options' },
+    { permission_key: 'travel:view_hotels', permission_name: 'Ver opciones de hoteles', module: 'travel_requests', action: 'view_hotels', description: 'View available hotel options' },
+    // Receipts
     { permission_key: 'receipts:view', permission_name: 'Ver comprobantes', module: 'receipts', action: 'view', description: 'View expense receipts' },
     { permission_key: 'receipts:create', permission_name: 'Crear comprobantes', module: 'receipts', action: 'create', description: 'Upload new receipts' },
     { permission_key: 'receipts:edit', permission_name: 'Editar comprobantes', module: 'receipts', action: 'edit', description: 'Modify submitted receipts' },
     { permission_key: 'receipts:delete', permission_name: 'Eliminar comprobantes', module: 'receipts', action: 'delete', description: 'Remove receipts' },
+    // Approve/Reject receipts
     { permission_key: 'receipts:approve', permission_name: 'Aprobar/Rechazar comprobantes', module: 'receipts', action: 'approve_reject', description: 'Approve or reject expense receipts' },
-    { permission_key: 'refunds:request', permission_name: 'Solicitar reembolso', module: 'refunds', action: 'request', description: 'Submit a refund request' },
-    { permission_key: 'refunds:budget', permission_name: 'Asignar presupuesto impuesto', module: 'refunds', action: 'assign_budget', description: 'Assign tax budget to a refund' },
-    { permission_key: 'refunds:approve', permission_name: 'Aprobar/Rechazar reembolso', module: 'refunds', action: 'approve_reject', description: 'Approve or reject refund requests' },
-    { permission_key: 'system:audit_log', permission_name: 'Ver bitácora', module: 'system', action: 'audit_log', description: 'Access the system audit log of critical actions' },
+    // Refunds
+    { permission_key: 'refunds:create', permission_name: 'Crear reembolso', module: 'refunds', action: 'create', description: 'Create and manage refunds' },
+    // System
+    { permission_key: 'system:audit_log', permission_name: 'Bitácora', module: 'system', action: 'audit_log', description: 'Access the system audit log of critical actions' },
     { permission_key: 'system:import_data', permission_name: 'Importar datos', module: 'system', action: 'import_data', description: 'Import organizational data from files' },
     { permission_key: 'system:export_accounting', permission_name: 'Exportar datos contables', module: 'system', action: 'export_accounting', description: 'Export accounting and travel expense data' },
+    { permission_key: 'roles:manage', permission_name: 'Administrar roles', module: 'roles', action: 'manage', description: 'Create, update and delete roles and permissions' },
+    { permission_key: 'auth_rules:manage', permission_name: 'Administrar reglas de autorización', module: 'auth_rules', action: 'manage', description: 'Create, update and delete authorization rules' },
+    { permission_key: 'refund_policies:manage', permission_name: 'Administrar políticas de reembolso', module: 'refund_policies', action: 'manage', description: 'Create, update and delete refund policies' },
     { permission_key: 'superadmin:manage_groups', permission_name: 'Administrar grupos de sociedades', module: 'superadmin', action: 'manage_groups', description: 'Create, update and delete society groups and bootstrap tenant data' },
     { permission_key: 'superadmin:manage_master_admins', permission_name: 'Administrar administradores maestros', module: 'superadmin', action: 'manage_master_admins', description: 'Manage top-level superadmin users' },
     { permission_key: 'superadmin:view_group_audit_log', permission_name: 'Ver bitácora por grupo', module: 'superadmin', action: 'view_group_audit_log', description: 'Read audit logs filtered by society group' },
@@ -158,58 +165,73 @@ export async function seedReferenceData(prisma, defaultSocietyId) {
   // Ensure system roles keep an exact, segmented baseline on every seed run.
   const defaultRolePermissions = {
     'Solicitante': [
+      // Requests
       'travel:view',
       'travel:create',
       'travel:edit',
       'travel:delete',
+      // Receipts
+      'receipts:view',
       'receipts:create',
       'receipts:edit',
-      'refunds:request',
-      'receipts:view',
     ],
     'Agencia de viajes': [
+      // Requests
       'travel:view',
       'travel:edit',
       'travel:approve',
+      // Travel services
       'travel:view_flights',
       'travel:view_hotels',
     ],
     'Cuentas por pagar': [
+      // Requests
       'travel:view',
-      'receipts:view',
-      'receipts:create',
-      'receipts:edit',
-      'receipts:delete',
-      'receipts:approve',
-      'refunds:request',
-      'refunds:approve',
+      'travel:edit',
       'travel:def_amount',
+      // Receipts
+      'receipts:view',
+      'receipts:edit',
+      'receipts:approve',
+      // Refunds
+      'refunds:create',
     ],
     'Autorizador': [
+      // Requests
       'travel:view',
       'travel:create',
       'travel:edit',
       'travel:delete',
+      // Approvals
       'travel:approve',
       'travel:reject',
+      // Receipts
       'receipts:view',
       'receipts:create',
       'receipts:edit',
-      'refunds:request',
     ],
     'Administrador': [
+      // Users
       'users:view',
       'users:create',
       'users:edit',
       'users:delete',
-      'travel:def_amount',
-      'system:audit_log',
+      // Roles
+      'roles:manage',
+      // System
       'system:import_data',
       'system:export_accounting',
+      'system:audit_log',
+      // Configuration
+      'auth_rules:manage',
+      'refund_policies:manage',
     ],
     'Superadministrador': [
+      // Society groups
       'superadmin:manage_groups',
+      // Superadmins
       'superadmin:manage_master_admins',
+      // Audit logs
       'superadmin:view_group_audit_log',
     ],
   };
@@ -263,6 +285,57 @@ export async function seedReferenceData(prisma, defaultSocietyId) {
       skipDuplicates: true,
     });
   }
+
+  // Get society name for default record names
+  const society = await prisma.society.findUnique({
+    where: { id: defaultSocietyId },
+    select: { description: true },
+  });
+
+  const societyName = society?.description || `Sociedad ${defaultSocietyId}`;
+
+  // Create default authorization rule
+  const existingRule = await prisma.authorizationRule.findFirst({
+    where: {
+      society_id: defaultSocietyId,
+      is_default: true,
+    },
+  });
+
+  if (!existingRule) {
+    await prisma.authorizationRule.create({
+      data: {
+        rule_name: `Regla Defecto ${societyName}`,
+        is_default: true,
+        num_levels: 1,
+        automatic: true,
+        travel_type: 'Todos',
+        society_id: defaultSocietyId,
+      },
+    });
+  }
+
+  // Create default refund policy
+  const existingPolicy = await prisma.refundPolicy.findFirst({
+    where: {
+      society_id: defaultSocietyId,
+      is_default: true,
+    },
+  });
+
+  if (!existingPolicy) {
+    await prisma.refundPolicy.create({
+      data: {
+        policy_name: `Política Defecto ${societyName}`,
+        min_amount: 0,
+        max_amount: 100000,
+        submission_deadline_days: 30,
+        society_id: defaultSocietyId,
+        is_default: true,
+        active: true,
+      },
+    });
+  }
 }
 
 export async function seedAdminAccount(prisma, defaultSocietyId) {
@@ -280,8 +353,8 @@ export async function seedAdminAccount(prisma, defaultSocietyId) {
 
   const costCenter = await prisma.costCenter.upsert({
     where: { cost_center_name_society_id: { cost_center_name: ADMIN_COST_CENTER_NAME, society_id: defaultSocietyId } },
-    create: { cost_center_name: ADMIN_COST_CENTER_NAME, society_id: defaultSocietyId },
-    update: { cost_center_name: ADMIN_COST_CENTER_NAME, society_id: defaultSocietyId },
+    create: { cost_center_name: ADMIN_COST_CENTER_NAME, society_id: defaultSocietyId, cost_center_code: 101 },
+    update: { cost_center_name: ADMIN_COST_CENTER_NAME, society_id: defaultSocietyId, cost_center_code: 101 },
   });
 
   const department = await prisma.department.upsert({
@@ -343,8 +416,8 @@ export async function seedSuperAdminAccount(prisma, defaultSocietyId) {
 
   const costCenter = await prisma.costCenter.upsert({
     where: { cost_center_name_society_id: { cost_center_name: ADMIN_COST_CENTER_NAME, society_id: defaultSocietyId } },
-    create: { cost_center_name: ADMIN_COST_CENTER_NAME, society_id: defaultSocietyId },
-    update: { cost_center_name: ADMIN_COST_CENTER_NAME, society_id: defaultSocietyId },
+    create: { cost_center_name: ADMIN_COST_CENTER_NAME, cost_center_code: 101, society_id: defaultSocietyId },
+    update: { cost_center_name: ADMIN_COST_CENTER_NAME, cost_center_code: 101, society_id: defaultSocietyId },
   });
 
   const department = await prisma.department.upsert({

@@ -16,14 +16,14 @@ import {
   seedReferenceData,
 } from './seedShared.js';
 
-const COST_CENTER_NAMES = [
-  'CC-001',
-  'CC-002',
-  'CC-003',
-  'CC-004',
-  'CC-005',
-  'CC-006',
-  ADMIN_COST_CENTER_NAME,
+const COST_CENTERS = [
+  { cost_center_name: 'CC-001', cost_center_code: 102 },
+  { cost_center_name: 'CC-002', cost_center_code: 103 },
+  { cost_center_name: 'CC-003', cost_center_code: 104 },
+  { cost_center_name: 'CC-004', cost_center_code: 105 },
+  { cost_center_name: 'CC-005', cost_center_code: 106 },
+  { cost_center_name: 'CC-006', cost_center_code: 107 },
+  { cost_center_name: ADMIN_COST_CENTER_NAME, cost_center_code: 101 },
 ];
 
 const DEPARTMENT_NAMES = [
@@ -456,11 +456,11 @@ async function seedDummyCostCenters() {
 
   // Create cost centers for each society
   for (const society of societies) {
-    for (const cost_center_name of COST_CENTER_NAMES) {
+    for (const cost_center of COST_CENTERS) {
       await prisma.costCenter.upsert({
-        where: { cost_center_name_society_id: { cost_center_name, society_id: society.id } },
-        create: { cost_center_name, society_id: society.id },
-        update: { cost_center_name, society_id: society.id },
+        where: { cost_center_name_society_id: { cost_center_name: cost_center.cost_center_name, society_id: society.id } },
+        create: { cost_center_name: cost_center.cost_center_name, cost_center_code: cost_center.cost_center_code, society_id: society.id },
+        update: { cost_center_name: cost_center.cost_center_name, cost_center_code: cost_center.cost_center_code, society_id: society.id },
       });
     }
   }

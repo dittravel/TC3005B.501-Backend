@@ -108,10 +108,10 @@ export async function extractExternalDataFromJSON(jsonObj, societyId) {
     // Parse Cost Centers catalog
     if (jsonObj.CeCo && Array.isArray(jsonObj.CeCo)) {
       jsonObj.CeCo.forEach((cc) => {
-        if (cc.Clave && cc.Descripcion) {
+        if (cc.Clave !== null && cc.Clave !== undefined && cc.Descripcion) {
           groupCecoCatalog[cc.Clave] = cc.Descripcion;
           costCenters.push({
-            cost_center_id: cc.Clave,
+            cost_center_code: cc.Clave,
             cost_center_name: cc.Descripcion,
             society_id: societyId
           });
@@ -127,11 +127,11 @@ export async function extractExternalDataFromJSON(jsonObj, societyId) {
         if (dept.Clave && dept.Descripcion) {
           groupDepartmentCatalog[dept.Clave] = {
             name: dept.Descripcion,
-            cost_center_id: dept.CeCo || null
+            cost_center_code: dept.CeCo || null
           };
           departments.push({
             department_name: dept.Descripcion,
-            cost_center_id: dept.CeCo || null,
+            cost_center_code: dept.CeCo || null,
             society_id: societyId
           });
         } else {
@@ -165,7 +165,7 @@ export async function extractExternalDataFromJSON(jsonObj, societyId) {
       // Get department info from catalog
       const deptInfo = emp.Departamento ? groupDepartmentCatalog[emp.Departamento] : null;
       const departamento = deptInfo ? deptInfo.name : 'Sin Departamento';
-      const costCenterId = emp.CeCo || (deptInfo ? deptInfo.cost_center_id : null);
+      const costCenterCode = emp.CeCo || (deptInfo ? deptInfo.cost_center_code : null);
 
       // Add user
       users.push({
@@ -177,14 +177,17 @@ export async function extractExternalDataFromJSON(jsonObj, societyId) {
         password: emp.Contraseña || `${emp.Usuario}123`,
         boss_user: emp.JefeInmediato ? employeeToUsername[emp.JefeInmediato] : null,
         department_name: departamento,
-        cost_center_id: costCenterId,
+        cost_center_code: costCenterCode,
         active: emp.Status === 'A' ? true : false,
         society_id: societyId,
         supplier: emp.Proveedor || null
       });
     });
 
-    return { users, departments, costCenters, society_id: societyId, errors };
+    // Assign roles based on hierarchy
+    const usersWithRoles = assignRolesByHierarchy(users);
+
+    return { users: usersWithRoles, departments, costCenters, society_id: societyId, errors };
   } catch (error) {
     const errorMessage = 'Error al extraer los datos del JSON: ' + error.message;
     console.error(errorMessage);
@@ -194,13 +197,10 @@ export async function extractExternalDataFromJSON(jsonObj, societyId) {
 
 /**
 * Assign roles automatically based on organizational hierarchy
-* CURRENTLY NOT IN USE BUT CAN BE USED IN THE FUTURE TO AUTOMATICALLY 
-* ASSIGN ROLES BASED ON THE HIERARCHY OF THE EMPLOYEES IN THE ORGANIGRAM
 * @param {Array} employees - Array of employee objects with department_name and boss_user
-* @param {number} defaultNumLevels - Number of authorization levels (default: 2)
 * @returns {Array} Employees with assigned roles
 */
-export function assignRolesByHierarchy(employees, authorizations = 2) {
+export function assignRolesByHierarchy(employees) {
   if (!employees || employees.length === 0) {
     return employees;
   }
@@ -219,66 +219,21 @@ export function assignRolesByHierarchy(employees, authorizations = 2) {
   Object.keys(employeesByDept).forEach(dept => {
     const deptEmployees = employeesByDept[dept];
 
-    // Map of username to employee and track hierarchy
-    const empMap = {};
+    // Build set of all employees who are bosses
+    const bossSet = new Set();
     deptEmployees.forEach(emp => {
-      empMap[emp.user_name] = emp;
+      if (emp.boss_user) {
+        bossSet.add(emp.boss_user);
+      }
     });
 
-    // Calculate depth for each employee (how many levels below admin)
-    // e.g. Admin (depth 0) -> Authorizer (depth 1) -> Applicant (depth 2)
-    const depths = {};
-    
-    const calculateDepth = (userName, visited = new Set()) => {
-      if (depths[userName] !== undefined) {
-        return depths[userName];
-      }
-
-      if (visited.has(userName)) {
-        return 0; // Circular reference, treat as depth 0
-      }
-
-      const emp = empMap[userName];
-      if (!emp || !emp.boss_user) {
-        // No boss = admin level = depth 0
-        depths[userName] = 0;
-        return 0;
-      }
-
-      // Add to visited set to prevent infinite loops
-      visited.add(userName);
-
-      // Calculate depth of boss and add 1
-      const bossDepth = calculateDepth(emp.boss_user, visited);
-      depths[userName] = bossDepth + 1;
-      visited.delete(userName);
-
-      return depths[userName];
-    };
-
-    // Calculate depths for all employees
+    // Assign roles
+    // if you're a boss of someone, you're an authorizer
+    // otherwise, applicant
     deptEmployees.forEach(emp => {
-      calculateDepth(emp.user_name);
-    });
-
-    // Assign roles based on depth
-    deptEmployees.forEach(emp => {
-      const depth = depths[emp.user_name];
-
-      if (depth === 0) {
-        // Admin level
-        emp.role = 'Administrador';
-      } else if (depth === 1) {
-        // Accounts payable level
-        emp.role = 'Cuentas por pagar';
-      } else if (depth === 2) {
-        // Travel agency level
-        emp.role = 'Agencia de viajes';
-      } else if (depth >= 3 && depth < 3 + authorizations) {
-        // Authorizer levels
+      if (bossSet.has(emp.user_name)) {
         emp.role = 'Autorizador';
       } else {
-        // Levels beyond authorizers
         emp.role = 'Solicitante';
       }
     });

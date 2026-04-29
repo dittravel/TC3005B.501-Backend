@@ -9,7 +9,7 @@ import SocietyService from '../services/societyService.js';
 
 export async function getSocieties(req, res) {
   try {
-    const societyGroupId = req.query.society_group_id ? Number(req.query.society_group_id) : null;
+    const societyGroupId = req.user.role === 'Superadministrador' ? null : req.user.society_group_id
     const societies = await SocietyService.getSocieties(societyGroupId, req.user);
     return res.status(200).json(societies);
   } catch (error) {

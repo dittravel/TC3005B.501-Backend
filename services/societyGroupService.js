@@ -74,9 +74,6 @@ export async function createSocietyGroup(data, currentUser) {
 
   const group = await SocietyGroupModel.createSocietyGroup(data);
 
-  // Bootstrap tenant-level roles and permissions for the new group.
-  await seedReferenceData(prisma, group.id);
-
   let society = null;
   if (data?.society?.description && data?.society?.local_currency) {
     society = await SocietyModel.createSociety({
@@ -84,15 +81,18 @@ export async function createSocietyGroup(data, currentUser) {
       local_currency: data.society.local_currency,
       society_group_id: group.id,
     });
+
+    // Bootstrap tenant-level roles and permissions for the new society
+    await seedReferenceData(prisma, society.id);
   }
 
   let regularAdmin = null;
   if (data?.regular_admin?.user_name && data?.regular_admin?.password && data?.regular_admin?.email) {
     const adminRole = await prisma.role.findUnique({
       where: {
-        role_name_society_group_id: {
+        role_name_society_id: {
           role_name: 'Administrador',
-          society_group_id: group.id,
+          society_id: society?.id,
         },
       },
       select: { role_id: true },

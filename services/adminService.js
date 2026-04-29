@@ -695,7 +695,7 @@ export const getBossList = async (departmentId, societyId = null) => {
 export const createDataFromJson = async (jsonObj) => {
   try {
     const { users, departments, costCenters, society_id, errors } = jsonObj;
-
+    
     if (errors.length > 0) {
       return { success: false, message: 'Data extracted with some errors', errors };
     }
@@ -704,70 +704,72 @@ export const createDataFromJson = async (jsonObj) => {
       return { success: false, message: 'Society ID not provided' };
     }
 
-    // Track created and updated records
+    // Track records for summary
     const summary = {
       departments: { created: [], updated: [], skipped: [] },
       costCenters: { created: [], updated: [], skipped: [] },
-      users: { created: [], updated: [], deactivated: [] }
+      users: { created: [], updated: [], skipped: [], deactivated: [] }
     };
 
     // 1. Create cost centers
     for (const cc of costCenters) {
-      const existingCC = await Admin.findCostCenterByID(cc.cost_center_id);
+      const existingCC = await Admin.findCostCenterByCode(cc.cost_center_code, society_id);
       if (!existingCC) {
         await Admin.createCostCenter({
-          cost_center_id: cc.cost_center_id,
+          cost_center_code: cc.cost_center_code,
           cost_center_name: cc.cost_center_name,
           society_id
         });
-        summary.costCenters.created.push(cc.cost_center_id);
+        summary.costCenters.created.push(cc.cost_center_code);
       } else {
-        // Check if name changed
-        if (existingCC.cost_center_name !== cc.cost_center_name) {
-          await Admin.updateCostCenter(cc.cost_center_id, {
+        // Check if name or code changed
+        if (existingCC.cost_center_name !== cc.cost_center_name 
+          || existingCC.cost_center_code !== cc.cost_center_code
+        ) {
+          await Admin.updateCostCenter(
+            existingCC.cost_center_id, {
+            cost_center_code: cc.cost_center_code,
             cost_center_name: cc.cost_center_name,
             society_id
           });
-          summary.costCenters.updated.push({
-            cost_center_id: cc.cost_center_id,
-            old_name: existingCC.cost_center_name,
-            new_name: cc.cost_center_name
-          });
+          summary.costCenters.updated.push(cc.cost_center_code);
         } else {
-          summary.costCenters.skipped.push(cc.cost_center_id);
+          summary.costCenters.skipped.push(cc.cost_center_code);
         }
       }
     }
 
     // 2. Create departments
     for (const dept of departments) {
+      // Check if cost center exists for the department
+      const costCenter = dept.cost_center_code
+        ? await Admin.findCostCenterByCode(dept.cost_center_code, society_id)
+        : null;
+      const costCenterId = costCenter ? costCenter.cost_center_id : null;
+      
+      // Check if department exists
       const existingDeptId = await Admin.findDepartmentID(dept.department_name, society_id);
+
       if (!existingDeptId) {
         // Department doesn't exist, create it
         await Admin.createDepartment({
           department_name: dept.department_name,
-          cost_center_id: dept.cost_center_id || null,
+          cost_center_id: costCenterId,
           society_id
         });
-        summary.departments.created.push({
-          name: dept.department_name,
-          cost_center_id: dept.cost_center_id
-        });
+        summary.departments.created.push(dept.department_name);
       } else {
         // Department exists, check if cost_center_id changed
         const existingDept = await Admin.getDepartmentById(existingDeptId);
-        if (existingDept.cost_center_id !== dept.cost_center_id) {
+        if (existingDept.cost_center_id !== costCenterId) {
           // Cost center changed, update it
-          await Admin.updateDepartment(existingDeptId, {
+          await Admin.updateDepartment(
+            existingDeptId, {
             department_name: dept.department_name,
-            cost_center_id: dept.cost_center_id || null,
+            cost_center_id: costCenterId,
             society_id
           });
-          summary.departments.updated.push({
-            name: dept.department_name,
-            old_cost_center_id: existingDept.cost_center_id,
-            new_cost_center_id: dept.cost_center_id
-          });
+          summary.departments.updated.push(dept.department_name);
         } else {
           summary.departments.skipped.push(dept.department_name);
         }
@@ -787,18 +789,18 @@ export const createDataFromJson = async (jsonObj) => {
       const encryptedEmail = encrypt(user.email);
       const encryptedPhone = user.phone_number ? encrypt(user.phone_number) : null;
 
-      const existingUser = await User.getUserUsername(user.user_name);
+      const existingUser = await User.getUserUsername(user.user_name, society_id);
 
       let roleId = null;
 
-      // For new users, assign default role
+      // For new users, assign role from employee hierarchy
       if (!existingUser) {
-        const defaultRole = await Admin.getDefaultRole(society_id);
-        if (defaultRole) {
-          roleId = defaultRole.role_id;
-          console.log(`[DEBUG] Usuario nuevo ${user.user_name}: Asignando rol default ${defaultRole.name}`);
+        const importedRole = await Admin.getRoleByName(user.role, society_id);
+        if (importedRole) {
+          roleId = importedRole.role_id;
+          console.log(`[DEBUG] Usuario nuevo ${user.user_name}: Asignando rol ${user.role}`);
         } else {
-          console.error(`[ERROR] No se pudo encontrar rol default para la sociedad ${society_id}`);
+          console.error(`[ERROR] No se pudo encontrar rol ${user.role} para la sociedad ${society_id}`);
         }
       } else {
         // For existing users, keep their current role
@@ -820,26 +822,23 @@ export const createDataFromJson = async (jsonObj) => {
         supplier: user.supplier || null
       };
 
-      if (!existingUser) {
-        // New user: add password
-        const hashedPassword = await hash(user.password);
-        userData.password = hashedPassword;
+      try {
+        if (!existingUser) {
+          // New user: add password
+          const hashedPassword = await hash(user.password);
+          userData.password = hashedPassword;
 
-        await Admin.createUser(userData);
-        summary.users.created.push({
-          username: userData.user_name,
-          role: user.role || 'Default',
-          department: user.department_name
-        });
-      } else {
-        // Existing user: update without password, keep role unchanged
-        delete userData.role_id;
-        await Admin.updateUser(existingUser.user_id, userData);
-        summary.users.updated.push({
-          username: userData.user_name,
-          role: user.role || 'Sin cambios',
-          department: user.department_name
-        });
+          await Admin.createUser(userData);
+          summary.users.created.push(userData.user_name);
+        } else {
+          // Existing user: update without password, keep role unchanged
+          delete userData.role_id;
+          await Admin.updateUser(existingUser.user_id, userData);
+          summary.users.updated.push(userData.user_name);
+        }
+      } catch (error) {
+        // If user creation/update fails, add to skipped
+        summary.users.skipped.push(user.user_name);
       }
     }
 
@@ -847,6 +846,7 @@ export const createDataFromJson = async (jsonObj) => {
     const processedUsernames = users.map(u => u.user_name);
     const deptIds = [];
 
+    // For each department, get its ID to find users in those departments
     for (const dept of departments) {
       const deptId = await Admin.findDepartmentID(dept.department_name, society_id);
       if (deptId) {
@@ -854,6 +854,7 @@ export const createDataFromJson = async (jsonObj) => {
       }
     }
 
+    // Only attempt to deactivate users if we have department IDs for the deactivation
     if (deptIds.length > 0) {
       const deactivatedUsers = await Admin.deactivateUsersNotInList(deptIds, processedUsernames);
       if (deactivatedUsers.length > 0) {

@@ -222,6 +222,11 @@ const User = {
             },
           },
         },
+        Society: {
+          select: {
+            society_group_id: true,
+          },
+        },
       },
     });
 
@@ -243,6 +248,7 @@ const User = {
       permissions: (user.role?.Role_Permission || []).map((row) => row.Permission?.permission_name).filter(Boolean),
       permission_keys: (user.role?.Role_Permission || []).map((row) => row.Permission?.permission_key).filter(Boolean),
       society_id: user.society_id,
+      society_group_id: user.Society?.society_group_id ?? null,
     };
   },
 

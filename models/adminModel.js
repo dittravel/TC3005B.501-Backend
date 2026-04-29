@@ -1162,10 +1162,49 @@ const Admin = {
     }
   },
 
+  // Find cost center by code
+  async findCostCenterByCode(cost_center_code, society_id = null) {
+    try {
+      if (!cost_center_code) return null;
+
+      if (society_id) {
+        const costCenter = await prisma.costCenter.findFirst({
+          where: {
+            cost_center_code,
+            society_id: Number(society_id)
+          },
+          select: { cost_center_id: true, cost_center_name: true }
+        });
+        return costCenter || null;
+      }
+
+      const costCenter = await prisma.costCenter.findFirst({
+        where: { cost_center_code },
+        select: { cost_center_id: true, cost_center_name: true }
+      });
+      return costCenter || null;
+    } catch (error) {
+      console.error('Error finding cost center by code %s:', cost_center_code, error);
+      throw error;
+    }
+  },
+
   // Find cost center by ID
-  async findCostCenterByID(cost_center_id) {
+  async findCostCenterByID(cost_center_id, society_id = null) {
     try {
       if (!cost_center_id) return null;
+
+      if (society_id) {
+        const costCenter = await prisma.costCenter.findFirst({
+          where: {
+            cost_center_id,
+            society_id: Number(society_id)
+          },
+          select: { cost_center_id: true, cost_center_name: true }
+        });
+        return costCenter || null;
+      }
+
       const costCenter = await prisma.costCenter.findUnique({
         where: { cost_center_id },
         select: { cost_center_id: true, cost_center_name: true }
@@ -1197,20 +1236,33 @@ const Admin = {
   async createCostCenter(costCenterData) {
     try {
       const data = {
+        cost_center_code: costCenterData.cost_center_code,
         cost_center_name: costCenterData.cost_center_name,
         society_id: costCenterData.society_id ?? null
       };
-
-      // If cost_center_id is provided, use it (manual ID).
-      // Otherwise autoincrement will handle it
-      if (costCenterData.cost_center_id) {
-        data.cost_center_id = costCenterData.cost_center_id;
-      }
-
+      
       await prisma.costCenter.create({ data });
     } catch (error) {
       console.error('Error creating cost center:', error);
       throw error;
+    }
+  },
+
+  // Get role by name for a specific society
+  async getRoleByName(roleName, societyId) {
+    try {
+      return await prisma.role.findUnique({
+        where: {
+          role_name_society_id: {
+            role_name: roleName,
+            society_id: Number(societyId)
+          }
+        },
+        select: { role_id: true, role_name: true }
+      });
+    } catch (error) {
+      console.error(`Error getting role ${roleName} for society ${societyId}:`, error);
+      return null;
     }
   },
 
@@ -1227,7 +1279,7 @@ const Admin = {
           department_id: { in: departmentIds },
           active: true
         },
-        select: { user_id: true, user_name: true }
+        select: { user_name: true }
       });
 
       // Deactivate users not in the provided list
@@ -1235,10 +1287,7 @@ const Admin = {
       for (const deptUser of allDeptUsers) {
         if (!usernameList.includes(deptUser.user_name)) {
           await this.deactivateUserById(deptUser.user_id);
-          deactivatedUsers.push({
-            user_id: deptUser.user_id,
-            user_name: deptUser.user_name
-          });
+          deactivatedUsers.push(deptUser.user_name);
         }
       }
 

@@ -31,15 +31,13 @@ router.route('/')
   .get(
     generalRateLimiter,
     authenticateToken,
-    authorizeRole(['Superadministrador']),
-    authorizePermission(['superadmin:manage_groups']),
+    authorizePermission(['superadmin:manage_groups', 'societies:view'], { mode: 'any' }),
     societyController.getSocieties
   )
   .post(
     generalRateLimiter,
     authenticateToken,
-    authorizeRole(['Superadministrador']),
-    authorizePermission(['superadmin:manage_groups']),
+    authorizePermission(['superadmin:manage_groups', 'societies:create'], { mode: 'any' }),
     validateInputs,
     societyController.createSociety
   );
@@ -48,8 +46,7 @@ router.route('/:society_id')
   .get(
     generalRateLimiter,
     authenticateToken,
-    authorizeRole(['Superadministrador']),
-    authorizePermission(['superadmin:manage_groups']),
+    authorizePermission(['superadmin:manage_groups', 'societies:view'], { mode: 'any' }),
     validateId,
     validateInputs,
     societyController.getSocietyById
@@ -57,8 +54,7 @@ router.route('/:society_id')
   .put(
     generalRateLimiter,
     authenticateToken,
-    authorizeRole(['Superadministrador']),
-    authorizePermission(['superadmin:manage_groups']),
+    authorizePermission(['superadmin:manage_groups', 'societies:edit'], { mode: 'any' }),
     validateId,
     validateInputs,
     societyController.updateSociety
@@ -66,8 +62,7 @@ router.route('/:society_id')
   .delete(
     generalRateLimiter,
     authenticateToken,
-    authorizeRole(['Superadministrador']),
-    authorizePermission(['superadmin:manage_groups']),
+    authorizePermission(['superadmin:manage_groups', 'societies:delete'], { mode: 'any' }),
     validateId,
     validateInputs,
     societyController.deleteSociety

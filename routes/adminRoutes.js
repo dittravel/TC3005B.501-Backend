@@ -107,18 +107,18 @@ router.route('/delete-role/:role_id')
 
 // Get an auth rule by ID
 router.route("/auth-rules/:rule_id")
-  .get(generalRateLimiter, authenticateToken, authorizePermission(['travel:def_amount']), adminController.getAuthRuleById);
+  .get(generalRateLimiter, authenticateToken, authorizePermission(['auth_rules:manage']), adminController.getAuthRuleById);
 
 // Get all auth rules
 router.route("/get-auth-rules")
-  .get(generalRateLimiter, authenticateToken, authorizePermission(['travel:def_amount']), adminController.getAuthRules);
+  .get(generalRateLimiter, authenticateToken, authorizePermission(['auth_rules:manage']), adminController.getAuthRules);
 
 // Create auth rule
 router.route("/create-auth-rule")
   .post(
     generalRateLimiter,
     authenticateToken,
-    authorizePermission(['travel:def_amount']),
+    authorizePermission(['auth_rules:manage']),
     validateAuthorizationRule,
     validateInputs,
     adminController.createAuthRule
@@ -129,7 +129,7 @@ router.route("/update-auth-rule/:rule_id")
   .put(
     generalRateLimiter,
     authenticateToken,
-    authorizePermission(['travel:def_amount']),
+    authorizePermission(['auth_rules:manage']),
     validateAuthorizationRule,
     validateInputs,
     adminController.updateAuthRule
@@ -137,7 +137,7 @@ router.route("/update-auth-rule/:rule_id")
 
 // Delete auth rule
 router.route("/delete-auth-rule/:rule_id")
-  .delete(generalRateLimiter, authenticateToken, authorizePermission(['travel:def_amount']), adminController.deleteAuthRule);
+  .delete(generalRateLimiter, authenticateToken, authorizePermission(['auth_rules:manage']), adminController.deleteAuthRule);
 
 // Get boss list for a department
 router.route("/get-boss-list/:department_id")
