@@ -17,7 +17,7 @@ router.route("/user/:user_id")
   .get(
     generalRateLimiter,
     authenticateToken,
-    authorizePermission(['refunds:create']),
+    authorizePermission(['travel:create']),
     validateSocietyAccess('user'),
     validateId,
     validateInputs,

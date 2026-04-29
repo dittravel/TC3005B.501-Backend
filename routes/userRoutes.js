@@ -58,7 +58,7 @@ router.route('/get-user-wallet/:user_id?')
   .get(
     generalRateLimiter,
     authenticateToken,
-    authorizePermission(['users:view', 'refunds:create'], { mode: 'any' }),
+    authorizePermission(['travel:create'], { mode: 'any' }),
     validateSocietyAccess('user'),
     validateId,
     validateInputs,
