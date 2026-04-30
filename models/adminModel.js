@@ -1261,7 +1261,7 @@ const Admin = {
         select: { role_id: true, role_name: true }
       });
     } catch (error) {
-      console.error(`Error getting role ${roleName} for society ${societyId}:`, error);
+      console.error('Error getting role %s for society %s:', roleName, societyId, error);
       return null;
     }
   },

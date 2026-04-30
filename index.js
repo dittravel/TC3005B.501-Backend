@@ -48,18 +48,25 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 const toOrigin = (rawUrl) => {
-  if (!rawUrl) return null;
+  if (!rawUrl) return false;
   try {
     return new URL(rawUrl).origin;
   } catch {
-    return null;
+    return false;
   }
 };
 
-const allowedOrigins = Array.from(new Set([
-  toOrigin(process.env.FRONTEND_URL),
+// Whitelist of allowed origins
+const originAllowlist = new Set([
   'https://localhost:4321',
   'http://localhost:4321',
+]);
+
+// Add FRONTEND_URL only if it's in the whitelist
+const frontendOrigin = toOrigin(process.env.FRONTEND_URL);
+const allowedOrigins = Array.from(new Set([
+  ...originAllowlist,
+  originAllowlist.has(frontendOrigin) ? frontendOrigin : false,
 ].filter(Boolean)));
 
 // CORS configuration
