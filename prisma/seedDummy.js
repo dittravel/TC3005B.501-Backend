@@ -36,59 +36,59 @@ const DEPARTMENT_NAMES = [
 ];
 
 const COUNTRIES = [
-  'México',
-  'Estados Unidos',
-  'Canadá',
-  'Brásil',
-  'Argentina',
-  'Chile',
-  'Colombia',
-  'España',
-  'Francia',
-  'Reino Unido',
-  'Alemania',
-  'Italia',
-  'Japón',
-  'China',
-  'India',
+  { country_name: 'México' },
+  { country_name: 'Estados Unidos' },
+  { country_name: 'Canadá' },
+  { country_name: 'Brásil' },
+  { country_name: 'Argentina' },
+  { country_name: 'Chile' },
+  { country_name: 'Colombia' },
+  { country_name: 'España' },
+  { country_name: 'Francia' },
+  { country_name: 'Reino Unido' },
+  { country_name: 'Alemania' },
+  { country_name: 'Italia' },
+  { country_name: 'Japón' },
+  { country_name: 'China' },
+  { country_name: 'India' },
 ];
 
 const CITIES = [
-  { city_name: 'CDMX',          iata_code: 'MEX' },
-  { city_name: 'Guadalajara',   iata_code: 'GDL' },
-  { city_name: 'Monterrey',     iata_code: 'MTY' },
-  { city_name: 'Cancún',        iata_code: 'CUN' },
-  { city_name: 'Mérida',        iata_code: 'MID' },
-  { city_name: 'Nueva York',    iata_code: 'JFK' },
-  { city_name: 'Los Ángeles',   iata_code: 'LAX' },
-  { city_name: 'San Francisco', iata_code: 'SFO' },
-  { city_name: 'Chicago',       iata_code: 'ORD' },
-  { city_name: 'Las Vegas',     iata_code: 'LAS' },
-  { city_name: 'Toronto',       iata_code: 'YYZ' },
-  { city_name: 'Vancouver',     iata_code: 'YVR' },
-  { city_name: 'Rio de Janeiro',iata_code: 'GIG' },
-  { city_name: 'Sao Paulo',     iata_code: 'GRU' },
-  { city_name: 'Buenos Aires',  iata_code: 'EZE' },
-  { city_name: 'Cordoba',       iata_code: 'COR' },
-  { city_name: 'Santiago',      iata_code: 'SCL' },
-  { city_name: 'Valparaíso',    iata_code: 'SCL' },
-  { city_name: 'Bogotá',        iata_code: 'BOG' },
-  { city_name: 'Madrid',        iata_code: 'MAD' },
-  { city_name: 'Barcelona',     iata_code: 'BCN' },
-  { city_name: 'Paris',         iata_code: 'CDG' },
-  { city_name: 'Lyon',          iata_code: 'LYS' },
-  { city_name: 'Londres',       iata_code: 'LHR' },
-  { city_name: 'Manchester',    iata_code: 'MAN' },
-  { city_name: 'Berlín',        iata_code: 'BER' },
-  { city_name: 'Munich',        iata_code: 'MUC' },
-  { city_name: 'Roma',          iata_code: 'FCO' },
-  { city_name: 'Venecia',       iata_code: 'VCE' },
-  { city_name: 'Tokyo',         iata_code: 'NRT' },
-  { city_name: 'Kyoto',         iata_code: 'ITM' },
-  { city_name: 'Pekín',         iata_code: 'PEK' },
-  { city_name: 'Hong Kong',     iata_code: 'HKG' },
-  { city_name: 'Bombay',        iata_code: 'BOM' },
-  { city_name: 'Nueva Delhi',   iata_code: 'DEL' },
+  { city_name: 'CDMX',          iata_code: 'MEX', country_name: 'México' },
+  { city_name: 'Guadalajara',   iata_code: 'GDL', country_name: 'México' },
+  { city_name: 'Monterrey',     iata_code: 'MTY', country_name: 'México' },
+  { city_name: 'Cancún',        iata_code: 'CUN', country_name: 'México' },
+  { city_name: 'Mérida',        iata_code: 'MID', country_name: 'México' },
+  { city_name: 'Nueva York',    iata_code: 'JFK', country_name: 'Estados Unidos' },
+  { city_name: 'Los Ángeles',   iata_code: 'LAX', country_name: 'Estados Unidos' },
+  { city_name: 'San Francisco', iata_code: 'SFO', country_name: 'Estados Unidos' },
+  { city_name: 'Chicago',       iata_code: 'ORD', country_name: 'Estados Unidos' },
+  { city_name: 'Las Vegas',     iata_code: 'LAS', country_name: 'Estados Unidos' },
+  { city_name: 'Toronto',       iata_code: 'YYZ', country_name: 'Canadá' },
+  { city_name: 'Vancouver',     iata_code: 'YVR', country_name: 'Canadá' },
+  { city_name: 'Rio de Janeiro',iata_code: 'GIG', country_name: 'Brásil' },
+  { city_name: 'Sao Paulo',     iata_code: 'GRU', country_name: 'Brásil' },
+  { city_name: 'Buenos Aires',  iata_code: 'EZE', country_name: 'Argentina' },
+  { city_name: 'Cordoba',       iata_code: 'COR', country_name: 'Argentina' },
+  { city_name: 'Santiago',      iata_code: 'SCL', country_name: 'Chile' },
+  { city_name: 'Valparaíso',    iata_code: 'SCL', country_name: 'Chile' },
+  { city_name: 'Bogotá',        iata_code: 'BOG', country_name: 'Colombia' },
+  { city_name: 'Madrid',        iata_code: 'MAD', country_name: 'España' },
+  { city_name: 'Barcelona',     iata_code: 'BCN', country_name: 'España' },
+  { city_name: 'Paris',         iata_code: 'CDG', country_name: 'Francia' },
+  { city_name: 'Lyon',          iata_code: 'LYS', country_name: 'Francia' },
+  { city_name: 'Londres',       iata_code: 'LHR', country_name: 'Reino Unido' },
+  { city_name: 'Manchester',    iata_code: 'MAN', country_name: 'Reino Unido' },
+  { city_name: 'Berlín',        iata_code: 'BER', country_name: 'Alemania' },
+  { city_name: 'Munich',        iata_code: 'MUC', country_name: 'Alemania' },
+  { city_name: 'Roma',          iata_code: 'FCO', country_name: 'Italia' },
+  { city_name: 'Venecia',       iata_code: 'VCE', country_name: 'Italia' },
+  { city_name: 'Tokyo',         iata_code: 'NRT', country_name: 'Japón' },
+  { city_name: 'Kyoto',         iata_code: 'ITM', country_name: 'Japón' },
+  { city_name: 'Pekín',         iata_code: 'PEK', country_name: 'China' },
+  { city_name: 'Hong Kong',     iata_code: 'HKG', country_name: 'China' },
+  { city_name: 'Bombay',        iata_code: 'BOM', country_name: 'India' },
+  { city_name: 'Nueva Delhi',   iata_code: 'DEL', country_name: 'India' },
 ];
 
 const DUMMY_USERS = [
@@ -506,22 +506,32 @@ async function seedDummyDepartments() {
 
 async function seedDummyCountries() {
   console.log('Creating dummy countries...');
-  for (const country_name of COUNTRIES) {
+  for (const country of COUNTRIES) {
     await prisma.country.upsert({
-      where: { country_name },
-      create: { country_name },
-      update: { country_name },
+      where: { country_name: country.country_name },
+      create: { country_name: country.country_name },
+      update: { country_name: country.country_name },
     });
   }
 }
 
 async function seedDummyCities() {
   console.log('Creating dummy cities...');
+  
+  // Get all countries
+  const countries = await prisma.country.findMany({
+    select: { country_id: true, country_name: true },
+  });
+  const countryMap = new Map(countries.map((c) => [c.country_name, c.country_id]));
+
+  // Create cities with their country_id
   for (const city of CITIES) {
+    const country_id = countryMap.get(city.country_name) || null;
+
     await prisma.city.upsert({
       where: { city_name: city.city_name },
-      create: { city_name: city.city_name, iata_code: city.iata_code },
-      update: { iata_code: city.iata_code },
+      create: { city_name: city.city_name, iata_code: city.iata_code, country_id },
+      update: { iata_code: city.iata_code, country_id },
     });
   }
 }
