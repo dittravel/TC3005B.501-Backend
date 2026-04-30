@@ -1,19 +1,131 @@
+/**
+ * Seed Shared
+ * 
+ * Provides functions and reference data constants for seeding the database
+ * with base data such as currencies, cities, countries, receipt types, taxes,
+ * and admin/superadmin accounts.
+ */
+
 import bcrypt from 'bcrypt';
 import crypto from 'node:crypto';
 
+// Currencies
+export const CURRENCIES = [
+  { currency_code: 'MXN', currency_name: 'Peso Mexicano', country: 'Mexico', banxico_series_id: null, frequency: 'daily' },
+  { currency_code: 'USD', currency_name: 'Dolar Estadounidense', country: 'Estados Unidos', banxico_series_id: 'SF43718', frequency: 'daily' },
+  { currency_code: 'EUR', currency_name: 'Euro', country: 'Union Monetaria Europea', banxico_series_id: 'SF46410', frequency: 'daily' },
+  { currency_code: 'CAD', currency_name: 'Dolar Canadiense', country: 'Canada', banxico_series_id: 'SF60632', frequency: 'daily' },
+  { currency_code: 'JPY', currency_name: 'Yen Japones', country: 'Japon', banxico_series_id: 'SF46406', frequency: 'daily' },
+  { currency_code: 'GBP', currency_name: 'Libra Esterlina', country: 'Gran Bretana', banxico_series_id: 'SF57815', frequency: 'monthly' },
+  { currency_code: 'CHF', currency_name: 'Franco Suizo', country: 'Suiza', banxico_series_id: 'SF57905', frequency: 'monthly' },
+  { currency_code: 'CNY', currency_name: 'Yuan Chino Continental', country: 'China', banxico_series_id: 'SF57773', frequency: 'monthly' },
+  { currency_code: 'AUD', currency_name: 'Dolar Australiano', country: 'Australia', banxico_series_id: 'SF57753', frequency: 'monthly' },
+  { currency_code: 'BRL', currency_name: 'Real Brasileno', country: 'Brasil', banxico_series_id: 'SF57765', frequency: 'monthly' },
+  { currency_code: 'ARS', currency_name: 'Peso Argentino', country: 'Argentina', banxico_series_id: 'SF57731', frequency: 'monthly' },
+  { currency_code: 'CLP', currency_name: 'Peso Chileno', country: 'Chile', banxico_series_id: 'SF57751', frequency: 'monthly' },
+  { currency_code: 'COP', currency_name: 'Peso Colombiano', country: 'Colombia', banxico_series_id: 'SF57775', frequency: 'monthly' },
+  { currency_code: 'PEN', currency_name: 'Sol Peruano', country: 'Peru', banxico_series_id: 'SF57875', frequency: 'monthly' },
+  { currency_code: 'INR', currency_name: 'Rupia India', country: 'India', banxico_series_id: 'SF57829', frequency: 'monthly' },
+];
+
+// Cities
+export const CITIES = [
+  { city_name: 'CDMX',          iata_code: 'MEX', country_name: 'México' },
+  { city_name: 'Guadalajara',   iata_code: 'GDL', country_name: 'México' },
+  { city_name: 'Monterrey',     iata_code: 'MTY', country_name: 'México' },
+  { city_name: 'Cancún',        iata_code: 'CUN', country_name: 'México' },
+  { city_name: 'Mérida',        iata_code: 'MID', country_name: 'México' },
+  { city_name: 'Nueva York',    iata_code: 'JFK', country_name: 'Estados Unidos' },
+  { city_name: 'Los Ángeles',   iata_code: 'LAX', country_name: 'Estados Unidos' },
+  { city_name: 'San Francisco', iata_code: 'SFO', country_name: 'Estados Unidos' },
+  { city_name: 'Chicago',       iata_code: 'ORD', country_name: 'Estados Unidos' },
+  { city_name: 'Las Vegas',     iata_code: 'LAS', country_name: 'Estados Unidos' },
+  { city_name: 'Toronto',       iata_code: 'YYZ', country_name: 'Canadá' },
+  { city_name: 'Vancouver',     iata_code: 'YVR', country_name: 'Canadá' },
+  { city_name: 'Rio de Janeiro',iata_code: 'GIG', country_name: 'Brásil' },
+  { city_name: 'Sao Paulo',     iata_code: 'GRU', country_name: 'Brásil' },
+  { city_name: 'Buenos Aires',  iata_code: 'EZE', country_name: 'Argentina' },
+  { city_name: 'Cordoba',       iata_code: 'COR', country_name: 'Argentina' },
+  { city_name: 'Santiago',      iata_code: 'SCL', country_name: 'Chile' },
+  { city_name: 'Valparaíso',    iata_code: 'SCL', country_name: 'Chile' },
+  { city_name: 'Bogotá',        iata_code: 'BOG', country_name: 'Colombia' },
+  { city_name: 'Barranquilla',  iata_code: 'BAQ', country_name: 'Colombia' },
+  { city_name: 'Madrid',        iata_code: 'MAD', country_name: 'España' },
+  { city_name: 'Barcelona',     iata_code: 'BCN', country_name: 'España' },
+  { city_name: 'Paris',         iata_code: 'CDG', country_name: 'Francia' },
+  { city_name: 'Lyon',          iata_code: 'LYS', country_name: 'Francia' },
+  { city_name: 'Londres',       iata_code: 'LHR', country_name: 'Reino Unido' },
+  { city_name: 'Manchester',    iata_code: 'MAN', country_name: 'Reino Unido' },
+  { city_name: 'Berlín',        iata_code: 'BER', country_name: 'Alemania' },
+  { city_name: 'Munich',        iata_code: 'MUC', country_name: 'Alemania' },
+  { city_name: 'Roma',          iata_code: 'FCO', country_name: 'Italia' },
+  { city_name: 'Venecia',       iata_code: 'VCE', country_name: 'Italia' },
+  { city_name: 'Tokyo',         iata_code: 'NRT', country_name: 'Japón' },
+  { city_name: 'Kyoto',         iata_code: 'ITM', country_name: 'Japón' },
+  { city_name: 'Pekín',         iata_code: 'PEK', country_name: 'China' },
+  { city_name: 'Hong Kong',     iata_code: 'HKG', country_name: 'China' },
+  { city_name: 'Bombay',        iata_code: 'BOM', country_name: 'India' },
+  { city_name: 'Nueva Delhi',   iata_code: 'DEL', country_name: 'India' },
+];
+
+// Countries
+export const COUNTRIES = [
+  { country_name: 'México' },
+  { country_name: 'Estados Unidos' },
+  { country_name: 'Canadá' },
+  { country_name: 'Brásil' },
+  { country_name: 'Argentina' },
+  { country_name: 'Chile' },
+  { country_name: 'Colombia' },
+  { country_name: 'España' },
+  { country_name: 'Francia' },
+  { country_name: 'Reino Unido' },
+  { country_name: 'Alemania' },
+  { country_name: 'Italia' },
+  { country_name: 'Japón' },
+  { country_name: 'China' },
+  { country_name: 'India' },
+];
+
+// Receipt types
+export const RECEIPT_TYPES = [
+  { receipt_type_name: 'Hospedaje' },
+  { receipt_type_name: 'Comida' },
+  { receipt_type_name: 'Transporte' },
+  { receipt_type_name: 'Caseta' },
+  { receipt_type_name: 'Autobús' },
+  { receipt_type_name: 'Vuelo' },
+  { receipt_type_name: 'Otro' },
+];
+
+// Taxes
+export const TAXES = [
+  { tax_code: 'IVA16',  tax_name: 'IVA 16%',          tax_rate: 0.1600 },
+  { tax_code: 'EXENTO', tax_name: 'Exento de Impuestos', tax_rate: 0.0000 },
+];
+
+// Admin user
 export const ADMIN_USER_NAME = 'admin';
-export const ADMIN_PASSWORD = 'admin123';
-export const ADMIN_EMAIL = 'admin@cocoscheme.com';
+export const ADMIN_PASSWORD = '123';
+export const ADMIN_EMAIL = 'admin@empresa.local';
 export const ADMIN_WORKSTATION = 'ADMIN-WS';
-export const SUPERADMIN_USER_NAME = 'superadmin';
-export const SUPERADMIN_PASSWORD = '123';
-export const SUPERADMIN_EMAIL = 'superadmin@cocoscheme.com';
-export const SUPERADMIN_WORKSTATION = 'SUPERADMIN-WS';
 export const ADMIN_DEPARTMENT_NAME = 'Admin';
 export const ADMIN_COST_CENTER_NAME = 'CC-ADMIN';
 
+// Superadmin user
+export const SUPERADMIN_USER_NAME = 'superadmin';
+export const SUPERADMIN_PASSWORD = '123';
+export const SUPERADMIN_EMAIL = 'superadmin@empresa.local';
+export const SUPERADMIN_WORKSTATION = 'SUPERADMIN-WS';
+
+
 const AES_SECRET_KEY = process.env.AES_SECRET_KEY;
 
+/**
+ * Encrypt a value using AES-256-CBC with a random IV.
+ * @param {string} value The plaintext value to encrypt.
+ * @return {string} The encrypted value, encoded as iv:encryptedData in base64.
+ */
 export const encryptSeedValue = (value) => {
   if (!AES_SECRET_KEY) {
     throw new Error('AES_SECRET_KEY is required for seed encryption');
@@ -26,6 +138,14 @@ export const encryptSeedValue = (value) => {
   return iv.toString('hex') + encrypted;
 };
 
+/**
+ * Helper function to upsert records in a specific order, ensuring that dependencies are respected.
+ * @param {object} prismaModel The Prisma model to operate on (e.g., prisma.role).
+ * @param {Array} items The array of items to upsert.
+ * @param {function} mapData A function that takes an item and returns an object with 
+ * 'where', 'create', and 'update' properties for the upsert operation.
+ * @returns {Promise<void>}
+ */
 async function upsertOrderedRecords(prismaModel, items, mapData) {
   for (const item of items) {
     const data = mapData(item);
@@ -37,7 +157,14 @@ async function upsertOrderedRecords(prismaModel, items, mapData) {
   }
 }
 
+/**
+ * Seeds reference data such as roles, permissions, request statuses, receipt types, and default rules/policies.
+ * This function is used to populate new societies with base data
+ * @param {object} prisma The Prisma client instance to use for database operations.
+ * @param {number} defaultSocietyId The ID of the default society to associate the seeded data with.
+ */
 export async function seedReferenceData(prisma, defaultSocietyId) {
+  // Check if reference data already exists for the default society to avoid duplicates
   await upsertOrderedRecords(prisma.role, [
     { role_name: 'Solicitante' },
     { role_name: 'Agencia de viajes' },
@@ -179,7 +306,6 @@ export async function seedReferenceData(prisma, defaultSocietyId) {
       // Requests
       'travel:view',
       'travel:edit',
-      'travel:approve',
       // Travel services
       'travel:view_flights',
       'travel:view_hotels',
@@ -338,7 +464,13 @@ export async function seedReferenceData(prisma, defaultSocietyId) {
   }
 }
 
-export async function seedAdminAccount(prisma, defaultSocietyId) {
+/**
+ * Creates or updates the default administrator account for the society
+ * @param {object} prisma The Prisma client instance to use for database operations.
+ * @param {number} defaultSocietyId The ID of the default society to associate the admin account with.
+ * @throws Will throw an error if the required administrator role does not exist.
+ */
+export async function seedAdmin(prisma, defaultSocietyId) {
   const adminRole = await prisma.role.findUnique({
     where: {
       role_name_society_id: {
@@ -400,7 +532,14 @@ export async function seedAdminAccount(prisma, defaultSocietyId) {
   });
 }
 
-export async function seedSuperAdminAccount(prisma, defaultSocietyId) {
+/**
+ * Creates or updates the default super administrator account for the society, 
+ * which has permissions to manage society groups and master admins.
+ * @param {object} prisma The Prisma client instance to use for database operations.
+ * @param {number} defaultSocietyId The ID of the default society to associate the superadmin account with.
+ * @throws Will throw an error if the required super administrator role does not exist.
+ */
+export async function seedSuperadmin(prisma, defaultSocietyId) {
   const superAdminRole = await prisma.role.findUnique({
     where: {
       role_name_society_id: {
@@ -463,3 +602,83 @@ export async function seedSuperAdminAccount(prisma, defaultSocietyId) {
   });
 }
 
+// Reusable seeding functions for shared catalogs
+
+// Create or update currencies
+export async function seedCurrencies(prisma) {
+  for (const currency of CURRENCIES) {
+    await prisma.currency.upsert({
+      where: { currency_code: currency.currency_code },
+      create: currency,
+      update: {
+        currency_name: currency.currency_name,
+        country: currency.country,
+        banxico_series_id: currency.banxico_series_id,
+        frequency: currency.frequency,
+        active: true,
+      },
+    });
+  }
+}
+
+// Create or update countries and cities
+// Ensures that countries are created before cities to maintain references
+export async function seedCountriesAndCities(prisma) {
+  // First create all countries from the catalog
+  for (const country of COUNTRIES) {
+    await prisma.country.upsert({
+      where: { country_name: country.country_name },
+      create: { country_name: country.country_name },
+      update: { country_name: country.country_name },
+    });
+  }
+
+  // Get all countries for mapping
+  const countries = await prisma.country.findMany({
+    select: { country_id: true, country_name: true },
+  });
+  const countryMap = new Map(countries.map((c) => [c.country_name, c.country_id]));
+
+  // Create cities with their country relationships
+  for (const city of CITIES) {
+    const country_id = countryMap.get(city.country_name) || null;
+
+    await prisma.city.upsert({
+      where: { city_name: city.city_name },
+      create: {
+        city_name: city.city_name,
+        iata_code: city.iata_code,
+        country_id,
+      },
+      update: {
+        iata_code: city.iata_code,
+        country_id,
+      },
+    });
+  }
+}
+
+// Create or update receipt types
+export async function seedReceiptTypes(prisma) {
+  for (const receiptType of RECEIPT_TYPES) {
+    await prisma.receipt_Type.upsert({
+      where: { receipt_type_name: receiptType.receipt_type_name },
+      create: { receipt_type_name: receiptType.receipt_type_name },
+      update: { receipt_type_name: receiptType.receipt_type_name },
+    });
+  }
+}
+
+// Create or update taxes
+export async function seedTaxes(prisma) {
+  for (const tax of TAXES) {
+    await prisma.tax.upsert({
+      where: { tax_code: tax.tax_code },
+      create: tax,
+      update: {
+        tax_name: tax.tax_name,
+        tax_rate: tax.tax_rate,
+      },
+    });
+  }
+}
