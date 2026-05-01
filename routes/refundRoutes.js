@@ -7,7 +7,7 @@
 import express from "express";
 import refundController from "../controllers/refundController.js";
 import { validateId, validateInputs } from "../middleware/validation.js";
-import { authenticateToken, authorizeRole, validateSocietyAccess } from "../middleware/auth.js";
+import { authenticateToken, authorizePermission, validateSocietyAccess } from "../middleware/auth.js";
 import { generalRateLimiter } from "../middleware/rateLimiters.js";
 
 const router = express.Router();
@@ -17,7 +17,7 @@ router.route("/user/:user_id")
   .get(
     generalRateLimiter,
     authenticateToken,
-    authorizeRole(['Solicitante', 'Autorizador']),
+    authorizePermission(['travel:create']),
     validateSocietyAccess('user'),
     validateId,
     validateInputs,

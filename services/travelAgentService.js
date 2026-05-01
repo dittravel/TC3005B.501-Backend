@@ -9,6 +9,8 @@
 import TravelAgent from "../models/travelAgentModel.js";
 import User from "../models/userModel.js";
 
+const ACCOUNTS_PAYABLE_PERMISSIONS = ['receipts:approve'];
+
 /**
  * Completes travel service assignment and routes to Accounts Payable for quoting
  * - Verifies request is assigned to this user
@@ -51,7 +53,7 @@ const completeServiceAssignment = async (request_id, user_id) => {
     }
 
     // Get Accounts Payable user from same department
-    const accountsPayable = await User.getRandomUserByRoleName('Cuentas por pagar', travelAgentUser.department_id, travelAgentUser.society_group_id);
+    const accountsPayable = await User.getRandomUserByPermissions(ACCOUNTS_PAYABLE_PERMISSIONS, travelAgentUser.department_id, travelAgentUser.society_id);
     if (!accountsPayable) {
       throw {
         status: 500,

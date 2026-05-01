@@ -4,11 +4,12 @@
  * HTTP handlers for society (individual company) management.
  */
 
+import AuditLogService from '../services/auditLogService.js';
 import SocietyService from '../services/societyService.js';
 
 export async function getSocieties(req, res) {
   try {
-    const societyGroupId = req.query.society_group_id ? Number(req.query.society_group_id) : null;
+    const societyGroupId = req.user.role === 'Superadministrador' ? null : req.user.society_group_id
     const societies = await SocietyService.getSocieties(societyGroupId, req.user);
     return res.status(200).json(societies);
   } catch (error) {
@@ -44,6 +45,16 @@ export async function getCurrentUserSociety(req, res) {
 export async function createSociety(req, res) {
   try {
     const society = await SocietyService.createSociety(req.body, req.user);
+    await AuditLogService.recordAuditLogFromRequest(req, {
+      actionType: 'SOCIETY_CREATED',
+      entityType: 'Society',
+      entityId: society.id,
+      metadata: {
+        description: society.description,
+        local_currency: society.local_currency,
+        society_group_id: society.society_group_id,
+      },
+    });
     return res.status(201).json(society);
   } catch (error) {
     console.error('Error creating society:', error);
@@ -54,6 +65,16 @@ export async function createSociety(req, res) {
 export async function updateSociety(req, res) {
   try {
     const society = await SocietyService.updateSociety(Number(req.params.society_id), req.body, req.user);
+    await AuditLogService.recordAuditLogFromRequest(req, {
+      actionType: 'SOCIETY_UPDATED',
+      entityType: 'Society',
+      entityId: society.id,
+      metadata: {
+        description: society.description,
+        local_currency: society.local_currency,
+        society_group_id: society.society_group_id,
+      },
+    });
     return res.status(200).json(society);
   } catch (error) {
     console.error('Error updating society:', error);
@@ -63,7 +84,17 @@ export async function updateSociety(req, res) {
 
 export async function deleteSociety(req, res) {
   try {
-    await SocietyService.deleteSociety(Number(req.params.society_id), req.user);
+    const deletedSociety = await SocietyService.deleteSociety(Number(req.params.society_id), req.user);
+    await AuditLogService.recordAuditLogFromRequest(req, {
+      actionType: 'SOCIETY_DELETED',
+      entityType: 'Society',
+      entityId: deletedSociety.id,
+      metadata: {
+        description: deletedSociety.description,
+        local_currency: deletedSociety.local_currency,
+        society_group_id: deletedSociety.society_group_id,
+      },
+    });
     return res.status(204).send();
   } catch (error) {
     console.error('Error deleting society:', error);

@@ -17,10 +17,19 @@ import { generateToken } from './emailTokenService.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+const normalizeBaseUrl = (rawUrl, fallback) => {
+  try {
+    const parsed = new URL(rawUrl || fallback);
+    return `${parsed.origin}${parsed.pathname === '/' ? '' : parsed.pathname.replace(/\/$/, '')}`;
+  } catch {
+    return fallback;
+  }
+};
+
 // URL of the main page of the system
 // Used in email to link back to the system
-const BASE_URL = process.env.FRONTEND_URL;
-const BACKEND_URL = process.env.BACKEND_URL;
+const BASE_URL = normalizeBaseUrl(process.env.FRONTEND_URL, 'https://localhost:4321');
+const BACKEND_URL = normalizeBaseUrl(process.env.BACKEND_URL, 'https://localhost:3000');
 
 // Set up the connection details for sending emails through gmail
 const transporter = nodemailer.createTransport({

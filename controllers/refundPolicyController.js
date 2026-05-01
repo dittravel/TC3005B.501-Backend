@@ -11,7 +11,8 @@ const RefundPolicyController = {
   async getPolicyList(req, res) {
     try {
       const societyGroupId = req.user.society_group_id;
-      const policies = await RefundPolicyService.getPolicyList(societyGroupId);
+      const societyId = req.user.society_id;
+      const policies = await RefundPolicyService.getPolicyList(societyGroupId, societyId);
       res.status(200).json(policies);
     } catch (err) {
       console.error("Error in getPolicyList:", err);
@@ -22,7 +23,7 @@ const RefundPolicyController = {
   async getPolicyById(req, res) {
     try {
       const policyId = req.params.policy_id;
-      const policy = await RefundPolicyService.getPolicyById(policyId);
+      const policy = await RefundPolicyService.getPolicyById(policyId, req.user.society_group_id, req.user.society_id);
 
       if (!policy) {
         return res.status(404).json({ error: "Policy not found" });
@@ -44,7 +45,8 @@ const RefundPolicyController = {
         min_amount,
         max_amount,
         submission_deadline_days,
-        society_group_id: req.user.society_group_id
+        society_group_id: req.user.society_group_id,
+        society_id: req.user.society_id,
       });
 
       await AuditLogService.recordAuditLogFromRequest(req, {
@@ -75,8 +77,8 @@ const RefundPolicyController = {
         policy_name,
         min_amount,
         max_amount,
-        submission_deadline_days
-      });
+        submission_deadline_days,
+      }, req.user.society_group_id, req.user.society_id);
 
       await AuditLogService.recordAuditLogFromRequest(req, {
         actionType: 'POLICY_UPDATED',
@@ -101,7 +103,7 @@ const RefundPolicyController = {
     try {
       const policyId = req.params.policy_id;
 
-      await RefundPolicyService.deactivatePolicy(policyId);
+      await RefundPolicyService.deactivatePolicy(policyId, req.user.society_group_id, req.user.society_id);
 
       await AuditLogService.recordAuditLogFromRequest(req, {
         actionType: 'POLICY_DEACTIVATED',

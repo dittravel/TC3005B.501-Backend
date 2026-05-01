@@ -47,9 +47,31 @@ import cookieParser from 'cookie-parser';
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+const toOrigin = (rawUrl) => {
+  if (!rawUrl) return false;
+  try {
+    return new URL(rawUrl).origin;
+  } catch {
+    return false;
+  }
+};
+
+// Whitelist of allowed origins
+const originAllowlist = new Set([
+  'https://localhost:4321',
+  'http://localhost:4321',
+]);
+
+// Add FRONTEND_URL only if it's in the whitelist
+const frontendOrigin = toOrigin(process.env.FRONTEND_URL);
+const allowedOrigins = Array.from(new Set([
+  ...originAllowlist,
+  originAllowlist.has(frontendOrigin) ? frontendOrigin : false,
+].filter(Boolean)));
+
 // CORS configuration
 app.use(cors({
-  origin: ['https://localhost:4321', 'http://localhost:4321'],
+  origin: allowedOrigins,
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS']
 }));

@@ -4,14 +4,14 @@
  * Prisma-based data access for user workflows.
  */
 
-import { randomInt } from "crypto";
-import { prisma } from "../lib/prisma.js";
-import { decrypt } from "../middleware/decryption.js";
+import { randomInt } from 'node:crypto';
+import { prisma } from '../lib/prisma.js';
+import { decrypt } from '../middleware/decryption.js';
 
 function toDateOnly(value) {
   if (!value) return null;
   const date = value instanceof Date ? value : new Date(value);
-  return date.toISOString().split("T")[0];
+  return date.toISOString().split('T')[0];
 }
 
 const User = {
@@ -41,6 +41,7 @@ const User = {
       department_name: user.department?.department_name ?? null,
       costs_center: user.department?.CostCenter?.cost_center_name ?? null,
       creation_date: user.creation_date,
+      role_id: user.role_id,
       role_name: user.role?.role_name ?? null,
       boss_id: user.boss_id,
       out_of_office_start_date: user.out_of_office_start_date,
@@ -96,7 +97,8 @@ const User = {
       user_phone_number: request.requester?.phone_number ?? null,
     };
 
-    const routeRows = request.Route_Request.map((row) => row.Route)
+    const routeRows = request.Route_Request
+      .map((row) => row.Route)
       .filter(Boolean)
       .sort((a, b) => (a.router_index ?? 0) - (b.router_index ?? 0));
 
@@ -147,7 +149,7 @@ const User = {
         request_status_id: Number(statusId),
       },
       orderBy: {
-        creation_date: "desc",
+        creation_date: 'desc',
       },
       take: n ? Number(n) : undefined,
       include: {
@@ -184,7 +186,8 @@ const User = {
     });
 
     return requests.map((req) => {
-      const route = req.Route_Request.map((row) => row.Route)
+      const route = req.Route_Request
+        .map((row) => row.Route)
         .filter(Boolean)
         .sort((a, b) => (a.router_index ?? 0) - (b.router_index ?? 0))[0];
 
@@ -201,13 +204,22 @@ const User = {
     });
   },
 
-  async getUserUsername(username, societyGroupId = null) {
+  async getUserUsername(username, societyId = null) {
     const user = await prisma.user.findUnique({
       where: { user_name: username },
       include: {
         role: {
-          select: {
-            role_name: true,
+          include: {
+            Role_Permission: {
+              include: {
+                Permission: {
+                  select: {
+                    permission_key: true,
+                    permission_name: true,
+                  },
+                },
+              },
+            },
           },
         },
         Society: {
@@ -220,11 +232,8 @@ const User = {
 
     if (!user) return null;
 
-    // Validate that user belongs to the specified society group if provided
-    if (
-      societyGroupId !== null &&
-      user.Society?.society_group_id !== Number(societyGroupId)
-    ) {
+    // Validate that user belongs to the specified society if provided
+    if (societyId !== null && user.society_id !== Number(societyId)) {
       return null;
     }
 
@@ -234,7 +243,10 @@ const User = {
       department_id: user.department_id,
       password: user.password,
       active: user.active,
+      role_id: user.role_id,
       role_name: user.role?.role_name ?? null,
+      permissions: (user.role?.Role_Permission || []).map((row) => row.Permission?.permission_name).filter(Boolean),
+      permission_keys: (user.role?.Role_Permission || []).map((row) => row.Permission?.permission_key).filter(Boolean),
       society_id: user.society_id,
       society_group_id: user.Society?.society_group_id ?? null,
     };
@@ -283,7 +295,7 @@ const User = {
         user_name: true,
       },
       orderBy: {
-        user_name: "asc",
+        user_name: 'asc',
       },
     });
   },
@@ -347,11 +359,7 @@ const User = {
   },
 
   async updateOutOfOffice(userId, fields) {
-    const allowed = [
-      "out_of_office_start_date",
-      "out_of_office_end_date",
-      "substitute_id",
-    ];
+    const allowed = ['out_of_office_start_date', 'out_of_office_end_date', 'substitute_id'];
     const data = {};
 
     for (const key of allowed) {
@@ -361,14 +369,14 @@ const User = {
     }
 
     if (Object.keys(data).length === 0) {
-      return { success: false, message: "No fields to update" };
+      return { success: false, message: 'No fields to update' };
     }
 
-    if (typeof data.out_of_office_start_date === "string") {
+    if (typeof data.out_of_office_start_date === 'string') {
       data.out_of_office_start_date = new Date(data.out_of_office_start_date);
     }
 
-    if (typeof data.out_of_office_end_date === "string") {
+    if (typeof data.out_of_office_end_date === 'string') {
       data.out_of_office_end_date = new Date(data.out_of_office_end_date);
     }
 
@@ -377,7 +385,7 @@ const User = {
       data,
     });
 
-    return { success: true, message: "Out-of-office updated successfully" };
+    return { success: true, message: 'Out-of-office updated successfully' };
   },
 
   async getEffectiveUserId(user) {
@@ -389,15 +397,11 @@ const User = {
 
       if (startDate && endDate && today >= startDate && today <= endDate) {
         if (user.substitute_id) {
-          console.log(
-            `User ${user.user_id} is out of office. Using substitute ${user.substitute_id} instead.`,
-          );
+          console.log(`User ${user.user_id} is out of office. Using substitute ${user.substitute_id} instead.`);
           return user.substitute_id;
         }
 
-        console.warn(
-          `User ${user.user_id} is out of office but has no substitute assigned.`,
-        );
+        console.warn(`User ${user.user_id} is out of office but has no substitute assigned.`);
         return null;
       }
     }
@@ -479,14 +483,14 @@ const User = {
     return substitute || null;
   },
 
-  async getRandomUserByRoleName(roleName, departmentId, societyGroupId) {
+  async getRandomUserByRoleName(roleName, departmentId, societyId) {
     const candidates = await prisma.user.findMany({
       where: {
         department_id: Number(departmentId),
         active: true,
         role: {
           role_name: roleName,
-          society_group_id: Number(societyGroupId),
+          society_id: Number(societyId),
         },
       },
       select: {
@@ -527,6 +531,115 @@ const User = {
     return substitute || null;
   },
 
+  async getRandomUserByPermissions(permissionKeys, departmentId, societyId = null) {
+    const normalizedKeys = Array.isArray(permissionKeys)
+      ? permissionKeys.map((permission) => String(permission).trim()).filter(Boolean)
+      : [];
+
+    if (normalizedKeys.length === 0) {
+      return null;
+    }
+
+    const societyFilter = societyId !== null && societyId !== undefined
+      ? { society_id: Number(societyId) }
+      : {};
+
+    const candidates = await prisma.user.findMany({
+      where: {
+        department_id: Number(departmentId),
+        active: true,
+        role: {
+          ...societyFilter,
+          Role_Permission: {
+            some: {
+              Permission: {
+                ...societyFilter,
+                permission_key: { in: normalizedKeys },
+              },
+            },
+          },
+        },
+      },
+      select: {
+        user_id: true,
+        user_name: true,
+        out_of_office_start_date: true,
+        out_of_office_end_date: true,
+        substitute_id: true,
+      },
+    });
+
+    if (candidates.length === 0) {
+      return null;
+    }
+
+    const user = candidates[randomInt(0, candidates.length)];
+    const effectiveUserId = await this.getEffectiveUserId(user);
+
+    if (!effectiveUserId) {
+      return null;
+    }
+
+    if (effectiveUserId === user.user_id) {
+      return {
+        user_id: user.user_id,
+        user_name: user.user_name,
+      };
+    }
+
+    const substitute = await prisma.user.findUnique({
+      where: { user_id: effectiveUserId },
+      select: {
+        user_id: true,
+        user_name: true,
+      },
+    });
+
+    return substitute || null;
+  },
+
+  async userHasAnyPermission(userId, permissionKeys, societyId = null) {
+    const normalizedKeys = Array.isArray(permissionKeys)
+      ? permissionKeys.map((permission) => String(permission).trim()).filter(Boolean)
+      : [];
+
+    if (normalizedKeys.length === 0) {
+      return false;
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { user_id: Number(userId) },
+      select: {
+        role: {
+          select: {
+            society_id: true,
+            Role_Permission: {
+              where: {
+                Permission: {
+                  permission_key: { in: normalizedKeys },
+                  ...(societyId !== null && societyId !== undefined ? { society_id: Number(societyId) } : {}),
+                },
+              },
+              select: {
+                permission_id: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!user?.role) {
+      return false;
+    }
+
+    if (societyId !== null && societyId !== undefined && user.role.society_id !== Number(societyId)) {
+      return false;
+    }
+
+    return user.role.Role_Permission.length > 0;
+  },
+
   // Update user's wallet (positive amount adds, negative amount subtracts)
   async updateWallet(userId, amount) {
     try {
@@ -543,6 +656,36 @@ const User = {
       console.error("Error updating wallet:", error);
       throw error;
     }
+  },
+
+  async getDashboardPreferences(userId) {
+    const user = await prisma.user.findUnique({
+      where: { user_id: Number(userId) },
+      select: { dashboard_preferences: true },
+    });
+    if (!user) return [];
+    try {
+      const parsed = JSON.parse(user.dashboard_preferences || '[]');
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  },
+
+  async setDashboardPreferences(userId, routes) {
+    const deduped = [...new Set(routes.filter((r) => typeof r === 'string'))];
+    await prisma.user.update({
+      where: { user_id: Number(userId) },
+      data: { dashboard_preferences: JSON.stringify(deduped) },
+    });
+    return deduped;
+  },
+
+  async clearDashboardPreferences(userId) {
+    await prisma.user.update({
+      where: { user_id: Number(userId) },
+      data: { dashboard_preferences: null },
+    });
   },
 };
 

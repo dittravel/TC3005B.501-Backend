@@ -1,274 +1,202 @@
 /**
  * Refund Policy Tests
- * 
- * Tests for refund policies, including policy limits and their impact 
- * on receipt creation and request processing.
+ *
+ * Keeps the fixture self-contained and skips cleanly when the local MariaDB
+ * connection is unavailable.
  */
 
-// assert is used to compare expected and actual results in tests
-// Ref: https://nodejs.org/api/assert.html#legacy-assertion-mode
 import assert from 'node:assert/strict';
-import test from "node:test";
-import { prisma } from "../lib/prisma.js";
+import test from 'node:test';
+import { prisma } from '../lib/prisma.js';
 
-// Variables to store test IDs
-let testIds = {
+const runId = Date.now();
+const shortId = String(runId).slice(-6);
+
+const fixtureIds = {
   societyGroupId: null,
   societyId: null,
   refundPolicyId: null,
+  roleId: null,
   userId: null,
   receiptTypeId: null,
-  requestId: null
+  requestStatusId: null,
+  requestId: null,
 };
 
-// Create test data
+const databaseCheck = await (async () => {
+  try {
+    await prisma.$queryRawUnsafe('SELECT 1');
+    return { available: true, reason: '' };
+  } catch (error) {
+    return {
+      available: false,
+      reason: error instanceof Error ? error.message : String(error),
+    };
+  }
+})();
 
-// Create society group
-test('Create test society group', async () => {
-  const societyGroup = await prisma.societyGroup.create({
-    data: {
-      description: "Test Society Group",
-      is_default: false
-    }
-  });
-  testIds.societyGroupId = societyGroup.id;
-  assert.ok(testIds.societyGroupId, "Failed to create test society group");
-});
+const refundPolicyTest = databaseCheck.available ? test : test.skip;
 
-// Create society
-test('Create test society', async () => {
-  const society = await prisma.society.create({
-    data: {
-      description: "Test Society",
-      local_currency: "MXN",
-      society_group_id: testIds.societyGroupId,
-      is_default: false
-    }
-  });
-  testIds.societyId = society.id;
-  assert.ok(testIds.societyId, "Failed to create test society");
-});
+refundPolicyTest('Refund policy limits can be represented on receipts with a self-contained fixture', async () => {
+  const receiptAmounts = [50, 2500, 6000];
 
-// Create refund policy
-test('Create test refund policy', async () => {
-  const refundPolicy = await prisma.refundPolicy.create({
-    data: {
-      policy_name: "Test Refund Policy",
-      min_amount: 100,
-      max_amount: 5000,
-      submission_deadline_days: 30,
-      society_group_id: testIds.societyGroupId,
-      is_default: false,
-      active: true
-    }
-  });
-  testIds.refundPolicyId = refundPolicy.policy_id;
-  assert.ok(testIds.refundPolicyId, "Failed to create test refund policy");
-  assert.equal(refundPolicy.min_amount, 100, "Refund policy min_amount mismatch");
-  assert.equal(refundPolicy.max_amount, 5000, "Refund policy max_amount mismatch");
-  assert.equal(refundPolicy.submission_deadline_days, 30, "Refund policy submission_deadline_days mismatch");
-});
-
-// Create user
-test('Create test user', async () => {
-  const user = await prisma.user.create({
-    data: {
-      user_name: `testuser_${Date.now()}`,
-      email: `test_${Date.now()}@test.local`,
-      password: 'hashedpassword123',
-      society_id: testIds.societyId,
-      role_id: 1
-    }
-  });
-  testIds.userId = user.user_id;
-  assert.ok(testIds.userId, "Failed to create test user");
-});
-
-// Create or get receipt type
-test('Create or get test receipt type', async () => {
-  let receiptType = await prisma.receipt_Type.findUnique({
-    where: { receipt_type_name: 'Transporte' }
-  });
-
-  if (!receiptType) {
-    receiptType = await prisma.receipt_Type.create({
+  try {
+    const societyGroup = await prisma.societyGroup.create({
       data: {
-        receipt_type_name: 'Transporte',
-      }
+        description: `Test Group ${runId}`,
+        is_default: false,
+      },
     });
-  }
+    fixtureIds.societyGroupId = societyGroup.id;
 
-  testIds.receiptTypeId = receiptType.receipt_type_id;
-  assert.ok(testIds.receiptTypeId, "Failed to create or get test receipt type");
-});
+    const society = await prisma.society.create({
+      data: {
+        description: `TS${shortId}`,
+        local_currency: 'MXN',
+        society_group_id: societyGroup.id,
+        is_default: false,
+      },
+    });
+    fixtureIds.societyId = society.id;
 
-// Create travel request
-test('Create test travel request', async () => {
-  const request = await prisma.request.create({
-    data: {
-      user_id: testIds.userId,
-      request_status_id: 2,
-      society_id: testIds.societyId,
-      notes: 'Solicitud de prueba',
-      requested_fee: 0,
-      currency: 'MXN'
+    const refundPolicy = await prisma.refundPolicy.create({
+      data: {
+        policy_name: `Refund Policy ${runId}`,
+        min_amount: 100,
+        max_amount: 5000,
+        submission_deadline_days: 30,
+        society_id: society.id,
+        is_default: false,
+        active: true,
+      },
+    });
+    fixtureIds.refundPolicyId = refundPolicy.policy_id;
+
+    assert.equal(refundPolicy.min_amount, 100);
+    assert.equal(refundPolicy.max_amount, 5000);
+    assert.equal(refundPolicy.submission_deadline_days, 30);
+
+    const role = await prisma.role.create({
+      data: {
+        role_name: `Rol Test ${runId}`,
+        society_id: society.id,
+        active: true,
+        is_default: false,
+        is_system: false,
+      },
+    });
+    fixtureIds.roleId = role.role_id;
+
+    const user = await prisma.user.create({
+      data: {
+        user_name: `testuser_${runId}`,
+        email: `test_${runId}@test.local`,
+        password: 'hashedpassword123',
+        society_id: society.id,
+        role_id: role.role_id,
+      },
+    });
+    fixtureIds.userId = user.user_id;
+
+    const receiptType = await prisma.receipt_Type.create({
+      data: {
+        receipt_type_name: `TP-${shortId}`,
+      },
+    });
+    fixtureIds.receiptTypeId = receiptType.receipt_type_id;
+
+    const requestStatus = await prisma.request_status.create({
+      data: {
+        status: `TEST_STATUS_${runId}`,
+        is_exported: false,
+      },
+    });
+    fixtureIds.requestStatusId = requestStatus.request_status_id;
+
+    const request = await prisma.request.create({
+      data: {
+        user_id: user.user_id,
+        request_status_id: requestStatus.request_status_id,
+        society_id: society.id,
+        notes: 'Solicitud de prueba',
+        requested_fee: 0,
+        currency: 'MXN',
+      },
+    });
+    fixtureIds.requestId = request.request_id;
+
+    for (const amount of receiptAmounts) {
+      const exceedsPolicyLimit = amount < refundPolicy.min_amount || amount > refundPolicy.max_amount;
+
+      const receipt = await prisma.receipt.create({
+        data: {
+          receipt_type_id: receiptType.receipt_type_id,
+          request_id: request.request_id,
+          amount,
+          currency: 'MXN',
+          society_id: society.id,
+          exceeds_policy_limit: exceedsPolicyLimit,
+        },
+      });
+
+      assert.ok(receipt.receipt_id);
+      assert.equal(receipt.exceeds_policy_limit, exceedsPolicyLimit);
     }
-  });
-  testIds.requestId = request.request_id;
-  assert.ok(testIds.requestId, "Failed to create test travel request");
-});
 
-// Create receipt within policy limits
-test('Create test receipt within policy limits', async () => {
-  const receipt = await prisma.receipt.create({
-    data: {
-      receipt_type_id: testIds.receiptTypeId,
-      request_id: testIds.requestId,
-      amount: 2500,
-      currency: 'MXN',
-      society_id: testIds.societyId,
-      exceeds_policy_limit: false
+    const receipts = await prisma.receipt.findMany({
+      where: { request_id: request.request_id },
+      orderBy: { amount: 'asc' },
+    });
+
+    assert.equal(receipts.length, 3);
+    assert.deepEqual(
+      receipts.map((receipt) => ({ amount: receipt.amount, exceeds: receipt.exceeds_policy_limit })),
+      [
+        { amount: 50, exceeds: true },
+        { amount: 2500, exceeds: false },
+        { amount: 6000, exceeds: true },
+      ]
+    );
+  } finally {
+    if (fixtureIds.requestId) {
+      await prisma.receipt.deleteMany({ where: { request_id: fixtureIds.requestId } });
+      await prisma.alert.deleteMany({ where: { request_id: fixtureIds.requestId } });
+      await prisma.refund.deleteMany({ where: { request_id: fixtureIds.requestId } });
+      await prisma.route_Request.deleteMany({ where: { request_id: fixtureIds.requestId } });
+      await prisma.policyExport.deleteMany({ where: { request_id: fixtureIds.requestId } });
+      await prisma.request.deleteMany({ where: { request_id: fixtureIds.requestId } });
     }
-  });
 
-  assert.ok(receipt.receipt_id, "Failed to create test receipt");
-  assert.equal(receipt.amount, 2500, "Receipt amount mismatch");
-  assert.equal(receipt.exceeds_policy_limit, false, "Receipt exceeds_policy_limit should be false");
-});
-
-// Create receipt exceeding policy limits
-test('Create test receipt exceeding policy limits', async () => {
-  const receipt = await prisma.receipt.create({
-    data: {
-      receipt_type_id: testIds.receiptTypeId,
-      request_id: testIds.requestId,
-      amount: 6000,
-      currency: 'MXN',
-      society_id: testIds.societyId,
-      exceeds_policy_limit: true
+    if (fixtureIds.userId) {
+      await prisma.user.deleteMany({ where: { user_id: fixtureIds.userId } });
     }
-  });
 
-  assert.ok(receipt.receipt_id, "Failed to create test receipt");
-  assert.equal(receipt.amount, 6000, "Receipt amount mismatch");
-  assert.equal(receipt.exceeds_policy_limit, true, "Receipt exceeds_policy_limit should be true");
-});
-
-// Create receipt under policy limits
-test('Create test receipt under policy limits', async () => {
-  const receipt = await prisma.receipt.create({
-    data: {
-      receipt_type_id: testIds.receiptTypeId,
-      request_id: testIds.requestId,
-      amount: 50,
-      currency: 'MXN',
-      society_id: testIds.societyId,
-      exceeds_policy_limit: true
+    if (fixtureIds.roleId) {
+      await prisma.role.deleteMany({ where: { role_id: fixtureIds.roleId } });
     }
-  });
 
-  assert.ok(receipt.receipt_id, "Failed to create test receipt");
-  assert.equal(receipt.amount, 50, "Receipt amount mismatch");
-  assert.equal(receipt.exceeds_policy_limit, true, "Receipt exceeds_policy_limit should be true");
-});
+    if (fixtureIds.refundPolicyId) {
+      await prisma.refundPolicy.deleteMany({ where: { policy_id: fixtureIds.refundPolicyId } });
+    }
 
-// Check that all receipts have correct exceeds_policy_limit
-test('Check refund policy limits are correctly applied to receipts', async () => {
-  const receipts = await prisma.receipt.findMany({
-    where: { request_id: testIds.requestId },
-    orderBy: { amount: 'asc' }
-  });
+    if (fixtureIds.requestStatusId) {
+      await prisma.request_status.deleteMany({ where: { request_status_id: fixtureIds.requestStatusId } });
+    }
 
-  assert.equal(receipts.length, 3, "Should have created 3 receipts");
-  const [belowMin, withinPolicy, exceedsMax] = receipts;
+    if (fixtureIds.receiptTypeId) {
+      await prisma.receipt_Type.deleteMany({ where: { receipt_type_id: fixtureIds.receiptTypeId } });
+    }
 
-  // Check receipt below minimum limit
-  assert.equal(belowMin.amount, 50, "Below min receipt amount mismatch");
-  assert.equal(belowMin.exceeds_policy_limit, true, "Below min receipt should exceed policy limit");
+    if (fixtureIds.societyId) {
+      await prisma.society.deleteMany({ where: { id: fixtureIds.societyId } });
+    }
 
-  // Check receipt within policy limits
-  assert.equal(withinPolicy.amount, 2500, "Within policy receipt amount mismatch");
-  assert.equal(withinPolicy.exceeds_policy_limit, false, "Within policy receipt should not exceed policy limit");
-
-  // Check receipt exceeding maximum limit
-  assert.equal(exceedsMax.amount, 6000, "Exceeds max receipt amount mismatch");
-  assert.equal(exceedsMax.exceeds_policy_limit, true, "Exceeds max receipt should exceed policy limit");
-});
-
-// Clean up test data
-test('Clean up test data', async () => {
-  // Delete receipts first (has foreign key to request)
-  if (testIds.requestId) {
-    await prisma.receipt.deleteMany({
-      where: { request_id: testIds.requestId }
-    });
-  }
-
-  // Delete alerts associated with request
-  if (testIds.requestId) {
-    await prisma.alert.deleteMany({
-      where: { request_id: testIds.requestId }
-    });
-  }
-
-  // Delete refunds associated with request
-  if (testIds.requestId) {
-    await prisma.refund.deleteMany({
-      where: { request_id: testIds.requestId }
-    });
-  }
-
-  // Delete routes associated with request
-  if (testIds.requestId) {
-    await prisma.route_Request.deleteMany({
-      where: { request_id: testIds.requestId }
-    });
-  }
-
-  // Delete policy exports associated with request
-  if (testIds.requestId) {
-    await prisma.policyExport.deleteMany({
-      where: { request_id: testIds.requestId }
-    });
-  }
-
-  // Delete request
-  if (testIds.requestId) {
-    await prisma.request.deleteMany({
-      where: { request_id: testIds.requestId }
-    });
-  }
-
-  // Delete user
-  if (testIds.userId) {
-    await prisma.user.deleteMany({
-      where: { user_id: testIds.userId }
-    });
-  }
-
-  // Delete refund policy
-  if (testIds.refundPolicyId) {
-    await prisma.refundPolicy.deleteMany({
-      where: { policy_id: testIds.refundPolicyId }
-    });
-  }
-
-  // Delete society
-  if (testIds.societyId) {
-    await prisma.society.deleteMany({
-      where: { id: testIds.societyId }
-    });
-  }
-
-  // Delete society group
-  if (testIds.societyGroupId) {
-    await prisma.societyGroup.deleteMany({
-      where: { id: testIds.societyGroupId }
-    });
+    if (fixtureIds.societyGroupId) {
+      await prisma.societyGroup.deleteMany({ where: { id: fixtureIds.societyGroupId } });
+    }
   }
 });
 
-// Disconnect from database
 test('Disconnect from database', async () => {
   await prisma.$disconnect();
 });

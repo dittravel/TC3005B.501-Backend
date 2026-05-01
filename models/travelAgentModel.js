@@ -11,6 +11,24 @@ import { uploadReservationFiles } from "../services/reservationFileService.js";
 
 
 const TravelAgent = {
+  async getCities() {
+    try {
+      return prisma.city.findMany({
+        select: {
+          city_id: true,
+          city_name: true,
+          iata_code: true,
+        },
+        orderBy: {
+          city_name: 'asc',
+        },
+      });
+    } catch (error) {
+      console.error('Error getting cities:', error);
+      throw error;
+    }
+  },
+
   // Update request status to receipt validation
   async attendTravelRequest(requestId) {
     try {
@@ -73,19 +91,10 @@ const TravelAgent = {
           user_name: true,
           department_id: true,
           role_id: true,
-          Society: {
-            select: {
-              society_group_id: true,
-            },
-          },
+          society_id: true,
         },
       });
-      if (!user) return null;
-      return {
-        ...user,
-        society_group_id: user.Society?.society_group_id || null,
-        Society: undefined,
-      };
+      return user || null;
     } catch (error) {
       console.error('Error getting user with department:', error);
       throw error;

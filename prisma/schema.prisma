@@ -56,12 +56,12 @@ model AuthorizationRule {
   max_duration     Int?
   min_amount       Float?                         @db.Float
   max_amount       Float?                         @db.Float
-  society_group_id Int?
-  SocietyGroup     SocietyGroup?                  @relation(fields: [society_group_id], references: [id])
+  society_id       Int?
+  Society          Society?                       @relation(fields: [society_id], references: [id])
   levels           AuthorizationRuleLevel[]
   Request          Request[]
 
-  @@index([society_group_id])
+  @@index([society_id])
 }
 
 /// Individual approval levels within an authorization rule
@@ -80,6 +80,7 @@ model AuthorizationRuleLevel {
 model City {
   city_id    Int     @id @default(autoincrement())
   city_name  String  @unique(map: "city_name") @db.VarChar(200)
+  iata_code  String? @db.VarChar(3)
   country_id Int?
   Country    Country? @relation(fields: [country_id], references: [country_id])
   routesTo   Route[] @relation("DestinationCity")
@@ -88,15 +89,16 @@ model City {
 
 /// Cost centers for budget allocation and financial reporting
 model CostCenter {
-  cost_center_id   Int           @id @default(autoincrement())
-  cost_center_name String        @db.VarChar(20)
-  society_group_id Int?
-  SocietyGroup     SocietyGroup? @relation(fields: [society_group_id], references: [id], map: "fk_costcenter_societygroup")
+  cost_center_id   Int      @id @default(autoincrement())
+  cost_center_code Int      @db.Int
+  cost_center_name String   @db.VarChar(20)
+  society_id       Int?
+  Society          Society? @relation(fields: [society_id], references: [id], map: "fk_costcenter_society")
   Department       Department[]
   Account          Account[]
 
-  @@unique([cost_center_name, society_group_id])
-  @@index([society_group_id])
+  @@unique([cost_center_name, society_id])
+  @@index([society_id])
 }
 
 /// Countries catalog for travel routes
@@ -121,34 +123,34 @@ model Currency {
 
 /// Organizational departments for user assignment and policy application
 model Department {
-  department_id                   Int                               @id @default(autoincrement())
-  department_name                 String                            @db.VarChar(20)
-  cost_center_id                  Int?
-  society_group_id                Int?
-  active                          Boolean                           @default(true)
-  CostCenter                      CostCenter?                       @relation(fields: [cost_center_id], references: [cost_center_id], onDelete: Restrict, onUpdate: Restrict, map: "fk_department_costcenter")
-  SocietyGroup                    SocietyGroup?                     @relation(fields: [society_group_id], references: [id], map: "fk_department_societygroup")
-  User                            User[]
+  department_id   Int       @id @default(autoincrement())
+  department_name String    @db.VarChar(20)
+  cost_center_id  Int?
+  society_id      Int?
+  active          Boolean   @default(true)
+  CostCenter      CostCenter? @relation(fields: [cost_center_id], references: [cost_center_id], onDelete: Restrict, onUpdate: Restrict, map: "fk_department_costcenter")
+  Society         Society?  @relation(fields: [society_id], references: [id], map: "fk_department_society")
+  User            User[]
 
-  @@unique([department_name, society_group_id])
+  @@unique([department_name, society_id])
   @@index([cost_center_id], map: "fk_department_costcenter")
-  @@index([society_group_id])
+  @@index([society_id])
 }
 
 /// System permissions for role-based access control
 model Permission {
-  permission_id    Int               @id @default(autoincrement())
-  permission_key   String            @db.VarChar(50)
-  permission_name  String            @db.VarChar(100)
-  module           String            @db.VarChar(50)
-  action           String            @db.VarChar(50)
-  description      String?           @db.VarChar(100)
-  society_group_id Int?
-  SocietyGroup     SocietyGroup?     @relation(fields: [society_group_id], references: [id], map: "fk_permission_societygroup")
-  Role_Permission  Role_Permission[]
+  permission_id   Int               @id @default(autoincrement())
+  permission_key  String            @db.VarChar(50)
+  permission_name String            @db.VarChar(100)
+  module          String            @db.VarChar(50)
+  action          String            @db.VarChar(50)
+  description     String?           @db.VarChar(100)
+  society_id      Int?
+  Society         Society?          @relation(fields: [society_id], references: [id], map: "fk_permission_society")
+  Role_Permission Role_Permission[]
 
-  @@unique([permission_key, society_group_id])
-  @@index([society_group_id])
+  @@unique([permission_key, society_id])
+  @@index([society_id])
 }
 
 /// Expense receipts attached to travel requests with XML invoice data
@@ -204,19 +206,19 @@ model Receipt_Type {
 
 /// Simplified refund policy with global min/max amounts and deadline
 model RefundPolicy {
-  policy_id                Int        @id @default(autoincrement())
-  policy_name              String     @db.VarChar(120)
+  policy_id                Int     @id @default(autoincrement())
+  policy_name              String  @db.VarChar(120)
   min_amount               Float
   max_amount               Float
   submission_deadline_days Int?
-  society_group_id         Int
-  is_default               Boolean    @default(false)
-  active                   Boolean    @default(true)
-  created_at               DateTime   @default(now()) @db.Timestamp(0)
+  society_id               Int
+  is_default               Boolean @default(false)
+  active                   Boolean @default(true)
+  created_at               DateTime @default(now()) @db.Timestamp(0)
 
-  SocietyGroup SocietyGroup @relation(fields: [society_group_id], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fk_refund_policy_societygroup")
+  Society Society @relation(fields: [society_id], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fk_refund_policy_society")
 
-  @@index([society_group_id])
+  @@index([society_id])
 }
 
 /// Travel requests submitted by users for approval and reimbursement
@@ -267,19 +269,22 @@ model Request_status {
 
 /// User roles for permission assignment
 model Role {
-  role_id          Int               @id @default(autoincrement())
-  role_name        String            @db.VarChar(60)
-  description      String?           @db.VarChar(60)
-  society_group_id Int?
-  active           Boolean?          @default(true)
-  updated_at       DateTime?         @default(now()) @db.Timestamp(0)
-  SocietyGroup     SocietyGroup?     @relation(fields: [society_group_id], references: [id], map: "fk_role_societygroup")
-  Role_Permission  Role_Permission[]
-  User             User[]
+  role_id         Int               @id @default(autoincrement())
+  role_name       String            @db.VarChar(60)
+  description     String?           @db.VarChar(60)
+  society_id      Int?
+  active          Boolean?          @default(true)
+  is_default      Boolean           @default(false)
+  is_system       Boolean           @default(false)
+  updated_at      DateTime?         @default(now()) @db.Timestamp(0)
+  Society         Society?          @relation(fields: [society_id], references: [id], map: "fk_role_society")
+  Role_Permission Role_Permission[]
+  User            User[]
 
-  @@unique([role_name, society_group_id])
+  @@unique([role_name, society_id])
   @@index([active], map: "idx_role_active")
-  @@index([society_group_id])
+  @@index([is_default], map: "idx_role_is_default")
+  @@index([society_id], map: "idx_role_society")
 }
 
 /// Junction table linking roles with permissions
@@ -362,6 +367,7 @@ model User {
   password_reset_expires              DateTime?              @db.DateTime(0)
   society_id                          Int?                   @db.Int
   supplier                            BigInt?                @db.BigInt
+    dashboard_preferences               String?                @db.Text
   Society                             Society?               @relation(fields: [society_id], references: [id])
   Audit_Log                           Audit_Log[]
   Refund                              Refund[]
@@ -382,30 +388,30 @@ model User {
 
 /// Groups of legal entities (societies) for multi-company management
 model SocietyGroup {
-  id                   Int                    @id @default(autoincrement())
-  description          String?                @db.VarChar(255)
-  is_default           Boolean                @default(false)
-  Society              Society[]
-  AuthorizationRule    AuthorizationRule[]
-  RefundPolicy         RefundPolicy[]
-  CostCenter           CostCenter[]
-  Department           Department[]
-  Role                 Role[]
-  Permission           Permission[]
-  Account              Account[]
+  id          Int       @id @default(autoincrement())
+  description String?   @db.VarChar(255)
+  is_default  Boolean   @default(false)
+  Society     Society[]
 }
 
 /// Legal entities (companies) within a society group
 model Society {
-  id               Int           @id @default(autoincrement())
-  description      String        @db.VarChar(20)
-  local_currency   String        @db.VarChar(6)
-  society_group_id Int?
-  is_default       Boolean       @default(false)
-  SocietyGroup     SocietyGroup? @relation(fields: [society_group_id], references: [id])
-  User             User[]
-  Request          Request[]
-  Receipt          Receipt[]
+  id                  Int                   @id @default(autoincrement())
+  description         String                @db.VarChar(20)
+  local_currency      String                @db.VarChar(6)
+  society_group_id    Int?
+  is_default          Boolean               @default(false)
+  SocietyGroup        SocietyGroup?         @relation(fields: [society_group_id], references: [id])
+  User                User[]
+  Request             Request[]
+  Receipt             Receipt[]
+  AuthorizationRule   AuthorizationRule[]
+  CostCenter          CostCenter[]
+  Department          Department[]
+  Permission          Permission[]
+  RefundPolicy        RefundPolicy[]
+  Role                Role[]
+  Account             Account[]
 }
 
 /// General ledger accounts for financial classification
@@ -415,16 +421,16 @@ model Account {
   account_name        String                @db.VarChar(100)
   account_type        String                @db.VarChar(50)
   description         String?               @db.VarChar(255)
-  society_group_id    Int?
+  society_id          Int?
   cost_center_id      Int?
   active              Boolean               @default(true)
   created_at          DateTime              @default(now())
   last_mod_date       DateTime              @default(now())
-  SocietyGroup        SocietyGroup?         @relation(fields: [society_group_id], references: [id], map: "fk_account_societygroup")
+  Society             Society?              @relation(fields: [society_id], references: [id], map: "fk_account_society")
   CostCenter          CostCenter?           @relation(fields: [cost_center_id], references: [cost_center_id], map: "fk_account_costcenter")
   ReceiptType_Account ReceiptType_Account[]
 
-  @@index([society_group_id])
+  @@index([society_id])
   @@index([cost_center_id])
 }
 

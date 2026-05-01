@@ -11,7 +11,7 @@
 import express from 'express';
 import multer from 'multer';
 import { generalRateLimiter } from '../middleware/rateLimiters.js';
-import { authenticateToken, authorizeRole } from '../middleware/auth.js';
+import { authenticateToken, authorizePermission } from '../middleware/auth.js';
 import { validateCFDIController } from '../controllers/cfdiController.js';
 
 const router = express.Router();
@@ -32,7 +32,7 @@ router.post(
   '/validate',
   generalRateLimiter,
   authenticateToken,
-  authorizeRole(['Solicitante', 'Autorizador']),
+  authorizePermission(['receipts:create', 'receipts:edit'], { mode: 'any' }),
   upload.fields([{ name: 'xml', maxCount: 1 }]),
   validateCFDIController
 );

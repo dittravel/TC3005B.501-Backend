@@ -7,6 +7,8 @@
     "scripts": {
         "start": "nodemon index.js",
         "dev": "nodemon index.js",
+        "dev:local": "pnpm prisma:generate && pnpm prisma:migrate:deploy && nodemon index.js",
+        "start:local": "pnpm prisma:generate && pnpm prisma:migrate:deploy && node index.js",
         "dummy_db": "node ./database/config/dev_db.js dev",
         "empty_db": "node ./database/config/dev_db.js prod",
         "test": "node --test",
@@ -15,10 +17,14 @@
         "test:audit": "node --test tests/auditLog*.test.js",
         "prisma:generate": "prisma generate",
         "prisma:migrate:deploy": "prisma migrate deploy",
-        "prisma:seed": "npx prisma migrate reset && npx prisma generate && node prisma/seed.js",
-        "prisma:seed:dummy": "npx prisma migrate reset && npx prisma generate && node prisma/seedDummy.js",
+        "prisma:migrate:deploy:docker": "docker compose exec backend npx prisma migrate deploy",
+        "prisma:migrate:status:docker": "docker compose exec backend npx prisma migrate status",
+        "prisma:seed": "npx prisma migrate reset --force && npx prisma generate && node prisma/seed.js",
+        "prisma:seed:dummy": "npx prisma migrate reset --force && npx prisma generate && node prisma/seedDummy.js",
         "prisma:seed:ci": "npx prisma migrate reset --force && npx prisma generate && node prisma/seedDummy.js",
-        "docker:start:prisma": "node docker-start.js"
+        "docker:start:prisma": "node docker-start.js",
+        "env:local": "node scripts/switch-env.js local",
+        "env:docker": "node scripts/switch-env.js docker"
     },
     "repository": {
         "type": "git",

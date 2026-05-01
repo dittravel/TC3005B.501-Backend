@@ -9,7 +9,7 @@
 import express from "express";
 import authorizerController from "../controllers/authorizerController.js";
 import { validateId, validateInputs } from "../middleware/validation.js";
-import { authenticateToken, validateSocietyAccess } from "../middleware/auth.js";
+import { authenticateToken, authorizePermission, validateSocietyAccess } from "../middleware/auth.js";
 import { generalRateLimiter } from "../middleware/rateLimiters.js";
 
 const router = express.Router();
@@ -20,18 +20,18 @@ router.use((req, res, next) => {
 
 // Get pending requests assigned to current user
 router.route("/get-pending-requests/:user_id/:n")
-  .get(generalRateLimiter, authenticateToken, validateSocietyAccess('user'), validateId, validateInputs, authorizerController.getPendingRequests);
+  .get(generalRateLimiter, authenticateToken, authorizePermission(['travel:view']), validateSocietyAccess('user'), validateId, validateInputs, authorizerController.getPendingRequests);
 
-// Get alerts for current user (legacy method for notifications)
-router.route("/get-alerts/:user_id/:status/:n")
-  .get(generalRateLimiter, authenticateToken, validateSocietyAccess('user'), validateId, validateInputs, authorizerController.getAlerts);
+// Get alerts for current user
+router.route("/get-alerts/:user_id/:n")
+  .get(generalRateLimiter, authenticateToken, authorizePermission(['travel:view']), validateSocietyAccess('user'), validateId, validateInputs, authorizerController.getAlerts);
 
 // Authorize (approve) a travel request assigned to current user
 router.route("/authorize-travel-request/:request_id/:user_id")
-  .put(generalRateLimiter, authenticateToken, validateSocietyAccess('request'), validateId, validateInputs, authorizerController.authorizeTravelRequest);
+  .put(generalRateLimiter, authenticateToken, authorizePermission(['travel:approve']), validateSocietyAccess('request'), validateId, validateInputs, authorizerController.authorizeTravelRequest);
 
 // Decline a travel request assigned to current user
 router.route("/decline-travel-request/:request_id/:user_id")
-  .put(generalRateLimiter, authenticateToken, validateSocietyAccess('request'), validateId, validateInputs, authorizerController.declineTravelRequest);
+  .put(generalRateLimiter, authenticateToken, authorizePermission(['travel:approve', 'travel:reject'], { mode: 'any' }), validateSocietyAccess('request'), validateId, validateInputs, authorizerController.declineTravelRequest);
 
 export default router;

@@ -48,11 +48,17 @@ const AuthorizationRuleModel = {
 
   // Get rules that match travel type, duration, and amount criteria
   // Returns all rules that could potentially apply
-  async getRulesByCriteria(travelType, duration, amount) {
+  async getRulesByCriteria(travelType, duration, amount, societyId) {
     try {
       // Build dynamic Prisma where clause
       const where = {
         AND: [
+          {
+            OR: [
+              { society_id: Number(societyId) },
+              { society_id: null },
+            ],
+          },
           travelType ? {
             OR: [
               { travel_type: 'Todos' },
@@ -109,10 +115,13 @@ const AuthorizationRuleModel = {
   },
 
   // Get default authorization rule
-  async getDefaultRule() {
+  async getDefaultRule(societyId) {
     try {
       const rule = await prisma.authorizationRule.findFirst({
-        where: { is_default: true },
+        where: {
+          is_default: true,
+          society_id: Number(societyId)
+        },
         orderBy: { rule_id: 'asc' },
         include: {
           levels: {

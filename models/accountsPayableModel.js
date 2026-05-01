@@ -196,7 +196,8 @@ const AccountsPayable = {
       imposed_fee: receipts[0].Request?.imposed_fee ?? null,
       status: expense_status,
       department_name: receipts[0].Request?.requester?.department?.department_name ?? null,
-      cost_center_name: receipts[0].Request?.requester?.department?.CostCenter?.cost_center_name ?? null,
+      cost_center_name:
+        receipts[0].Request?.requester?.department?.CostCenter?.cost_center_name ?? null,
       Expenses: receipts.map(row => ({
         receipt_id: row.receipt_id,
         route_id: row.route_id,

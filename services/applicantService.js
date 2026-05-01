@@ -247,7 +247,7 @@ export async function sendReceiptsForValidation(requestId) {
   if (accountsPayable) {
     await Authorizer.updateRequestRouting(requestId, accountsPayable.user_id, 2, 6);
   }
-
+  
   return {
     request_id: Number(requestId),
     updated_status: 6,
