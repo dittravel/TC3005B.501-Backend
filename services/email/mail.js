@@ -135,8 +135,7 @@ export async function sendMail(userId, requestId) {
       templateName = "applicant.html";
     }
   } else if (userRole === "Autorizador") {
-    // Si la solicitud fue cancelada, solo notificar cancelación, sin acciones
-    if (status === "Cancelado") {
+    if (status === "Cancelado" || status === "Rechazado" || status === "Finalizado") {
       templateName = "applicant.html";
     } else {
       templateName = "authorizer.html";

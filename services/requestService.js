@@ -109,7 +109,7 @@ const RequestService = {
         throw new Error(`Request ${requestId} not found`);
       }
 
-      return row.request_status?.status || null;
+      return row.Request_status?.status || null;
 
     } catch (error) {
       console.error('Error getting request status:', error);
