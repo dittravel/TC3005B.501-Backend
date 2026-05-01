@@ -98,6 +98,16 @@ const completeServiceAssignment = async (req, res) => {
   }
 };
 
+const getCities = async (req, res) => {
+  try {
+    const cities = await TravelAgent.getCities();
+    return res.status(200).json(cities);
+  } catch (err) {
+    console.error("Error in getCities controller:", err);
+    return res.status(500).json({ error: "Internal Server Error" });
+  }
+};
+
 /**
  * Search available flight offers in Duffel (read-only, no booking)
  * Retrieves flight offers based on search parameters, using the authenticated user
@@ -301,6 +311,7 @@ export default {
   attendTravelRequest,
   completeServiceAssignment,
   searchFlightOffers,
+  getCities,
   searchHotelOffers,
   updateRouteFees,
   createReservationWithFilesHandler

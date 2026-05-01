@@ -7,8 +7,9 @@
 
 import express from "express";
 import travelAgentController from "../controllers/travelAgentController.js";
-import { validateId, validateInputs, validateFlightSearch, validateHotelSearch, validateRouteFeeUpdate } from "../middleware/validation.js";
-import { authenticateToken, authorizeRole, validateSocietyAccess } from "../middleware/auth.js";
+import { validateId, validateInputs, validateFlightSearch } from "../middleware/validation.js";
+import { authenticateToken, authorizePermission, validateSocietyAccess } from "../middleware/auth.js";
+import { validateHotelSearch, validateRouteFeeUpdate } from "../middleware/validation.js";
 import { generalRateLimiter } from "../middleware/rateLimiters.js";
 
 // Import multer for file uploads
@@ -24,29 +25,20 @@ router.use((req, res, next) => {
 });
 
 // Attend a travel request by request ID
-router
-  .route("/attend-travel-request/:request_id")
-  .put(
-    generalRateLimiter,
-    authenticateToken,
-    authorizeRole(["Agencia de viajes"]),
-    validateSocietyAccess("request"),
-    validateId,
-    validateInputs,
-    travelAgentController.attendTravelRequest,
-  );
+router.route("/attend-travel-request/:request_id")
+  .put(generalRateLimiter, authenticateToken, authorizePermission(['travel:approve']), validateSocietyAccess('request'), validateId, validateInputs, travelAgentController.attendTravelRequest);
 
 // Complete service assignment and route to Accounts Payable for quoting
-router
-  .route("/complete-service-assignment/:request_id")
-  .put(
+router.route("/complete-service-assignment/:request_id")
+  .put(generalRateLimiter, authenticateToken, authorizePermission(['travel:edit']), validateSocietyAccess('request'), validateId, validateInputs, travelAgentController.completeServiceAssignment);
+
+// Get cities from the database for travel planning
+router.route("/cities")
+  .get(
     generalRateLimiter,
     authenticateToken,
-    authorizeRole(["Agencia de viajes"]),
-    validateSocietyAccess("request"),
-    validateId,
-    validateInputs,
-    travelAgentController.completeServiceAssignment,
+    authorizePermission(['travel:view', 'travel:view_flights', 'travel:view_hotels'], { mode: 'any' }),
+    travelAgentController.getCities
   );
 
 /**
@@ -58,7 +50,7 @@ router
   .post(
     generalRateLimiter,
     authenticateToken,
-    authorizeRole(["Agencia de viajes"]),
+    authorizePermission(['travel:view_flights']),
     validateFlightSearch,
     validateInputs,
     travelAgentController.searchFlightOffers,
@@ -73,7 +65,7 @@ router
   .post(
     generalRateLimiter,
     authenticateToken,
-    authorizeRole(["Agencia de viajes"]),
+    authorizePermission(['travel:view_hotels']),
     validateHotelSearch,
     validateInputs,
     travelAgentController.searchHotelOffers,
@@ -84,7 +76,7 @@ router.route('/route-fees/:route_id')
   .put(
     generalRateLimiter,
     authenticateToken,
-    authorizeRole(['Agencia de viajes']),
+    authorizePermission(['travel:edit']),
     validateRouteFeeUpdate,
     validateInputs,
     travelAgentController.updateRouteFees
@@ -93,7 +85,7 @@ router.route('/route-fees/:route_id')
 router.route("/create-reservation-file").post(
   generalRateLimiter,
   authenticateToken,
-  authorizeRole(["Agencia de viajes"]),
+  authorizePermission(['travel:edit']),
   upload.fields([
     { name: "flightPdf", maxCount: 1 }, // Allow one single file
     { name: "hotelPdf", maxCount: 1 }, // Allow one single file

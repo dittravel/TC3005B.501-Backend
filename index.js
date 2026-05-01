@@ -20,6 +20,7 @@ import adminRoutes from './routes/adminRoutes.js';
 import accountsPayableRoutes from './routes/accountsPayableRoutes.js';
 import fileRoutes from './routes/fileRoutes.js';
 import systemRoutes from "./routes/systemRoutes.js";
+import countryCityRoutes from "./routes/countryCityRoutes.js";
 import exchangeRateRoutes from "./routes/exchangeRateRoutes.js";
 import refundPolicyRoutes from "./routes/refundPolicyRoutes.js";
 import integrationRoutes from "./routes/integrationRoutes.js";
@@ -46,9 +47,31 @@ import cookieParser from 'cookie-parser';
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+const toOrigin = (rawUrl) => {
+  if (!rawUrl) return false;
+  try {
+    return new URL(rawUrl).origin;
+  } catch {
+    return false;
+  }
+};
+
+// Whitelist of allowed origins
+const originAllowlist = new Set([
+  'https://localhost:4321',
+  'http://localhost:4321',
+]);
+
+// Add FRONTEND_URL only if it's in the whitelist
+const frontendOrigin = toOrigin(process.env.FRONTEND_URL);
+const allowedOrigins = Array.from(new Set([
+  ...originAllowlist,
+  originAllowlist.has(frontendOrigin) ? frontendOrigin : false,
+].filter(Boolean)));
+
 // CORS configuration
 app.use(cors({
-  origin: ['https://localhost:4321', 'http://localhost:4321'],
+  origin: allowedOrigins,
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS']
 }));
@@ -67,6 +90,7 @@ app.use("/api/admin", adminRoutes);
 app.use("/api/accounts-payable", accountsPayableRoutes);
 app.use("/api/files", fileRoutes);
 app.use("/api/system", systemRoutes);
+app.use("/api", countryCityRoutes);
 app.use("/api/exchange-rate", exchangeRateRoutes);
 app.use("/api/refund-policy", refundPolicyRoutes);
 app.use("/api/integrations", integrationRoutes);

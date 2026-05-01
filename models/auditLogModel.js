@@ -9,6 +9,13 @@ import { prisma } from '../lib/prisma.js';
 
 function buildAuditWhere(filters) {
   const where = {};
+  if (filters.society_group_id !== null && filters.society_group_id !== undefined) {
+    where.User = {
+      Society: {
+        society_group_id: Number(filters.society_group_id),
+      },
+    };
+  }
   if (filters.actor_user_id !== null && filters.actor_user_id !== undefined) {
     where.actor_user_id = filters.actor_user_id;
   }

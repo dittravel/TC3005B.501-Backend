@@ -143,7 +143,7 @@ const buildComprobacion = (request, accountsCatalog, documentMap) => {
 
     // Build item text for this receipt
     const receipt_type = receipt.Receipt_Type?.receipt_type_name ?? ''
-    const itemText = `Combrobación ${receipt_type}`;
+    const itemText = `Comprobación ${receipt_type}`;
 
     // Item 1: Gasto (EXPENSE)
     details.push({

@@ -8,7 +8,18 @@ after(async () => {
   await prisma.$disconnect();
 });
 
-test('getERPEmployees falls back to null reports_to when boss_id is missing in the schema', async () => {
+const databaseCheck = await (async () => {
+  try {
+    await prisma.$queryRawUnsafe('SELECT 1');
+    return { available: true };
+  } catch {
+    return { available: false };
+  }
+})();
+
+const integrationTest = databaseCheck.available ? test : test.skip;
+
+integrationTest('getERPEmployees falls back to null reports_to when boss_id is missing in the schema', async () => {
   // Create test data
   const role = await prisma.role.create({
     data: {
@@ -18,6 +29,7 @@ test('getERPEmployees falls back to null reports_to when boss_id is missing in t
 
   const costCenter = await prisma.costCenter.create({
     data: {
+      cost_center_code: 1001,
       cost_center_name: 'TEST-CC',
     },
   });

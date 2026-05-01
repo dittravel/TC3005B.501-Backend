@@ -1,5 +1,5 @@
 /**
- * Empty Seed
+ * Base Seed
  *
  * Seeds the canonical reference data required by the application and creates
  * a single admin account with username "admin" and password "admin123".
@@ -7,153 +7,115 @@
 
 import { pathToFileURL } from 'node:url';
 import { prisma } from '../lib/prisma.js';
-import { seedAdminAccount, seedReferenceData } from './seedShared.js';
+import {
+  seedAdmin,
+  seedReferenceData,
+  seedSuperadmin,
+  seedCurrencies,
+  seedCountriesAndCities,
+  seedReceiptTypes,
+  seedTaxes,
+} from './seedShared.js';
 
-const CURRENCY_CATALOG = [
-  { currency_code: 'MXN', currency_name: 'Peso Mexicano', country: 'Mexico', banxico_series_id: null, frequency: 'daily' },
-  { currency_code: 'USD', currency_name: 'Dolar Estadounidense', country: 'Estados Unidos', banxico_series_id: 'SF43718', frequency: 'daily' },
-  { currency_code: 'EUR', currency_name: 'Euro', country: 'Union Monetaria Europea', banxico_series_id: 'SF46410', frequency: 'daily' },
-  { currency_code: 'CAD', currency_name: 'Dolar Canadiense', country: 'Canada', banxico_series_id: 'SF60632', frequency: 'daily' },
-  { currency_code: 'JPY', currency_name: 'Yen Japones', country: 'Japon', banxico_series_id: 'SF46406', frequency: 'daily' },
-  { currency_code: 'GBP', currency_name: 'Libra Esterlina', country: 'Gran Bretana', banxico_series_id: 'SF57815', frequency: 'monthly' },
-  { currency_code: 'CHF', currency_name: 'Franco Suizo', country: 'Suiza', banxico_series_id: 'SF57905', frequency: 'monthly' },
-  { currency_code: 'CNY', currency_name: 'Yuan Chino Continental', country: 'China', banxico_series_id: 'SF57773', frequency: 'monthly' },
-  { currency_code: 'AUD', currency_name: 'Dolar Australiano', country: 'Australia', banxico_series_id: 'SF57753', frequency: 'monthly' },
-  { currency_code: 'BRL', currency_name: 'Real Brasileno', country: 'Brasil', banxico_series_id: 'SF57765', frequency: 'monthly' },
-  { currency_code: 'ARS', currency_name: 'Peso Argentino', country: 'Argentina', banxico_series_id: 'SF57731', frequency: 'monthly' },
-  { currency_code: 'CLP', currency_name: 'Peso Chileno', country: 'Chile', banxico_series_id: 'SF57751', frequency: 'monthly' },
-  { currency_code: 'COP', currency_name: 'Peso Colombiano', country: 'Colombia', banxico_series_id: 'SF57775', frequency: 'monthly' },
-  { currency_code: 'PEN', currency_name: 'Sol Peruano', country: 'Peru', banxico_series_id: 'SF57875', frequency: 'monthly' },
-  { currency_code: 'INR', currency_name: 'Rupia India', country: 'India', banxico_series_id: 'SF57829', frequency: 'monthly' },
-];
-
+/**
+ * Create default SocietyGroup and Society
+ * @returns {Promise<number>} The ID of the default SocietyGroup created or found.
+ * @throws Will throw an error if there is an issue creating or finding the default SocietyGroup or Society.
+ */
 async function seedDefaultSocietyGroupAndSociety() {
-  // Create default SocietyGroup
-  const existingGroup = await prisma.societyGroup.findFirst({
-    where: { is_default: true },
-    select: { id: true },
-  });
-
-  let defaultSocietyGroupId;
-  if (!existingGroup) {
-    const group = await prisma.societyGroup.create({
-      data: { description: 'Default', is_default: true },
-    });
-    defaultSocietyGroupId = group.id;
-  } else {
-    defaultSocietyGroupId = existingGroup.id;
-  }
-
-  // Create default Society
-  const existingSociety = await prisma.society.findFirst({
-    where: {
-      is_default: true,
-      society_group_id: defaultSocietyGroupId
+  // Create default society group
+  const defaultGroup = await prisma.societyGroup.create({
+    data: {
+      description: 'Grupo Default',
+      is_default: true
     },
-    select: { id: true },
   });
 
-  if (!existingSociety) {
-    await prisma.society.create({
-      data: {
-        description: 'Default',
-        local_currency: 'MXN',
-        society_group_id: defaultSocietyGroupId,
-        is_default: true,
-      },
-    });
-  }
+  // Create default society
+  const defaultSociety = await prisma.society.create({
+    data: {
+      description: 'Sociedad Default',
+      local_currency: 'MXN',
+      society_group_id: defaultGroup.id,
+      is_default: true,
+    },
+  });
 
-  return defaultSocietyGroupId;
+  return {
+    defaultSocietyGroupId: defaultGroup.id,
+    defaultSocietyId: defaultSociety.id,
+  }
 }
 
-async function seedDefaultAuthorizationRule(defaultSocietyGroupId) {
-  const existingDefault = await prisma.authorizationRule.findFirst({
-    where: { is_default: true },
-    select: { rule_id: true },
-  });
-
-  if (existingDefault) {
-    return;
-  }
-
-  const rule = await prisma.authorizationRule.create({
+/**
+ * Create default authorization rule for the default society
+ */
+async function seedDefaultAuthRule(defaultSocietyId) {
+  await prisma.authorizationRule.create({
     data: {
-      rule_name: 'Regla predeterminada',
+      rule_name: 'Regla por Defecto',
       is_default: true,
       num_levels: 2,
       automatic: true,
       travel_type: 'Todos',
-      society_group_id: defaultSocietyGroupId,
+      society_id: defaultSocietyId,
     },
   });
 }
 
-async function seedDefaultRefundPolicy(defaultSocietyGroupId) {
-  const existingDefault = await prisma.refundPolicy.findFirst({
-    where: { is_default: true },
-    select: { policy_id: true },
-  });
-
-  if (existingDefault) {
-    return;
-  }
-
+/**
+ * Create default refund policy for the default society
+ */
+async function seedDefaultRefundPolicy(defaultSocietyId) {
   await prisma.refundPolicy.create({
     data: {
       policy_name: 'Política por Defecto',
       min_amount: 10,
       max_amount: 5000,
       submission_deadline_days: 30,
-      society_group_id: defaultSocietyGroupId,
+      society_id: defaultSocietyId,
       is_default: true,
       active: true,
     },
   });
 }
 
-async function seedCurrencyCatalog() {
-  for (const currency of CURRENCY_CATALOG) {
-    await prisma.currency.upsert({
-      where: { currency_code: currency.currency_code },
-      create: currency,
-      update: {
-        currency_name: currency.currency_name,
-        country: currency.country,
-        banxico_series_id: currency.banxico_series_id,
-        frequency: currency.frequency,
-        active: true,
-      },
-    });
-  }
+/**
+ * Seed the database with base data
+ * @returns {Promise<void>} Resolves when seeding is complete.
+ * @throws Will throw an error if there is an issue during the seeding process.
+ */
+export async function seedBaseData() {
+  const {
+    defaultSocietyGroupId,
+    defaultSocietyId
+  } = await seedDefaultSocietyGroupAndSociety();
+  await seedReferenceData(prisma, defaultSocietyId);
+  await seedCountriesAndCities(prisma);
+  await seedDefaultAuthRule(defaultSocietyId);
+  await seedDefaultRefundPolicy(defaultSocietyId);
+  await seedCurrencies(prisma);
+  await seedAdmin(prisma, defaultSocietyId);
+  await seedSuperadmin(prisma, defaultSocietyId);
+  await seedReceiptTypes(prisma);
+  await seedTaxes(prisma);
 }
 
-export async function seedEmptyDatabase() {
-  console.log('Creating base Prisma data and admin account...');
-  const defaultSocietyGroupId = await seedDefaultSocietyGroupAndSociety();
-  await seedReferenceData(prisma, defaultSocietyGroupId);
-  await seedDefaultAuthorizationRule(defaultSocietyGroupId);
-  await seedDefaultRefundPolicy(defaultSocietyGroupId);
-  await seedCurrencyCatalog();
-  await seedAdminAccount(prisma, defaultSocietyGroupId);
-  console.log('Base Prisma data created');
-}
-
-export const seedPrepopulate = seedEmptyDatabase;
-
+// Main function to run the seed
 async function main() {
-  console.log('Starting empty Prisma seed...');
+  console.log('Starting base data seed...');
   try {
-    await seedEmptyDatabase();
-    console.log('\nEmpty seed completed successfully!');
+    await seedBaseData();
+    console.log('\nBase data created successfully!');
   } catch (error) {
-    console.error('Error during empty seed:', error);
+    console.error('Error during base seed:', error);
     throw error;
   } finally {
     await prisma.$disconnect();
   }
 }
 
+// Check if the script is being run directly and execute the main function if so
 const isDirectRun = process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url;
 if (isDirectRun) {
   try {

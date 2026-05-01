@@ -77,6 +77,18 @@ INSERT INTO Permission (permission_key, permission_name, module, action, descrip
 ('users:edit',          'Editar usuario',              'users', 'edit',           'Modify existing user data'),
 ('users:delete',        'Eliminar usuario',            'users', 'delete',         'Deactivate or remove users'),
 
+-- Societies
+('societies:view',      'Ver sociedad',                'societies', 'view',       'View societies and their details'),
+('societies:create',    'Crear sociedad',              'societies', 'create',     'Create new societies'),
+('societies:edit',      'Editar sociedad',             'societies', 'edit',       'Modify existing societies'),
+('societies:delete',    'Eliminar sociedad',           'societies', 'delete',     'Delete societies'),
+
+-- Society groups
+('society_groups:view',   'Ver grupo de sociedad',       'society_groups', 'view',   'View society groups and their details'),
+('society_groups:create', 'Crear grupo de sociedad',     'society_groups', 'create', 'Create new society groups'),
+('society_groups:edit',   'Editar grupo de sociedad',    'society_groups', 'edit',   'Modify existing society groups'),
+('society_groups:delete', 'Eliminar grupo de sociedad',  'society_groups', 'delete', 'Delete society groups'),
+
 -- Travel requests
 ('travel:view',         'Ver solicitud',               'travel_requests', 'view',           'View travel requests'),
 ('travel:create',       'Crear solicitud',             'travel_requests', 'create',         'Submit new travel requests'),
@@ -118,38 +130,32 @@ INSERT INTO Role_Permission (role_id, permission_id)
     SELECT r.role_id, p.permission_id
     FROM Role r JOIN Permission p ON p.permission_key IN (
         'travel:view', 'travel:create', 'travel:edit',
-        'travel:view_flights', 'travel:view_hotels',
-        'receipts:view', 'receipts:create', 'receipts:edit',
-        'refunds:request'
+        'receipts:create', 'receipts:edit'
     ) WHERE r.role_name = 'Solicitante';
 
--- Autorizador: approvals and oversight
+-- Autorizador: submit/request plus request approval/rejection
 INSERT INTO Role_Permission (role_id, permission_id)
     SELECT r.role_id, p.permission_id
     FROM Role r JOIN Permission p ON p.permission_key IN (
-        'travel:view', 'travel:approve', 'travel:def_amount',
-        'travel:finalize', 'travel:cancel', 'travel:reject',
-        'receipts:view', 'receipts:approve',
-        'refunds:approve', 'refunds:override',
-        'users:view'
+        'travel:view', 'travel:create', 'travel:edit',
+        'travel:approve', 'travel:reject',
+        'receipts:create', 'receipts:edit'
     ) WHERE r.role_name = 'Autorizador';
 
--- Cuentas por pagar: financial management
+-- Cuentas por pagar: view and approve/reject receipts only
 INSERT INTO Role_Permission (role_id, permission_id)
     SELECT r.role_id, p.permission_id
     FROM `Role` r JOIN Permission p ON p.permission_key IN (
-        'receipts:view', 'receipts:create', 'receipts:edit',
-        'receipts:delete', 'receipts:approve',
-        'refunds:request', 'refunds:budget', 'refunds:approve'
+        'travel:view', 'receipts:view', 'receipts:approve'
     ) WHERE r.role_name = 'Cuentas por pagar';
 
--- Agencia de viajes: travel logistics
+-- Agencia de viajes: assign flights/hotels and approve the request
 INSERT INTO Role_Permission (role_id, permission_id)
     SELECT r.role_id, p.permission_id
     FROM `Role` r JOIN Permission p ON p.permission_key IN (
         'travel:view', 'travel:edit',
         'travel:view_flights', 'travel:view_hotels',
-        'travel:finalize', 'travel:cancel'
+        'travel:approve'
     ) WHERE r.role_name = 'Agencia de viajes';
 
 -- ============================================================================

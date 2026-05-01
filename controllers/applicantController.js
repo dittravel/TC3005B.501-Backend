@@ -511,6 +511,20 @@ export async function createExpenseWithFilesHandler(req, res) {
 }
 
 // Get deadline status for a request — tells frontend if the submission window is still open
+export const getDeadlineStatus = async (req, res) => {
+  const requestId = Number(req.params.request_id);
+  try {
+    const status = await RefundPolicyService.getRequestDeadlineStatus(requestId);
+    return res.status(200).json(status);
+  } catch (err) {
+    if (err.status === 404) {
+      return res.status(404).json({ error: err.message });
+    }
+    console.error('Error in getDeadlineStatus controller:', err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
 export default {
   getApplicantById,
   getApplicantRequests,
@@ -529,4 +543,5 @@ export default {
   updateReceipt,
   updateRequestStatus,
   createExpenseWithFilesHandler,
+  getDeadlineStatus,
 };
