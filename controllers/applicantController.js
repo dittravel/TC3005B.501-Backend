@@ -420,7 +420,6 @@ export const updateRequestStatus = async (req, res) => {
 // Handler to create an expense with file uploads (PDF/XML)
 // This is used to create a receipt along with uploading the associated files to MongoDB
 export async function createExpenseWithFilesHandler(req, res) {
-  console.log("Llegamos a controller 🕹️");
   try {
     // Check if files are present
     if (!req.files || !req.files.pdf) {
@@ -441,11 +440,8 @@ export async function createExpenseWithFilesHandler(req, res) {
     const parsedRequestId = Number(request_id);
     const receiptExchRate = parseFloat(exch_rate);
 
-    console.log(`Pasamos de string a float 🛟 ${receiptExchRate}`);
-
     // Get active policy to check deadline
     const policy = await RefundPolicyService.getActivePolicy(societyGroupId);
-    console.log(`Llegamos a policy 👮`);
 
     // Check submission deadline
     if (policy && policy.submission_deadline_days) {
