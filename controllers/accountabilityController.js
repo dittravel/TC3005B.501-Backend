@@ -117,76 +117,63 @@ const buildComprobacion = (request, accountsCatalog, documentMap) => {
   
   // Filter only approved receipts
   const validatedReceipts = request.Receipt?.filter((r) => r.validation === 'Aprobado') || [];
-  const firstReceipt = validatedReceipts[0];
 
-  // Build header text
+  const account1 = accountsCatalog['Gasto de Viaje'] || null;
+  const account2 = accountsCatalog['Iva Acreditable'] || null;
+  const account3 = accountsCatalog['Anticipo'] || null;
+
   const type = 'GV';
-  const headerText = `Comprobación de viaje # ${request.request_id}`;
-  const currency = firstReceipt?.xml_moneda || firstReceipt?.currency || society?.local_currency;
 
-  const isSameCurrency = currency === society?.local_currency;
-  const exchRate = isSameCurrency ? 1.0 : parseFloat((firstReceipt?.exch_rate || 0).toFixed(2));
+  return validatedReceipts.map((receipt) => {
+    const currency = receipt.xml_moneda || receipt.currency || society?.local_currency;
+    const isSameCurrency = currency === society?.local_currency;
+    const exchRate = isSameCurrency ? 1.0 : parseFloat((receipt.exch_rate || 0).toFixed(2));
 
-  // Build details from all validated receipts
-  const details = [];
-  let itemCounter = 1;
-
-  // Get accounts from first receipt type
-    const account1 = accountsCatalog['Gasto de Viaje'] || null;
-    const account2 = accountsCatalog['Iva Acreditable'] || null;
-    const account3 = accountsCatalog['Anticipo'] || null;
-
-  validatedReceipts.forEach((receipt) => {
     const subtotal = receipt.xml_subtotal ? Number(receipt.xml_subtotal) : receipt.amount;
     const taxes = receipt.xml_impuestos ? Number(receipt.xml_impuestos) : 0;
     const total = subtotal + taxes;
 
-    // Build item text for this receipt
-    const receipt_type = receipt.Receipt_Type?.receipt_type_name ?? ''
+    const receipt_type = receipt.Receipt_Type?.receipt_type_name ?? '';
+    const headerText = `Comprobación de viaje # ${request.request_id} - ${receipt_type}`;
     const itemText = `Comprobación ${receipt_type}`;
 
-    // Item 1: Gasto (EXPENSE)
-    details.push({
-      ITEMNO_ACC: itemCounter++,
-      SHKZG: 'S',
-      GL_ACCOUNT: account1,
-      COSTCENTER: costCenter?.cost_center_name || null,
-      ITEM_TEXT: itemText,
-      AMT_DOCCUR: subtotal,
-    });
-
-    // Item 2: IVA (TAX)
-    details.push({
-      ITEMNO_ACC: itemCounter++,
-      SHKZG: 'S',
-      GL_ACCOUNT: account2,
-      ITEM_TEXT: itemText,
-      AMT_DOCCUR: taxes,
-    });
-
-    // Item 3: Total (PAYABLE)
-    details.push({
-      ITEMNO_ACC: itemCounter++,
-      SHKZG: 'H',
-      GL_ACCOUNT: account3,
-      VENDOR_NO: requester?.supplier?.toString() || null,
-      ITEM_TEXT: itemText,
-      AMT_DOCCUR: total,
-    });
+    return {
+      header: {
+        ID_VIAJE: request.request_id,
+        DOC_TYPE: type,
+        HEADER_TXT: headerText,
+        COMP_CODE: society?.id || null,
+        PSTNG_DATE: exportDate,
+        CURRENCY: currency,
+        EXCH_RATE: exchRate,
+      },
+      details: [
+        {
+          ITEMNO_ACC: 1,
+          SHKZG: 'S',
+          GL_ACCOUNT: account1,
+          COSTCENTER: costCenter?.cost_center_name || null,
+          ITEM_TEXT: itemText,
+          AMT_DOCCUR: subtotal,
+        },
+        {
+          ITEMNO_ACC: 2,
+          SHKZG: 'S',
+          GL_ACCOUNT: account2,
+          ITEM_TEXT: itemText,
+          AMT_DOCCUR: taxes,
+        },
+        {
+          ITEMNO_ACC: 3,
+          SHKZG: 'H',
+          GL_ACCOUNT: account3,
+          VENDOR_NO: requester?.supplier?.toString() || null,
+          ITEM_TEXT: itemText,
+          AMT_DOCCUR: total,
+        },
+      ],
+    };
   });
-
-  return {
-    header: {
-      ID_VIAJE: request.request_id,
-      DOC_TYPE: type,
-      HEADER_TXT: headerText,
-      COMP_CODE: society?.id || null,
-      PSTNG_DATE: exportDate,
-      CURRENCY: currency,
-      EXCH_RATE: exchRate,
-    },
-    details,
-  };
 };
 
 /**
@@ -202,80 +189,64 @@ const buildSinAnticipo = (request, accountsCatalog, documentMap) => {
   const requester = request.requester;
   const costCenter = requester?.department?.CostCenter;
 
-  // Filter only approved receipts
   const validatedReceipts = request.Receipt?.filter((r) => r.validation === 'Aprobado') || [];
-  const firstReceipt = validatedReceipts[0];
 
-  // Build header text
-  const type = 'GV';
-  const headerText = `Comprobación sin anticipo de viaje # ${request.request_id}`;
-  const currency = firstReceipt?.xml_moneda || firstReceipt?.currency || society?.local_currency;
-
-  const isSameCurrency = currency === society?.local_currency;
-  const exchRate = isSameCurrency ? 1.0 : parseFloat((firstReceipt?.exch_rate || 0).toFixed(2));
-
-  // Build details from all validated receipts
-  const details = [];
-  let itemCounter = 1;
-
-  // Get accounts from first receipt type
   const account1 = accountsCatalog['Gasto de Viaje'] || null;
   const account2 = accountsCatalog['Iva Acreditable'] || null;
-  const account3 = accountsCatalog['Cuenta x pagar Empleado'] || null;
+  const account3 = accountsCatalog['Anticipo'] || null;
 
+  const type = 'GV';
 
-  validatedReceipts.forEach((receipt) => {
-    console.log(receipt);
+  return validatedReceipts.map((receipt) => {
+    const currency = receipt.xml_moneda || receipt.currency || society?.local_currency;
+    const isSameCurrency = currency === society?.local_currency;
+    const exchRate = isSameCurrency ? 1.0 : parseFloat((receipt.exch_rate || 0).toFixed(2));
+
     const subtotal = receipt.xml_subtotal ? Number(receipt.xml_subtotal) : receipt.amount;
     const taxes = receipt.xml_impuestos ? Number(receipt.xml_impuestos) : 0;
-    const total = subtotal + taxes; 
+    const total = subtotal + taxes;
 
-    // Build item text for this receipt
-    const receipt_type = receipt.Receipt_Type?.receipt_type_name ?? ''
-    const itemText = `Combrobación ${receipt_type}`;
+    const receipt_type = receipt.Receipt_Type?.receipt_type_name ?? '';
+    const headerText = `Comprobación de viaje # ${request.request_id} - ${receipt_type}`;
+    const itemText = `Comprobación ${receipt_type}`;
 
-    // Item 1: Gasto (EXPENSE)
-    details.push({
-      ITEMNO_ACC: itemCounter++,
-      SHKZG: 'S',
-      GL_ACCOUNT: account1,
-      COSTCENTER: costCenter?.cost_center_name || null,
-      ITEM_TEXT: itemText,
-      AMT_DOCCUR: subtotal,
-    });
-
-    // Item 2: IVA (TAX)
-    details.push({
-      ITEMNO_ACC: itemCounter++,
-      SHKZG: 'S',
-      GL_ACCOUNT: account2,
-      ITEM_TEXT: itemText,
-      AMT_DOCCUR: taxes,
-    });
-
-    // Item 3: Total (PAYABLE)
-    details.push({
-      ITEMNO_ACC: itemCounter++,
-      SHKZG: 'H',
-      GL_ACCOUNT: account3,
-      VENDOR_NO: requester?.supplier?.toString() || null,
-      ITEM_TEXT: itemText,
-      AMT_DOCCUR: total,
-    });
+    return {
+      header: {
+        ID_VIAJE: request.request_id,
+        DOC_TYPE: type,
+        HEADER_TXT: headerText,
+        COMP_CODE: society?.id || null,
+        PSTNG_DATE: exportDate,
+        CURRENCY: currency,
+        EXCH_RATE: exchRate,
+      },
+      details: [
+        {
+          ITEMNO_ACC: 1,
+          SHKZG: 'S',
+          GL_ACCOUNT: account1,
+          COSTCENTER: costCenter?.cost_center_name || null,
+          ITEM_TEXT: itemText,
+          AMT_DOCCUR: subtotal,
+        },
+        {
+          ITEMNO_ACC: 2,
+          SHKZG: 'S',
+          GL_ACCOUNT: account2,
+          ITEM_TEXT: itemText,
+          AMT_DOCCUR: taxes,
+        },
+        {
+          ITEMNO_ACC: 3,
+          SHKZG: 'H',
+          GL_ACCOUNT: account3,
+          VENDOR_NO: requester?.supplier?.toString() || null,
+          ITEM_TEXT: itemText,
+          AMT_DOCCUR: total,
+        },
+      ],
+    };
   });
-
-  return {
-    header: {
-      ID_VIAJE: request.request_id,
-      DOC_TYPE: type,
-      HEADER_TXT: headerText,
-      COMP_CODE: society?.id || null,
-      PSTNG_DATE: exportDate,
-      CURRENCY: currency,
-      EXCH_RATE: exchRate,
-    },
-    details,
-  };
 };
 
 /**
@@ -307,8 +278,8 @@ export const exportAllPolicies = async (req, res) => {
 
     // Build the formatted policies
     const polizasAnticipo = rawAnticipos.map(r => buildAnticipo(r, accountMap, documentMap));
-    const polizasComprobacion = rawComprobaciones.map(r => buildComprobacion(r, accountMap, documentMap));
-    const polizasSinAnticipo = rawSinAnticipo.map(r => buildSinAnticipo(r, accountMap, documentMap));
+    const polizasComprobacion = rawComprobaciones.flatMap(r => buildComprobacion(r, accountMap, documentMap));
+    const polizasSinAnticipo = rawSinAnticipo.flatMap(r => buildSinAnticipo(r, accountMap, documentMap));
 
     // Calculate totals
     const totalPolicies = polizasAnticipo.length + polizasComprobacion.length + polizasSinAnticipo.length;
