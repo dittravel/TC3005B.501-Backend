@@ -420,6 +420,7 @@ export const updateRequestStatus = async (req, res) => {
 // Handler to create an expense with file uploads (PDF/XML)
 // This is used to create a receipt along with uploading the associated files to MongoDB
 export async function createExpenseWithFilesHandler(req, res) {
+  console.log("Llegamos a controller 🕹️");
   try {
     // Check if files are present
     if (!req.files || !req.files.pdf) {
@@ -427,7 +428,7 @@ export async function createExpenseWithFilesHandler(req, res) {
     }
 
     // Extract receipt details from request body
-    const { receipt_type_id, request_id, route_id, amount, currency, receipt_date, local_amount } = req.body;
+    const { receipt_type_id, request_id, route_id, amount, currency, receipt_date, local_amount, exch_rate } = req.body;
 
     // Validate required fields
     if (!receipt_type_id || !request_id || !route_id || amount === undefined || !currency) {
@@ -438,9 +439,13 @@ export async function createExpenseWithFilesHandler(req, res) {
     const societyGroupId = req.user.society_group_id;
     const receiptLocalAmount = parseFloat(local_amount || amount);
     const parsedRequestId = Number(request_id);
+    const receiptExchRate = parseFloat(exch_rate);
+
+    console.log(`Pasamos de string a float 🛟 ${receiptExchRate}`);
 
     // Get active policy to check deadline
     const policy = await RefundPolicyService.getActivePolicy(societyGroupId);
+    console.log(`Llegamos a policy 👮`);
 
     // Check submission deadline
     if (policy && policy.submission_deadline_days) {
@@ -474,7 +479,8 @@ export async function createExpenseWithFilesHandler(req, res) {
       receipt_date: new Date(receipt_date),
       pdfFile: req.files.pdf[0],
       xmlFile: req.files.xml ? req.files.xml[0] : null, // Optional XML file
-      exceeds_policy_limit: exceedsLimit
+      exceeds_policy_limit: exceedsLimit,
+      exch_rate: receiptExchRate,
     });
 
     // Return message

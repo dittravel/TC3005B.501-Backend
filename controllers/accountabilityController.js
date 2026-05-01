@@ -66,13 +66,11 @@ const buildAnticipo = (request, accountsCatalog, documentMap) => {
   const itemText = `${headerText} #Emp${requester?.user_id ?? ''}`;
 
   // Get currency and exchange rate
-  const currency = request.currency || firstReceipt?.xml_moneda || society?.local_currency;
+  const currency = firstReceipt?.xml_moneda || firstReceipt?.currency || society?.local_currency;
   const amount = request.requested_fee || 0;
 
   const isSameCurrency = currency === society?.local_currency;
-  const exchRate = isSameCurrency
-    ? 1
-    : (firstReceipt?.exch_rate.toFixed(2) || null);
+  const exchRate = isSameCurrency ? 1.0 : parseFloat((firstReceipt?.exch_rate || 0).toFixed(2));
 
   return {
     header: {
@@ -124,23 +122,21 @@ const buildComprobacion = (request, accountsCatalog, documentMap) => {
   // Build header text
   const type = 'GV';
   const headerText = `Comprobación de viaje # ${request.request_id}`;
-  const currency = firstReceipt?.xml_moneda || society?.local_currency;
+  const currency = firstReceipt?.xml_moneda || firstReceipt?.currency || society?.local_currency;
 
   const isSameCurrency = currency === society?.local_currency;
-  const exchRate = isSameCurrency
-    ? 1
-    : (firstReceipt?.exch_rate.toFixed(2) || null);
+  const exchRate = isSameCurrency ? 1.0 : parseFloat((firstReceipt?.exch_rate || 0).toFixed(2));
 
   // Build details from all validated receipts
   const details = [];
   let itemCounter = 1;
 
-  validatedReceipts.forEach((receipt) => {
-    // Get accounts from first receipt type
+  // Get accounts from first receipt type
     const account1 = accountsCatalog['Gasto de Viaje'] || null;
     const account2 = accountsCatalog['Iva Acreditable'] || null;
     const account3 = accountsCatalog['Anticipo'] || null;
 
+  validatedReceipts.forEach((receipt) => {
     const subtotal = receipt.xml_subtotal ? Number(receipt.xml_subtotal) : receipt.amount;
     const taxes = receipt.xml_impuestos ? Number(receipt.xml_impuestos) : 0;
     const total = subtotal + taxes;
@@ -213,23 +209,23 @@ const buildSinAnticipo = (request, accountsCatalog, documentMap) => {
   // Build header text
   const type = 'GV';
   const headerText = `Comprobación sin anticipo de viaje # ${request.request_id}`;
-  const currency = firstReceipt?.xml_moneda || society?.local_currency;
+  const currency = firstReceipt?.xml_moneda || firstReceipt?.currency || society?.local_currency;
 
   const isSameCurrency = currency === society?.local_currency;
-  const exchRate = isSameCurrency
-    ? 1
-    : (firstReceipt?.exch_rate.toFixed(2) || null);
+  const exchRate = isSameCurrency ? 1.0 : parseFloat((firstReceipt?.exch_rate || 0).toFixed(2));
 
   // Build details from all validated receipts
   const details = [];
   let itemCounter = 1;
 
-  validatedReceipts.forEach((receipt) => {
-    // Get accounts from first receipt type
-    const account1 = accountsCatalog['Gasto de Viaje'] || null;
-    const account2 = accountsCatalog['Iva Acreditable'] || null;
-    const account3 = accountsCatalog['Anticipo'] || null;
+  // Get accounts from first receipt type
+  const account1 = accountsCatalog['Gasto de Viaje'] || null;
+  const account2 = accountsCatalog['Iva Acreditable'] || null;
+  const account3 = accountsCatalog['Cuenta x pagar Empleado'] || null;
 
+
+  validatedReceipts.forEach((receipt) => {
+    console.log(receipt);
     const subtotal = receipt.xml_subtotal ? Number(receipt.xml_subtotal) : receipt.amount;
     const taxes = receipt.xml_impuestos ? Number(receipt.xml_impuestos) : 0;
     const total = subtotal + taxes; 
@@ -319,9 +315,9 @@ export const exportAllPolicies = async (req, res) => {
 
     // Mark as exported
     await Promise.all([
-      ...rawAnticipos.map((r) => Accountability.markAsExported(r.request_id)),
-      ...rawComprobaciones.map((r) => Accountability.markAsExported(r.request_id)),
-      ...rawSinAnticipo.map((r) => Accountability.markAsExported(r.request_id)),
+      ...rawAnticipos.map(r => Accountability.markAsExported(r.request_id, 'anticipo')),
+      ...rawComprobaciones.map(r => Accountability.markAsExported(r.request_id, 'comprobacion')),
+      ...rawSinAnticipo.map(r => Accountability.markAsExported(r.request_id, 'sin_anticipo')),
     ]);
 
     return res.status(200).json({

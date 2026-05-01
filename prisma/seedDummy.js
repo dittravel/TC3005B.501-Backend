@@ -245,23 +245,16 @@ const ACCOUNTS = [
   { account_code: '1003', account_name: 'Iva Acreditable', account_type: 'Pasivo' },
 ];
 
-const RECEIPT_TYPES = [
-  { receipt_type_name: 'Hotel' },
-  { receipt_type_name: 'Alimentos' },
-  { receipt_type_name: 'Taxi' },
-  { receipt_type_name: 'Hospedaje' },
-];
-
 const TAXES = [
   { tax_code: 'IVA16',  tax_name: 'IVA 16%',          tax_rate: 0.1600 },
   { tax_code: 'EXENTO', tax_name: 'Exento de Impuestos', tax_rate: 0.0000 },
 ];
 
 const RECEIPT_TYPE_TO_ACCOUNT = {
-  Hotel: '1002',
-  Alimentos: '1002',
-  Taxi: '1002',
   Hospedaje: '1002',
+  Comida: '1002',
+  Transporte: '1002',
+  Caseta: '1002',
 };
 
 const SOCIETY_GROUPS = [
@@ -285,7 +278,7 @@ const DUMMY_RECEIPTS = [
   {
     requestIndex: 0,
     routeIndex: 0,                  
-    receipt_type_name: 'Hotel',
+    receipt_type_name: 'Hospedaje',
     amount: 1250.00,
     currency: 'MXN',
     exch_rate: 1,
@@ -312,7 +305,7 @@ const DUMMY_RECEIPTS = [
   {
     requestIndex: 1,
     routeIndex: 0,
-    receipt_type_name: 'Alimentos',
+    receipt_type_name: 'Comida',
     amount: 285.50,
     currency: 'USD',
     exch_rate: 17.99,
@@ -339,7 +332,7 @@ const DUMMY_RECEIPTS = [
   {
     requestIndex: 2,
     routeIndex: 0,
-    receipt_type_name: 'Taxi',
+    receipt_type_name: 'Transporte',
     amount: 420.75,
     currency: 'MXN',
     exch_rate: 1,
@@ -366,7 +359,7 @@ const DUMMY_RECEIPTS = [
   {
     requestIndex: 3,
     routeIndex: null,         
-    receipt_type_name: 'Taxi',
+    receipt_type_name: 'Transporte',
     amount: 320.00,
     currency: 'MXN',
     exch_rate: 1,
@@ -420,7 +413,7 @@ const DUMMY_RECEIPTS = [
   {
     requestIndex: 5,
     routeIndex: 0,
-    receipt_type_name: 'Alimentos',
+    receipt_type_name: 'Comida',
     amount: 420.75,
     currency: 'USD',
     exch_rate: 17.98,
@@ -678,7 +671,6 @@ const requestsData = [
     assigned_to: null,
     document_id: 'GV',
     authorization_rule_id: 1,
-    exch_rate: 0,
   },
   {
     notes: 'Reembolso por gastos medicos durante viaje.',
@@ -689,7 +681,6 @@ const requestsData = [
     assigned_to: authorizer.user_id,
     document_id: 'GV',
     authorization_rule_id: 1,
-    exch_rate: 0,
   },
   {
     notes: 'Solicitud de apoyo economico para capacitacion online.',
@@ -700,7 +691,6 @@ const requestsData = [
     assigned_to: accountsPayable.user_id,
     document_id: 'GV',
     authorization_rule_id: 1,
-    exch_rate: 0,
   },
   {
     notes: 'Viaticos para taller de liderazgo en Madrid.',
@@ -711,7 +701,6 @@ const requestsData = [
     assigned_to: agency.user_id,
     document_id: 'GV',
     authorization_rule_id: 1,
-    exch_rate: 0,
   },
   {
     notes: 'Reembolso de transporte.',
@@ -722,7 +711,6 @@ const requestsData = [
     assigned_to: accountsPayable.user_id,
     document_id: 'GV',
     authorization_rule_id: 1,
-    exch_rate: 0,
   },
   {
     notes: 'Apoyo para participacion en congreso internacional.',
@@ -733,7 +721,6 @@ const requestsData = [
     assigned_to: accountsPayable.user_id,
     document_id: 'AV',
     authorization_rule_id: 1,
-    exch_rate: 0,
   },
   {
     notes: 'Gastos operativos extraordinarios.',
@@ -744,7 +731,6 @@ const requestsData = [
     assigned_to: accountsPayable.user_id,
     document_id: 'AV',
     authorization_rule_id: 1,
-    exch_rate: 0,
   },
   {
     notes: 'Viaje urgente por representacion institucional.',
@@ -755,7 +741,6 @@ const requestsData = [
     assigned_to: accountsPayable.user_id,
     document_id: 'AV',
     authorization_rule_id: 1,
-    exch_rate: 0,
   },
   {
     notes: 'Solicito anticipo para mision tecnica en el extranjero.',
@@ -766,7 +751,6 @@ const requestsData = [
     assigned_to: accountsPayable.user_id,
     document_id: 'AV',
     authorization_rule_id: 1,
-    exch_rate: 0,
   }
 ];
 
@@ -993,14 +977,6 @@ async function seedDummyAccountability() {
         where: { account_code: account.account_code },
         create: account,
         update: account,
-      });
-    }
-
-    for (const receiptType of RECEIPT_TYPES) {
-      await prisma.receipt_Type.upsert({
-        where: { receipt_type_name: receiptType.receipt_type_name },
-        create: receiptType,
-        update: receiptType,
       });
     }
 

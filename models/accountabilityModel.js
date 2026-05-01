@@ -35,18 +35,12 @@ const Accountability = {
         active: true,
         requested_fee: { gt: 0 },
 
-        // Exclude requests that already have validated receipts
-        Receipt: {
-          none: {
-            validation: 'Aprobado'
-          }
-        },
-
         // [IS_EXPORTED]
         NOT: {
           policyExports: {
             some: {
-              is_exported: true
+              is_exported: true,
+              policy_type: 'anticipo',
             }
           }
         }
@@ -145,7 +139,8 @@ const Accountability = {
         NOT: {
           policyExports: {
             some: {
-              is_exported: true
+              is_exported: true,
+              policy_type: 'comprobacion',
             }
           }
         }
@@ -250,7 +245,8 @@ const Accountability = {
         NOT: {
           policyExports: {
             some: {
-              is_exported: true
+              is_exported: true,
+              policy_type: 'sin_anticipo',
             }
           }
         }
@@ -369,11 +365,11 @@ const Accountability = {
    *
    * @param {number} request_id
    */
-  async markAsExported(request_id) {
+  async markAsExported(request_id, policy_type) {
     return prisma.policyExport.upsert({
-      where: { request_id },
+      where: { request_id_policy_type: { request_id, policy_type } },
       update: { is_exported: true, exported_at: new Date() },
-      create: { request_id, is_exported: true, exported_at: new Date() },
+      create: { request_id, policy_type, is_exported: true, exported_at: new Date() },
     });
   },
 };
