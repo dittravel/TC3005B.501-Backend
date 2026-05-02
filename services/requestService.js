@@ -121,7 +121,7 @@ const RequestService = {
    * Get requests visible to a user (requester OR assignee) with filtering and sorting
    * @param {number} userId - User ID making the request
    * @param {number} societyId - User's society ID for access control
-   * @param {Object} rawFilters - Raw query filters from request: { status, sort }
+   * @param {Object} rawFilters - Raw query filters from request: { status, sort, assignedOnly }
    * @returns {Promise<Array>} Formatted requests array
    * @throws {Error} If userId or societyId missing or database error
    */
@@ -144,12 +144,13 @@ const RequestService = {
 /**
  * Normalize and validate filter parameters from query string
  * @param {Object} rawFilters - Raw filters object
- * @returns {Object} Normalized { status, sort }
+ * @returns {Object} Normalized { status, sort, assignedOnly }
  */
-function normalizeRequestFilters({ status, sort } = {}) {
+function normalizeRequestFilters({ status, sort, assignedOnly } = {}) {
   return {
     status: typeof status === 'string' ? status.trim() || null : null,
     sort: sort === 'asc' ? 'asc' : 'desc',
+    assignedOnly: assignedOnly === true,
   };
 }
 

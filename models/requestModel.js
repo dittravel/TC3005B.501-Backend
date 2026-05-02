@@ -11,18 +11,19 @@ const RequestModel = {
    * Get requests visible to a user (requester OR assignee)
    * @param {number} userId - User ID
    * @param {number} societyId - Society ID for access control
-   * @param {Object} filters - Optional filters: { status, sort }
+   * @param {Object} filters - Optional filters: { status, sort, assignedOnly }
    * @returns {Promise<Array>} Formatted requests array
    */
-  async getUserRequests(userId, societyId, { status, sort = 'desc' } = {}) {
+  async getUserRequests(userId, societyId, { status, sort = 'desc', assignedOnly = false } = {}) {
     const requests = await prisma.request.findMany({
       where: {
-        OR: [
-          { user_id: Number(userId) },
-        ],
+        ...(assignedOnly
+          ? { assigned_to: Number(userId) }
+          : { user_id: Number(userId) }
+        ),
         society_id: Number(societyId),
         active: true,
-        ...(status ? { Request_status: { status } } : {}),
+        ...(status ? { Request_status: { is: { status } } } : {}),
       },
       orderBy: { creation_date: sort },
       select: {
@@ -40,7 +41,6 @@ const RequestModel = {
           select: { user_name: true }
         },
         Route_Request: {
-          take: 1,
           include: {
             Route: {
               select: {

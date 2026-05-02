@@ -62,16 +62,16 @@ export async function authenticateUser(username, password, req) {
     const user = await userModel.getUserUsername(username);
     
     if (!user || user.length === 0) {
-      throw new Error("Invalid username or password");
+      throw new Error("Usuario o contraseña inválidos");
     }
     
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
-      throw new Error("Invalid username or password");
+      throw new Error("Usuario o contraseña inválidos");
     }
 
     if (!user.active) {
-      throw new Error("User acccount is inactive")
+      throw new Error("Esta cuenta está inactiva")
     }
 
     const enforceIpBinding = String(process.env.ENFORCE_TOKEN_IP_BINDING || 'false').toLowerCase() === 'true';
@@ -99,7 +99,7 @@ export async function authenticateUser(username, password, req) {
       permission_keys: user.permission_keys || []
     };
   } catch (error) {
-    throw new Error(`Authentication failed: ${error.message}`);
+    throw new Error("Usuario o contraseña inválidos");
   }
 }
 
