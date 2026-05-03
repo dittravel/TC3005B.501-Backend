@@ -48,13 +48,13 @@ const transporter = nodemailer.createTransport({
 const TEMPLATES_DIR = path.join(__dirname, 'templates');
 
 /**
- * Get the email subject line based on user role and request status
+ * Get the email subject line based on user type and request status
  * @param {string} status - The current status of the travel request
- * @param {string} userRole - The role of the user receiving the email
+ * @param {string} userType - The type of user ('applicant' or 'assigned')
  * @returns {string} The email subject line
  */
-const getEmailSubject = (status, userRole) => {
-  if (userRole === "Solicitante") {
+const getEmailSubject = (status, userType) => {
+  if (userType === "applicant") {
     switch (status) {
       case "Revisión":
         return "Solicitud en revisión";
@@ -75,26 +75,18 @@ const getEmailSubject = (status, userRole) => {
       default:
         return "Solicitud de viaje actualizada";
     }
-  } else if (userRole === "Autorizador") {
+  } else if (userType === "assigned") {
     switch (status) {
       case "Revisión":
         return "Revisión requerida";
-      default:
-        return "Solicitud de viaje actualizada";
-    }
-  } else if (userRole === "Cuentas por pagar") {
-    switch (status) {
       case "Cotización del Viaje":
         return "Cotización requerida";
-      case "Comprobación gastos del viaje":
-        return "Validación de comprobantes requerida";
-      default:
-        return "Solicitud de viaje actualizada";
-    }
-  } else if (userRole === "Agencia de viajes") {
-    switch (status) {
       case "Atención Agencia de Viajes":
         return "Atención requerida";
+      case "Comprobación gastos del viaje":
+        return "Validación de comprobantes requerida";
+      case "Validación de comprobantes":
+        return "Validación de comprobantes requerida";
       default:
         return "Solicitud de viaje actualizada";
     }
@@ -109,7 +101,7 @@ const getEmailSubject = (status, userRole) => {
  * @returns {Promise<void>}
  * @throws {Error} If email fails to send
  */
-export async function sendMail(userId, requestId) {
+export async function sendMail(userId, requestId, userType = 'applicant') {
   // Get request details
   const requestDataRows = await User.getTravelRequestById(requestId);
   const requestData = requestDataRows[0];
@@ -119,35 +111,39 @@ export async function sendMail(userId, requestId) {
 
   // Get current date in JSON format and slice to get only the date part (YYYY-MM-DD)
   const currentDate = new Date().toJSON().slice(0, 10);
-  
-  // Determine the email template to use based on the user's role and request status
+
+  // Determine the email template to use
   const status = requestData.request_status;
   const username = userData.user_name;
-  const userRole = userData.role_name;  
+  const userRole = userData.role_name;
   const email = userData.email;
 
   let templateName = "applicant.html"; // Default template
 
-  if (userRole === "Solicitante") {
+  // If applicant, always use applicant template
+  if (userType === 'applicant') {
     if (status === "Comprobación gastos del viaje") {
       templateName = "applicant-receipts.html";
     } else {
       templateName = "applicant.html";
     }
-  } else if (userRole === "Autorizador") {
-    if (status === "Cancelado" || status === "Rechazado" || status === "Finalizado") {
-      templateName = "applicant.html";
-    } else {
+  }
+  // If assigned, determine template based on permissions
+  else if (userType === 'assigned') {
+    const permissionKeys = await User.getUserPermissions(userId);
+    const permissionSet = new Set(permissionKeys);
+
+    if (permissionSet.has('travel:approve') || permissionSet.has('travel:reject')) {
       templateName = "authorizer.html";
+    } else if (permissionSet.has('receipts:approve')) {
+      if (status === "Cotización del Viaje") {
+        templateName = "accounts-payable-fee.html";
+      } else {
+        templateName = "accounts-payable-receipts.html";
+      }
+    } else if (permissionSet.has('travel:view_flights') || permissionSet.has('travel:view_hotels')) {
+      templateName = "travel-agent.html";
     }
-  } else if (userRole === "Cuentas por pagar") {
-    if (status === "Cotización del Viaje") {
-      templateName = "accounts-payable-fee.html";
-    } else {
-      templateName = "accounts-payable-receipts.html";
-    }
-  } else if (userRole === "Agencia de viajes") {
-    templateName = "travel-agent.html";
   }
   
   try {
@@ -208,7 +204,7 @@ export async function sendMail(userId, requestId) {
     const mailOptions = {
       from: `Portal de Viajes <${process.env.MAIL_USER}>`,
       to: email,
-      subject: getEmailSubject(status, userRole),
+      subject: getEmailSubject(status, userType),
       html: htmlContent,
     };
     

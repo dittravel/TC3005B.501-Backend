@@ -53,6 +53,31 @@ const User = {
     };
   },
 
+  async getUserPermissions(userId) {
+    try {
+      const user = await prisma.user.findUnique({
+        where: { user_id: Number(userId) },
+        include: {
+          role: {
+            include: {
+              Role_Permission: {
+                include: {
+                  Permission: {
+                    select: { permission_key: true }
+                  }
+                }
+              }
+            }
+          }
+        }
+      });
+      return user?.role?.Role_Permission?.map(rp => rp.Permission.permission_key) || [];
+    } catch (error) {
+      console.error('Error fetching user permissions:', error);
+      return [];
+    }
+  },
+
   async getTravelRequestById(requestId) {
     const request = await prisma.request.findUnique({
       where: { request_id: Number(requestId) },

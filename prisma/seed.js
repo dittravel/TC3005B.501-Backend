@@ -47,38 +47,7 @@ async function seedDefaultSocietyGroupAndSociety() {
   }
 }
 
-/**
- * Create default authorization rule for the default society
- */
-async function seedDefaultAuthRule(defaultSocietyId) {
-  await prisma.authorizationRule.create({
-    data: {
-      rule_name: 'Regla por Defecto',
-      is_default: true,
-      num_levels: 2,
-      automatic: true,
-      travel_type: 'Todos',
-      society_id: defaultSocietyId,
-    },
-  });
-}
 
-/**
- * Create default refund policy for the default society
- */
-async function seedDefaultRefundPolicy(defaultSocietyId) {
-  await prisma.refundPolicy.create({
-    data: {
-      policy_name: 'Política por Defecto',
-      min_amount: 10,
-      max_amount: 5000,
-      submission_deadline_days: 30,
-      society_id: defaultSocietyId,
-      is_default: true,
-      active: true,
-    },
-  });
-}
 
 /**
  * Seed the database with base data
@@ -92,8 +61,6 @@ export async function seedBaseData() {
   } = await seedDefaultSocietyGroupAndSociety();
   await seedReferenceData(prisma, defaultSocietyId);
   await seedCountriesAndCities(prisma);
-  await seedDefaultAuthRule(defaultSocietyId);
-  await seedDefaultRefundPolicy(defaultSocietyId);
   await seedCurrencies(prisma);
   await seedAdmin(prisma, defaultSocietyId);
   await seedSuperadmin(prisma, defaultSocietyId);
