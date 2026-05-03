@@ -56,6 +56,7 @@ model AuthorizationRule {
   max_duration Int?
   min_amount   Float?                         @db.Float
   max_amount   Float?                         @db.Float
+  active       Boolean                        @default(true)
   society_id   Int?
   Society      Society?                       @relation(fields: [society_id], references: [id])
   levels       AuthorizationRuleLevel[]

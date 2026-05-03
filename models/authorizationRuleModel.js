@@ -8,10 +8,11 @@
 import { prisma } from '../lib/prisma.js';
 
 const AuthorizationRuleModel = {
-  // Get all authorization rules
+  // Get all active authorization rules
   async getAllRules() {
     try {
       return await prisma.authorizationRule.findMany({
+        where: { active: true },
         orderBy: [
           { is_default: 'asc' },
           { rule_id: 'asc' },
@@ -47,12 +48,13 @@ const AuthorizationRuleModel = {
   },
 
   // Get rules that match travel type, duration, and amount criteria
-  // Returns all rules that could potentially apply
+  // Returns all active rules that could potentially apply
   async getRulesByCriteria(travelType, duration, amount, societyId) {
     try {
       // Build dynamic Prisma where clause
       const where = {
         AND: [
+          { active: true },
           {
             OR: [
               { society_id: Number(societyId) },
@@ -114,12 +116,13 @@ const AuthorizationRuleModel = {
     }
   },
 
-  // Get default authorization rule
+  // Get default active authorization rule
   async getDefaultRule(societyId) {
     try {
       const rule = await prisma.authorizationRule.findFirst({
         where: {
           is_default: true,
+          active: true,
           society_id: Number(societyId)
         },
         orderBy: { rule_id: 'asc' },

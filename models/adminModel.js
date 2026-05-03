@@ -868,10 +868,10 @@ const Admin = {
     }
   },
 
-  // Get auth rules
+  // Get active auth rules
   async getAuthRules(societyId = null) {
     try {
-      const where = {};
+      const where = { active: true };
 
       if (societyId) {
         where.OR = [
@@ -1009,7 +1009,8 @@ const Admin = {
     }
   },
 
-  // Delete auth rule
+  // Deactivate auth rule (soft delete)
+  // Rule is hidden from new requests but remains for existing ones using it
   async deleteAuthRule(ruleId, societyId = null) {
     try {
       const id = Number(ruleId);
@@ -1023,29 +1024,19 @@ const Admin = {
         if (rule && rule.society_id && rule.society_id !== Number(societyId)) {
           throw new Error('Unauthorized: Rule does not belong to your society');
         }
-
-        const requestCountOutsideSociety = await prisma.request.count({
-          where: {
-            authorization_rule_id: id,
-            society_id: {
-              not: Number(societyId),
-            },
-          },
-        });
-
-        if (requestCountOutsideSociety > 0) {
-          throw new Error('Unauthorized: Rule is used by another society');
-        }
       }
 
-      // Step 1: Delete all levels associated with the rule
-      await prisma.authorizationRuleLevel.deleteMany({ where: { rule_id: id } });
-      // Step 2: Delete the rule itself
-      await prisma.authorizationRule.delete({ where: { rule_id: id } });
-      console.log(`Auth rule with ID ${ruleId} and its associated levels have been deleted.`);
+      // Deactivate the rule instead of deleting
+      // Levels remain unchanged so existing requests continue to work
+      await prisma.authorizationRule.update({
+        where: { rule_id: id },
+        data: { active: false }
+      });
+      
+      console.log(`Auth rule with ID ${ruleId} has been deactivated.`);
       return true;
     } catch (error) {
-      console.error('Error deleting auth rule:', error);
+      console.error('Error deactivating auth rule:', error);
       throw error;
     }
   },
