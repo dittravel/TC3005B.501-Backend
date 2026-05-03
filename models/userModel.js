@@ -84,6 +84,8 @@ const User = {
 
     const base = {
       request_id: request.request_id,
+      user_id: request.user_id,
+      assigned_to: request.assigned_to,
       request_status: request.Request_status?.status ?? null,
       notes: request.notes,
       requested_fee: request.requested_fee,

@@ -157,6 +157,14 @@ export const getTravelRequestById = async (req, res) => {
 
     // Extract base data and decrypt sensitive information
     const base = requestData[0];
+
+    // Validate user authorization: can only view own requests, assigned requests, or as admin
+    const isCreator = base.user_id === req.user.user_id;
+    const isAssigned = base.assigned_to === req.user.user_id;
+
+    if (!isCreator && !isAssigned && !isAdmin) {
+      return res.status(403).json({ error: "Forbidden: You don't have permission to view this request" });
+    }
     const decryptedEmail = decrypt(base.user_email);
     const decryptedPhone = decrypt(base.user_phone_number);
 
