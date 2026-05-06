@@ -67,7 +67,7 @@ const buildAnticipo = (request, accountsCatalog, documentMap) => {
 
   // Get currency and exchange rate
   const currency = firstReceipt?.xml_moneda || firstReceipt?.currency || society?.local_currency;
-  const amount = request.requested_fee || 0;
+  const amount = request.imposed_fee || 0;
 
   const isSameCurrency = currency === society?.local_currency;
   const exchRate = isSameCurrency ? 1.0 : parseFloat((firstReceipt?.exch_rate || 0).toFixed(2));
@@ -258,11 +258,17 @@ const buildSinAnticipo = (request, accountsCatalog, documentMap) => {
  */
 export const exportAllPolicies = async (req, res) => {
   try {
-    // Fetch all three policy types in parallel
+    const societyGroupId = req.user?.society_group_id;
+
+    if (!societyGroupId) {
+      return res.status(400).json({ error: 'User does not belong to a society group' });
+    }
+
+    // Fetch all three policy types in parallel, filtered by society group
     const [rawAnticipos, rawComprobaciones, rawSinAnticipo, accounts, documents] = await Promise.all([
-      Accountability.getAnticipoPolicies(),
-      Accountability.getComprobacionPolicies(),
-      Accountability.getSinAnticipoPolicies(),
+      Accountability.getAnticipoPolicies(societyGroupId),
+      Accountability.getComprobacionPolicies(societyGroupId),
+      Accountability.getSinAnticipoPolicies(societyGroupId),
       Accountability.getAccounts(),
       Accountability.getDocuments(),
     ]);
