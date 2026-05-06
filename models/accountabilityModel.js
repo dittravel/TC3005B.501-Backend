@@ -22,18 +22,23 @@ const Accountability = {
    *
    * A Request qualifies as an anticipo when:
    *   - active = true
-   *   - requested_fee > 0  (has an advance payment)
+   *   - imposed_fee > 0  (has an advance payment)
    *   - Event: 'advance_given' (anticipo fue otorgado)
-   *   - NO tiene receipts validados (those go to comprobacion instead)
+   *   - Does not have validated receipts (those go to comprobacion instead)
    *   - IS_EXPORTED = false
+   *   - Belongs to the specified society group
    *
+   * @param {number} societyGroupId - Filter by society group
    * @returns {Promise<Array>}
    */
-  async getAnticipoPolicies() {
+  async getAnticipoPolicies(societyGroupId) {
     try {
       const where = {
         active: true,
-        requested_fee: { gt: 0 },
+        imposed_fee: { gt: 0 },
+        Society: {
+          society_group_id: societyGroupId,
+        },
 
         // [IS_EXPORTED]
         NOT: {
@@ -117,18 +122,23 @@ const Accountability = {
    *
    * A Request qualifies when:
    *   - active = true
-   *   - requested_fee > 0 (had an advance)
+   *   - imposed_fee > 0 (had an advance)
    *   - Has validated receipts (comprobación)
    *   - Event: 'receipt_uploaded'
    *   - IS_EXPORTED = false
+   *   - Belongs to the specified society group
    *
+   * @param {number} societyGroupId - Filter by society group
    * @returns {Promise<Array>}
    */
-  async getComprobacionPolicies() {
+  async getComprobacionPolicies(societyGroupId) {
     try {
       const where = {
         active: true,
-        requested_fee: { gt: 0 },
+        imposed_fee: { gt: 0 },
+        Society: {
+          society_group_id: societyGroupId,
+        },
         Receipt: {
           some: {
             validation: 'Aprobado',
@@ -220,21 +230,26 @@ const Accountability = {
    *
    * A Request qualifies when:
    *   - active = true
-   *   - requested_fee = 0 or null (no advance)
+   *   - imposed_fee = 0 or null (no advance assigned)
    *   - Has validated receipts
    *   - Event: 'receipt_uploaded'
    *   - IS_EXPORTED = false
+   *   - Belongs to the specified society group
    *
+   * @param {number} societyGroupId - Filter by society group
    * @returns {Promise<Array>}
    */
-  async getSinAnticipoPolicies() {
+  async getSinAnticipoPolicies(societyGroupId) {
     try {
       const where = {
         active: true,
         OR: [
-          { requested_fee: 0 },
-          { requested_fee: null },
+          { imposed_fee: 0 },
+          { imposed_fee: null },
         ],
+        Society: {
+          society_group_id: societyGroupId,
+        },
         Receipt: {
           some: {
             validation: 'Aprobado',
