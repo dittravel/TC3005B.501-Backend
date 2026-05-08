@@ -13,12 +13,18 @@ export async function getAuditLogs(req, res) {
       : [];
     const canViewByGroup = permissionKeys.includes('superadmin:view_group_audit_log') || req.user?.role === 'Superadministrador';
 
-    const requestedGroupId = req.query?.society_group_id ? Number(req.query.society_group_id) : null;
+    let society_group_id = null;
+    if (canViewByGroup && req.query?.society_group_id) {
+      // If the user has permission and provided a society_group_id, use it
+      society_group_id = Number(req.query.society_group_id);
+    } else if (!canViewByGroup) {
+      // If the user doesn't have permission, restrict to their own group
+      society_group_id = req.user?.society_group_id ?? null;
+    }
+
     const scopedFilters = {
       ...req.query,
-      society_group_id: canViewByGroup
-        ? requestedGroupId ?? req.user?.society_group_id ?? null
-        : req.user?.society_group_id ?? null,
+      society_group_id,
     };
 
     const response = await AuditLogService.getAuditLogs(scopedFilters);
