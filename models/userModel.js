@@ -90,6 +90,9 @@ const User = {
             phone_number: true,
           },
         },
+        AuthorizationRule: {
+          select: { num_levels: true }
+        },
         Route_Request: {
           include: {
             Route: {
@@ -122,6 +125,8 @@ const User = {
       user_name: request.requester?.user_name ?? null,
       user_email: request.requester?.email ?? null,
       user_phone_number: request.requester?.phone_number ?? null,
+      authorization_level: request.authorization_level ?? 0,
+      authorization_levels_total: request.AuthorizationRule?.num_levels ?? null,
     };
 
     const routeRows = request.Route_Request
@@ -226,6 +231,7 @@ const User = {
         beginning_date: route?.beginning_date ?? null,
         ending_date: route?.ending_date ?? null,
         request_status: req.Request_status?.status ?? null,
+        authorization_level: req.authorization_level ?? 0,
         assigned_to_name: req.assignedUser?.user_name ?? null,
       };
     });

@@ -179,6 +179,8 @@ export const getTravelRequestById = async (req, res) => {
       creation_date: formatDate(base.creation_date),
       currency: base.currency || 'MXN',
       exch_rate: base.exch_rate,
+      authorization_level: base.authorization_level,
+      authorization_levels_total: base.authorization_levels_total,
       user: {
         user_name: base.user_name,
         user_email: decryptedEmail,
