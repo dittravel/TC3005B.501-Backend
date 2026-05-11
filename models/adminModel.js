@@ -469,15 +469,15 @@ const Admin = {
     }
   },
 
-  // Get roles with their permissions
+  // Get active roles with their permissions
   async getRoles(societyId = null, requester = null) {
     try {
-      const where = societyId ? { society_id: Number(societyId) } : {};
+      const where = { active: true };
 
       if (societyId) {
         where.OR = [
-          { society_id: Number(societyId) },
-          { society_id: null },
+          { society_id: Number(societyId), active: true },
+          { society_id: null, active: true },
         ];
       }
 
@@ -532,7 +532,7 @@ const Admin = {
       },
     });
 
-    if (!role) return null;
+    if (!role || !role.active) return null;
 
     if (role.role_name === SUPERADMIN_ROLE_NAME) {
       throw new Error('Unauthorized: Role is restricted');
@@ -560,8 +560,8 @@ const Admin = {
 
   async getDefaultRole(societyId = null, requester = null) {
     const where = societyId
-      ? { society_id: Number(societyId), is_default: true }
-      : { is_default: true };
+      ? { society_id: Number(societyId), is_default: true, active: true }
+      : { is_default: true, active: true };
 
     where.role_name = { not: SUPERADMIN_ROLE_NAME };
 
@@ -575,7 +575,7 @@ const Admin = {
             },
           },
         },
-        { is_default: true },
+        { is_default: true, active: true },
       ];
     }
 
@@ -598,8 +598,8 @@ const Admin = {
     }
 
     const fallbackWhere = societyId
-      ? { society_id: Number(societyId), role_name: 'Solicitante' }
-      : { role_name: 'Solicitante' };
+      ? { society_id: Number(societyId), role_name: 'Solicitante', active: true }
+      : { role_name: 'Solicitante', active: true };
 
     const fallback = await prisma.role.findFirst({
       where: fallbackWhere,
@@ -631,10 +631,11 @@ const Admin = {
         role_name: true,
         is_system: true,
         society_id: true,
+        active: true,
       },
     });
 
-    if (!role) {
+    if (!role || !role.active) {
       return false;
     }
 
@@ -826,13 +827,13 @@ const Admin = {
       }
     }
 
-    const assignedUsers = await prisma.user.count({ where: { role_id: id, active: true } });
-    if (assignedUsers > 0) {
-      throw new Error('Cannot delete role: there are active users assigned to this role');
-    }
-
-    await prisma.role_Permission.deleteMany({ where: { role_id: id } });
-    await prisma.role.delete({ where: { role_id: id } });
+    // Soft delete role by marking it as inactive
+    // Users assigned to this role will keep it,
+    // but the role won't be available for new assignments
+    await prisma.role.update({
+      where: { role_id: id },
+      data: { active: false },
+    });
 
     return true;
   },
