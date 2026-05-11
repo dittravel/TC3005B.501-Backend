@@ -8,7 +8,10 @@ import { prisma } from '../lib/prisma.js';
 
 export async function getSocieties(societyGroupId) {
   return await prisma.society.findMany({
-    where: societyGroupId ? { society_group_id: societyGroupId } : undefined,
+    where: {
+      active: true,
+      ...(societyGroupId && { society_group_id: societyGroupId })
+    },
     include: {
       SocietyGroup: true,
     }
@@ -27,6 +30,7 @@ export async function getSocietyById(societyId) {
 export async function getSocietyByNameAndGroup(description, societyGroupId) {
   return await prisma.society.findFirst({
     where: {
+      active: true,
       description: description,
       society_group_id: societyGroupId
     },
@@ -64,8 +68,9 @@ export async function updateSociety(societyId, data) {
 }
 
 export async function deleteSociety(societyId) {
-  return await prisma.society.delete({
-    where: { id: societyId }
+  return await prisma.society.update({
+    where: { id: societyId },
+    data: { active: false }
   });
 }
 

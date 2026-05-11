@@ -165,21 +165,31 @@ const authorizeRequest = async (request_id, user_id, options = {}) => {
         }
 
         // Determine next approver based on rule level type
+        // Use the current assigned_to as the reference for hierarchy escalation
         new_assigned_to = await AuthorizationRuleService.getNextApproverForRuleLevel(
           nextRuleLevel,
-          request.user_id, // requester (original applicant)
+          request.assigned_to, // Current approver (escalate from them)
           requesterUser.department_id,
-          requesterUser.society_id
+          requesterUser.society_id,
+          request.assigned_to // Avoid assigning to the same person
         );
 
+        // If no approver found for this level, skip to next stage (Travel Agent or Accounts Payable)
         if (!new_assigned_to) {
-          throw {
-            status: 500,
-            message: `Could not determine next approver for rule level ${new_authorization_level}`
-          };
+          const needsTravelAgent = await Authorizer.requiresTravelAgencyServices(request_id);
+          if (needsTravelAgent) {
+            const travelAgent = await User.getRandomUserByPermissions(TRAVEL_AGENT_PERMISSIONS, requesterUser.department_id, requesterUser.society_id);
+            new_assigned_to = travelAgent ? travelAgent.user_id : null;
+            new_status_id = 4;
+          } else {
+            const accountsPayable = await User.getRandomUserByPermissions(ACCOUNTS_PAYABLE_PERMISSIONS, requesterUser.department_id, requesterUser.society_id);
+            new_assigned_to = accountsPayable ? accountsPayable.user_id : null;
+            new_status_id = 3;
+          }
+          console.log(`No approver available for rule level ${new_authorization_level}, routing to next stage`);
+        } else {
+          console.log(`Escalating to next level approver (user_id: ${new_assigned_to}), new authorization level: ${new_authorization_level}`);
         }
-
-        console.log(`Escalating to next level approver (user_id: ${new_assigned_to}), new authorization level: ${new_authorization_level}`);
       }
     }
 

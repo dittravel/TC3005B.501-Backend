@@ -8,14 +8,23 @@ import { prisma } from '../lib/prisma.js';
 
 export async function getSocietyGroups() {
   return await prisma.societyGroup.findMany({
-    include: { Society: true }
+    where: { active: true },
+    include: {
+      Society: {
+        where: { active: true }
+      }
+    }
   });
 }
 
 export async function getSocietyGroupById(groupId) {
   return await prisma.societyGroup.findUnique({
     where: { id: groupId },
-    include: { Society: true }
+    include: {
+      Society: {
+        where: { active: true }
+      }
+    }
   });
 }
 
@@ -39,8 +48,16 @@ export async function updateSocietyGroup(groupId, data) {
 }
 
 export async function deleteSocietyGroup(groupId) {
-  await prisma.societyGroup.delete({
-    where: { id: groupId }
+  // Deactivate all societies in the group
+  await prisma.society.updateMany({
+    where: { society_group_id: groupId },
+    data: { active: false }
+  });
+
+  // Deactivate the group
+  return await prisma.societyGroup.update({
+    where: { id: groupId },
+    data: { active: false }
   });
 }
 

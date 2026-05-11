@@ -385,17 +385,6 @@ export const REQUESTS = [
     exch_rate: 0,
   },
   {
-    notes: 'Reembolso por gastos medicos durante viaje.',
-    requested_fee: 0,
-    imposed_fee: 0,
-    request_days: 1.0,
-    status: 'Revisión',
-    assigned_to_username: 'diego.hernandez',
-    document_id: 'GV',
-    authorization_rule_id: 1,
-    exch_rate: 0,
-  },
-  {
     notes: 'Solicitud de apoyo economico para capacitacion online.',
     requested_fee: 500.0,
     imposed_fee: 500.0,

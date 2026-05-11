@@ -18,7 +18,7 @@ export var generalRateLimiter = RateLimit({
 // Rate limiter specifically for login attempts
 export var loginRateLimiter = RateLimit({
     windowMs: 1 * 60 * 1000, // 1 minute
-    max: 5, // Limit each IP to 5 login attempts per windowMs
+    max: 20, // Limit each IP login attempts per windowMs
     message: 'Too many login attempts from this IP, please try again after a minute',
 });
 

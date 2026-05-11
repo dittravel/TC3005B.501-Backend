@@ -73,31 +73,49 @@ const AuthorizationRuleService = {
   /**
    * Get the next approver based on authorization rule level configuration
    * @param {object} ruleLevel - The AuthorizationRuleLevel object with level_type and superior_level_number
-   * @param {number} requesterUserId - The ID of the user who created the request
+   * @param {number} requesterUserId - The ID of the user to get the boss from (for escalation reference)
    * @param {number} departmentId - The department of the requester
    * @param {number} societyGroupId - The society group ID
+   * @param {number} assignedTo - The user_id currently assigned (to avoid repeating)
    * @returns {number|null} The user_id of the next approver, or null if none found
    */
-  async getNextApproverForRuleLevel(ruleLevel, requesterUserId, departmentId, societyGroupId) {
+  async getNextApproverForRuleLevel(ruleLevel, requesterUserId, departmentId, societyGroupId, assignedTo = null) {
     try {
       if (ruleLevel.level_type === 'Jefe') {
         // Direct boss
         const boss = await User.getBossId(requesterUserId);
+
+        // Don't assign to the same person twice in a row
+        if (boss === assignedTo) {
+          return null;
+        }
         return boss;
       } else if (ruleLevel.level_type === 'Aleatorio') {
-        // Random approver from the department (permission-based, role-name agnostic)
-        let randomAuthorizer = await User.getRandomUserByPermissions(['travel:approve', 'travel:reject'], departmentId, societyGroupId);
+        // Random approver from the hierarchy above the current user
+        // Get all bosses of the current user up the chain
+        const bosses = [];
+        let currentUserId = requesterUserId;
+        let attempts = 0;
+        const maxLevels = 10; // Prevent infinite loops
 
-        // If selected approver == requester, retry a few times
-        if (randomAuthorizer && randomAuthorizer.user_id === requesterUserId) {
-          let attempts = 0;
-          while (attempts < 5 && randomAuthorizer && randomAuthorizer.user_id === requesterUserId) {
-            randomAuthorizer = await User.getRandomUserByPermissions(['travel:approve', 'travel:reject'], departmentId, societyGroupId);
-            attempts++;
+        while (currentUserId && attempts < maxLevels) {
+          const bossId = await User.getBossId(currentUserId);
+          if (!bossId || bossId === currentUserId) break; // No more bosses or circular reference
+
+          // Check if boss has required permissions
+          const bossHasPermission = await User.userHasAnyPermission(bossId, ['travel:approve', 'travel:reject'], societyGroupId);
+          if (bossHasPermission && bossId !== assignedTo && bossId !== requesterUserId) {
+            bosses.push(bossId);
           }
+
+          currentUserId = bossId;
+          attempts++;
         }
 
-        return randomAuthorizer ? randomAuthorizer.user_id : null;
+        // Return a random boss, or null if none available
+        if (bosses.length === 0) return null;
+        const randomIndex = Math.floor(Math.random() * bosses.length);
+        return bosses[randomIndex];
       } else if (ruleLevel.level_type === 'Nivel_Superior' || ruleLevel.level_type === 'Nivel Superior') {
         // N levels up the hierarchy
         const levelsUp = ruleLevel.superior_level_number || 1;

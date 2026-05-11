@@ -56,6 +56,7 @@ model AuthorizationRule {
   max_duration Int?
   min_amount   Float?                         @db.Float
   max_amount   Float?                         @db.Float
+  active       Boolean                        @default(true)
   society_id   Int?
   Society      Society?                       @relation(fields: [society_id], references: [id])
   levels       AuthorizationRuleLevel[]
@@ -391,6 +392,7 @@ model SocietyGroup {
   id          Int       @id @default(autoincrement())
   description String?   @db.VarChar(255)
   is_default  Boolean   @default(false)
+  active      Boolean   @default(true)
   Society     Society[]
 }
 
@@ -401,6 +403,7 @@ model Society {
   local_currency    String              @db.VarChar(6)
   society_group_id  Int?
   is_default        Boolean             @default(false)
+  active            Boolean             @default(true)
   SocietyGroup      SocietyGroup?       @relation(fields: [society_group_id], references: [id])
   User              User[]
   Request           Request[]

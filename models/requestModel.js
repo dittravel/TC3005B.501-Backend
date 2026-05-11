@@ -11,18 +11,23 @@ const RequestModel = {
    * Get requests visible to a user (requester OR assignee)
    * @param {number} userId - User ID
    * @param {number} societyId - Society ID for access control
-   * @param {Object} filters - Optional filters: { status, sort }
+   * @param {Object} filters - Optional filters: { status, sort, assignedOnly }
    * @returns {Promise<Array>} Formatted requests array
    */
-  async getUserRequests(userId, societyId, { status, sort = 'desc' } = {}) {
+  async getUserRequests(userId, societyId, { status, sort = 'desc', assignedOnly = false } = {}) {
     const requests = await prisma.request.findMany({
       where: {
-        OR: [
-          { user_id: Number(userId) },
-        ],
+        ...(assignedOnly
+          ? { assigned_to: Number(userId) }
+          : { user_id: Number(userId) }
+        ),
         society_id: Number(societyId),
-        active: true,
-        ...(status ? { Request_status: { status } } : {}),
+        OR: [
+          { active: true },
+          { Request_status: { is: { status: 'Rechazado' } } },
+          { Request_status: { is: { status: 'Cancelado' } } },
+        ],
+        ...(status ? { Request_status: { is: { status } } } : {}),
       },
       orderBy: { creation_date: sort },
       select: {
@@ -33,14 +38,17 @@ const RequestModel = {
         imposed_fee: true,
         request_days: true,
         creation_date: true,
+        authorization_level: true,
         Request_status: {
           select: { status: true }
+        },
+        AuthorizationRule: {
+          select: { num_levels: true }
         },
         assignedUser: {
           select: { user_name: true }
         },
         Route_Request: {
-          take: 1,
           include: {
             Route: {
               select: {
@@ -66,6 +74,8 @@ const RequestModel = {
       imposed_fee: req.imposed_fee || 0,
       request_days: req.request_days || 0,
       creation_date: req.creation_date,
+      authorization_level: req.authorization_level ?? 0,
+      authorization_levels_total: req.AuthorizationRule?.num_levels ?? null,
       assigned_to_name: req.assignedUser?.user_name || undefined,
       routes: req.Route_Request.map(rr => ({
         route_id: rr.Route.route_id,
