@@ -206,21 +206,26 @@ export async function seedReferenceData(prisma, defaultSocietyId) {
     }
   }
 
-  await upsertOrderedRecords(prisma.request_status, [
-    { status: 'Borrador' },
-    { status: 'Revisión' },
-    { status: 'Cotización del Viaje' },
-    { status: 'Atención Agencia de Viajes' },
-    { status: 'Comprobación gastos del viaje' },
-    { status: 'Validación de comprobantes' },
-    { status: 'Finalizado' },
-    { status: 'Cancelado' },
-    { status: 'Rechazado' },
-  ], (item) => ({
-    where: { status: item.status },
-    create: { status: item.status },
-    update: { status: item.status },
-  }));
+  // Create request statuses with fixed IDs
+  const statuses = [
+    { request_status_id: 1, status: 'Borrador' },
+    { request_status_id: 2, status: 'Revisión' },
+    { request_status_id: 3, status: 'Cotización del Viaje' },
+    { request_status_id: 4, status: 'Atención Agencia de Viajes' },
+    { request_status_id: 5, status: 'Comprobación gastos del viaje' },
+    { request_status_id: 6, status: 'Validación de comprobantes' },
+    { request_status_id: 7, status: 'Finalizado' },
+    { request_status_id: 8, status: 'Cancelado' },
+    { request_status_id: 9, status: 'Rechazado' },
+  ];
+
+  for (const status of statuses) {
+    await prisma.request_status.upsert({
+      where: { status: status.status },
+      create: { request_status_id: status.request_status_id, status: status.status },
+      update: { status: status.status },
+    });
+  }
 
   await upsertOrderedRecords(prisma.receipt_Type, [
     { receipt_type_name: 'Hospedaje' },

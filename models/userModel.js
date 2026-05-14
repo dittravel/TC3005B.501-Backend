@@ -53,6 +53,31 @@ const User = {
     };
   },
 
+  async getUserPermissions(userId) {
+    try {
+      const user = await prisma.user.findUnique({
+        where: { user_id: Number(userId) },
+        include: {
+          role: {
+            include: {
+              Role_Permission: {
+                include: {
+                  Permission: {
+                    select: { permission_key: true }
+                  }
+                }
+              }
+            }
+          }
+        }
+      });
+      return user?.role?.Role_Permission?.map(rp => rp.Permission.permission_key) || [];
+    } catch (error) {
+      console.error('Error fetching user permissions:', error);
+      return [];
+    }
+  },
+
   async getTravelRequestById(requestId) {
     const request = await prisma.request.findUnique({
       where: { request_id: Number(requestId) },
@@ -64,6 +89,12 @@ const User = {
             email: true,
             phone_number: true,
           },
+        },
+        AuthorizationRule: {
+          select: { num_levels: true }
+        },
+        Society: {
+          select: { local_currency: true }
         },
         Route_Request: {
           include: {
@@ -84,6 +115,8 @@ const User = {
 
     const base = {
       request_id: request.request_id,
+      user_id: request.user_id,
+      assigned_to: request.assigned_to,
       request_status: request.Request_status?.status ?? null,
       notes: request.notes,
       requested_fee: request.requested_fee,
@@ -91,10 +124,13 @@ const User = {
       request_days: request.request_days,
       creation_date: request.creation_date,
       currency: request.currency ?? 'MXN',
+      society_currency: request.Society?.local_currency ?? 'MXN',
       exch_rate: request.exch_rate,
       user_name: request.requester?.user_name ?? null,
       user_email: request.requester?.email ?? null,
       user_phone_number: request.requester?.phone_number ?? null,
+      authorization_level: request.authorization_level ?? 0,
+      authorization_levels_total: request.AuthorizationRule?.num_levels ?? null,
     };
 
     const routeRows = request.Route_Request
@@ -199,6 +235,7 @@ const User = {
         beginning_date: route?.beginning_date ?? null,
         ending_date: route?.ending_date ?? null,
         request_status: req.Request_status?.status ?? null,
+        authorization_level: req.authorization_level ?? 0,
         assigned_to_name: req.assignedUser?.user_name ?? null,
       };
     });
