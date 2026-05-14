@@ -93,6 +93,9 @@ const User = {
         AuthorizationRule: {
           select: { num_levels: true }
         },
+        Society: {
+          select: { local_currency: true }
+        },
         Route_Request: {
           include: {
             Route: {
@@ -121,6 +124,7 @@ const User = {
       request_days: request.request_days,
       creation_date: request.creation_date,
       currency: request.currency ?? 'MXN',
+      society_currency: request.Society?.local_currency ?? 'MXN',
       exch_rate: request.exch_rate,
       user_name: request.requester?.user_name ?? null,
       user_email: request.requester?.email ?? null,

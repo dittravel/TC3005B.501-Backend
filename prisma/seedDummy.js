@@ -25,6 +25,7 @@ import {
   ROUTES,
   ACCOUNTS,
   RECEIPT_TYPE_TO_ACCOUNT,
+  REFUNDS,
 } from './dummyData.js';
 
 /**
@@ -341,7 +342,7 @@ async function seedDummyRequests() {
         user_id: applicant.user_id,
         request_status_id: statusMap.get(requestData.status),
         assigned_to: assignedToId,
-        authorization_level: assignedToId ? 1 : 0,
+        authorization_level: 0,
         authorization_rule_id: requestData.authorization_rule_id,
         society_id: 1,
         notes: requestData.notes,
@@ -539,6 +540,86 @@ async function seedDummyRequests() {
   }
 }
 
+/**
+ * Create audit log entries for dummy data operations
+ */
+async function seedDummyAuditLogs() {
+  console.log('Creating dummy audit log entries...');
+
+  try {
+    // Get an admin user to be the actor
+    const adminUser = await prisma.user.findUnique({
+      where: { user_name: 'admin' },
+      select: { user_id: true },
+    });
+
+    if (!adminUser) {
+      console.warn('Admin user not found for audit logs');
+      return;
+    }
+
+    // Create audit log entries for some dummy users
+    const usersToAudit = ['andres.gomez', 'diego.hernandez', 'carlos.ramos'];
+
+    for (const userName of usersToAudit) {
+      const user = await prisma.user.findUnique({
+        where: { user_name: userName },
+        select: { user_id: true },
+      });
+
+      if (user) {
+        await prisma.audit_Log.create({
+          data: {
+            actor_user_id: adminUser.user_id,
+            action_type: 'USER_CREATED',
+            entity_type: 'User',
+            entity_id: user.user_id.toString(),
+            source_ip: '127.0.0.1',
+            metadata: JSON.stringify({
+              user_name: userName,
+              operation: 'seed_import',
+              timestamp: new Date().toISOString(),
+            }),
+          },
+        });
+      }
+    }
+
+    console.log('Created dummy audit log entries');
+  } catch (error) {
+    console.warn('Warning: Could not create audit logs:', error.message);
+  }
+}
+
+/**
+ * Create dummy refunds for users
+ */
+async function seedDummyRefunds() {
+  console.log('Creating dummy refunds...');
+
+  for (const refundData of REFUNDS) {
+    const user = await prisma.user.findUnique({
+      where: { user_name: refundData.user_name },
+      select: { user_id: true },
+    });
+
+    if (!user) {
+      console.warn(`Skipping refund for user ${refundData.user_name}`);
+      continue;
+    }
+
+    await prisma.refund.create({
+      data: {
+        user_id: user.user_id,
+        request_id: refundData.request_id,
+        refund_amount: refundData.refund_amount,
+        refund_type: refundData.refund_type,
+      },
+    });
+  }
+
+  console.log(`Created ${REFUNDS.length} dummy refunds`);
+}
 
 /**
  * Create or update society groups
@@ -622,6 +703,8 @@ async function seedDummyData() {
   await seedDummyAccountability(societies);
   await seedDummyUsers();
   await seedDummyRequests();
+  await seedDummyRefunds();
+  await seedDummyAuditLogs();
 }
 
 // Main function to run the seed
