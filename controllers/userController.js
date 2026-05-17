@@ -366,6 +366,38 @@ export const updateDashboardPreferences = async (req, res) => {
   }
 };
 
+export const getApproverHierarchy = async (req, res) => {
+  try {
+    const requestedUserId = req.params.user_id
+      ? Number.parseInt(req.params.user_id, 10)
+      : Number(req.user?.user_id);
+
+    if (!requestedUserId || Number.isNaN(requestedUserId)) {
+      return res.status(400).json({ error: 'Invalid user ID' });
+    }
+
+    const requesterPermissionKeys = Array.isArray(req.user?.permissions)
+      ? req.user.permissions.map((permission) => String(permission).trim())
+      : [];
+    const canViewAnyHierarchy = requesterPermissionKeys.includes('users:view');
+
+    if (!canViewAnyHierarchy && Number(req.user?.user_id) !== requestedUserId) {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
+
+    const hierarchy = await User.getApproverHierarchy(requestedUserId, req.user?.society_id);
+
+    if (!hierarchy) {
+      return res.status(404).json({ error: 'Hierarchy not found for user' });
+    }
+
+    return res.status(200).json(hierarchy);
+  } catch (error) {
+    console.error('Error retrieving approver hierarchy:', error);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
 // Clear all session cookies and log user out
 export const logout = (req, res) => {
   // Cookie options for secure clearing
