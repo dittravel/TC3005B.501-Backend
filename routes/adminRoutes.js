@@ -157,4 +157,13 @@ router.route("/import-data")
     adminController.importData
   );
 
+// Preview data from JSON file
+router.route("/preview-import")
+  .post(
+    generalRateLimiter,
+    authenticateToken, authorizePermission(['system:import_data']),
+    upload.single("file"),
+    adminController.previewImport
+  );
+
 export default router;

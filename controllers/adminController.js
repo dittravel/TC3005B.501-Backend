@@ -464,6 +464,78 @@ export const importData = async (req, res) => {
   }
 };
 
+// Preview data from JSON file without saving to database
+// This is used for showing a preview of the data to be imported,
+// allowing the admin to verify it before confirming the import.
+export const previewImport = async (req, res) => {
+  if (!req.file) {
+    return res.status(400).json({ error: 'No JSON file uploaded' });
+  }
+
+  if (!req.file.buffer) {
+    return res.status(400).json({ error: 'File buffer not available - upload failed' });
+  }
+
+  if (!req.user.society_group_id) {
+    return res.status(403).json({ error: 'User does not have a valid society group assigned' });
+  }
+
+  try {
+    const fileContent = req.file.buffer.toString('utf-8');
+
+    if (!fileContent || fileContent.trim() === '') {
+      return res.status(400).json({ error: 'File is empty' });
+    }
+
+    let jsonObj;
+    try {
+      jsonObj = JSON.parse(fileContent);
+    } catch (parseError) {
+      return res.status(400).json({ error: 'Invalid JSON format: ' + parseError.message });
+    }
+
+    // Extract data from JSON file
+    const extractedData = await extractExternalDataFromJSON(
+      jsonObj,
+      req.user.society_id
+    );
+
+    if (extractedData.errors && extractedData.errors.length > 0) {
+      return res.status(400).json({
+        error: 'Data contains parsing errors',
+        errors: extractedData.errors
+      });
+    }
+
+    // For existing users, replace calculated roles with their current roles
+    const enrichedUsers = await Promise.all(
+      extractedData.users.map(async (user) => {
+        const existingUser = await userModel.getUserUsername(user.user_name);
+
+        // If the user exists and has a role, use the existing role
+        if (existingUser && existingUser.role_name) {
+          return { ...user, role: existingUser.role_name };
+        }
+        return user;
+      })
+    );
+
+    // Return the final preview data to the frontend for display
+    res.status(200).json({
+      success: true,
+      message: 'Preview calculated successfully',
+      preview: {
+        employees: enrichedUsers,
+        departments: extractedData.departments,
+        costCenters: extractedData.costCenters,
+      }
+    });
+  }
+  catch (error) {
+    return res.status(500).json({ error: error.message || 'Internal server error' });
+  }
+};
+
 export default {
   // Users
   getUserList,
@@ -490,4 +562,5 @@ export default {
   getBossList,
   // Data import
   importData,
+  previewImport,
 };

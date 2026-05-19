@@ -130,6 +130,7 @@ export async function extractExternalDataFromJSON(jsonObj, societyId) {
             cost_center_code: dept.CeCo || null
           };
           departments.push({
+            department_clave: dept.Clave,
             department_name: dept.Descripcion,
             cost_center_code: dept.CeCo || null,
             society_id: societyId
@@ -169,13 +170,16 @@ export async function extractExternalDataFromJSON(jsonObj, societyId) {
 
       // Add user
       users.push({
+        employee_code: emp.NoEmpleado,
+        full_name: emp.Nombre,
         user_name: emp.Usuario,
         email: emp.Email,
         phone_number: emp.Telefono || null,
-        role: null, // Will be assigned to default role by the import service
+        role: emp.Rol || null,
         workstation: emp.EstacionTrabajo || null,
         password: emp.Contraseña || `${emp.Usuario}123`,
         boss_user: emp.JefeInmediato ? employeeToUsername[emp.JefeInmediato] : null,
+        department_clave: emp.Departamento || null,
         department_name: departamento,
         cost_center_code: costCenterCode,
         active: emp.Status === 'A' ? true : false,
@@ -184,7 +188,7 @@ export async function extractExternalDataFromJSON(jsonObj, societyId) {
       });
     });
 
-    // Assign roles based on hierarchy
+    // Assign roles based on hierarchy (only for users without a manually assigned role)
     const usersWithRoles = assignRolesByHierarchy(users);
 
     return { users: usersWithRoles, departments, costCenters, society_id: societyId, errors };
@@ -227,14 +231,16 @@ export function assignRolesByHierarchy(employees) {
       }
     });
 
-    // Assign roles
+    // Assign roles only if not already manually assigned
     // if you're a boss of someone, you're an authorizer
     // otherwise, applicant
     deptEmployees.forEach(emp => {
-      if (bossSet.has(emp.user_name)) {
-        emp.role = 'Autorizador';
-      } else {
-        emp.role = 'Solicitante';
+      if (!emp.role) {
+        if (bossSet.has(emp.user_name)) {
+          emp.role = 'Autorizador';
+        } else {
+          emp.role = 'Solicitante';
+        }
       }
     });
   });
