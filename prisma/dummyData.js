@@ -563,3 +563,33 @@ export const REFUNDS = [
     refund_type: 'Reembolso',
   },
 ];
+
+export const DASHBOARD_PREFERENCES = {
+  'Superadministrador': [
+    '/grupos-sociedades',
+    '/administradores-maestros',
+    '/bitacora-grupo',
+  ],
+  'Administrador': [
+    '/usuarios',
+    '/importar-datos',
+    '/exportar-datos-contables',
+  ],
+  'Autorizador': [
+    '/autorizaciones',
+    '/comprobar-gastos',
+    '/reembolsos',
+  ],
+  'Agencia de viajes': [
+    '/atenciones',
+  ],
+  'Cuentas por pagar': [
+    '/cotizaciones',
+    '/comprobaciones',
+  ],
+  'Solicitante': [
+    '/crear-solicitud',
+    '/comprobar-gastos',
+    '/reembolsos',
+  ],
+};
