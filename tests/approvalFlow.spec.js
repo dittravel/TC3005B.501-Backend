@@ -134,3 +134,5 @@ test('PASO 7 — Solicitante ve la solicitud lista para subir comprobantes', asy
   solicitudId = res.data[0].request_id;
   expect(solicitudId).toBeDefined();
 }, 15000);
+
+// To run it individually: npx jest approvalFlow.spec.js --verbose --runInBand
