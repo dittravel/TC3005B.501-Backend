@@ -1271,7 +1271,7 @@ const Admin = {
           department_id: { in: departmentIds },
           active: true
         },
-        select: { user_name: true }
+        select: { user_id: true, user_name: true }
       });
 
       // Deactivate users not in the provided list

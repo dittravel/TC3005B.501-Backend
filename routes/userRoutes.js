@@ -73,6 +73,23 @@ router.route('/update-out-of-office/:user_id')
 router.route('/get-substitute-users/:user_id')
   .get(generalRateLimiter, authenticateToken, authorizePermission(['users:view', 'travel:view', 'superadmin:manage_groups'], { mode: 'any' }), validateSocietyAccess('user'), validateId, validateInputs, userController.getSubstituteUsers);
 
+// Get approver hierarchy for current user or a selected user in the same society
+router.route('/approver-hierarchy/:user_id?')
+  .get(
+    generalRateLimiter,
+    authenticateToken,
+    authorizePermission([
+      'users:view',
+      'travel:view',
+      'travel:create',
+      'travel:edit',
+      'receipts:view',
+      'receipts:edit',
+      'superadmin:manage_groups',
+    ], { mode: 'any' }),
+    userController.getApproverHierarchy,
+  );
+
 // Dashboard quick-action preferences for a user
 router.route('/dashboard-preferences/:user_id')
   .get(generalRateLimiter, authenticateToken, validateId, validateInputs, userController.getDashboardPreferences)

@@ -724,6 +724,112 @@ const User = {
       data: { dashboard_preferences: null },
     });
   },
+
+  async getApproverHierarchy(targetUserId, societyId) {
+    const normalizedTargetUserId = Number(targetUserId);
+    const normalizedSocietyId = Number(societyId);
+
+    if (Number.isNaN(normalizedTargetUserId) || Number.isNaN(normalizedSocietyId)) {
+      return null;
+    }
+
+    const users = await prisma.user.findMany({
+      where: {
+        society_id: normalizedSocietyId,
+        active: true,
+      },
+      select: {
+        user_id: true,
+        user_name: true,
+        boss_id: true,
+        out_of_office_start_date: true,
+        out_of_office_end_date: true,
+        substitute_id: true,
+        role: {
+          select: { role_name: true },
+        },
+        department: {
+          select: { department_name: true },
+        },
+      },
+      orderBy: { user_name: 'asc' },
+    });
+
+    if (!users.length) {
+      return null;
+    }
+
+    const byId = new Map(users.map((user) => [user.user_id, user]));
+    const target = byId.get(normalizedTargetUserId);
+
+    if (!target) {
+      return null;
+    }
+
+    const toNode = (user) => ({
+      userId: user.user_id,
+      userName: user.user_name,
+      roleName: user.role?.role_name ?? null,
+      departmentName: user.department?.department_name ?? null,
+      bossId: user.boss_id ?? null,
+      outOfOfficeStartDate: user.out_of_office_start_date ?? null,
+      outOfOfficeEndDate: user.out_of_office_end_date ?? null,
+      substituteId: user.substitute_id ?? null,
+      substituteName: user.substitute_id ? byId.get(user.substitute_id)?.user_name ?? null : null,
+    });
+
+    const childrenByBossId = new Map();
+    for (const user of users) {
+      const key = user.boss_id;
+      if (!childrenByBossId.has(key)) {
+        childrenByBossId.set(key, []);
+      }
+      childrenByBossId.get(key).push(user);
+    }
+
+    const buildDescendants = (userId, branchVisited = new Set()) => {
+      const directChildren = childrenByBossId.get(userId) || [];
+      return directChildren.map((child) => {
+        if (branchVisited.has(child.user_id)) {
+          return {
+            ...toNode(child),
+            children: [],
+          };
+        }
+
+        const nextVisited = new Set(branchVisited);
+        nextVisited.add(child.user_id);
+
+        return {
+          ...toNode(child),
+          children: buildDescendants(child.user_id, nextVisited),
+        };
+      });
+    };
+
+    const ancestors = [];
+    const ancestorVisited = new Set([target.user_id]);
+    let pointer = target;
+
+    while (pointer?.boss_id) {
+      const boss = byId.get(pointer.boss_id);
+      if (!boss || ancestorVisited.has(boss.user_id)) {
+        break;
+      }
+
+      ancestors.push(toNode(boss));
+      ancestorVisited.add(boss.user_id);
+      pointer = boss;
+    }
+
+    ancestors.reverse();
+
+    return {
+      selectedUser: toNode(target),
+      ancestors,
+      descendants: buildDescendants(target.user_id, new Set([target.user_id])),
+    };
+  },
 };
 
 export default User;

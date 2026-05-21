@@ -793,19 +793,25 @@ export const createDataFromJson = async (jsonObj) => {
 
       let roleId = null;
 
-      // For new users, assign role from employee hierarchy
-      if (!existingUser) {
-        const importedRole = await Admin.getRoleByName(user.role, society_id);
-        if (importedRole) {
-          roleId = importedRole.role_id;
-          console.log(`[DEBUG] Usuario nuevo ${user.user_name}: Asignando rol ${user.role}`);
+      // Use role coming from the preview
+      if (user.role) {
+        const isRoleId = !isNaN(user.role);
+
+        if (isRoleId) {
+          roleId = Number(user.role);
         } else {
-          console.error(`[ERROR] No se pudo encontrar rol ${user.role} para la sociedad ${society_id}`);
+          // If role is not an ID, attempt to find it by name
+          const importedRole = await Admin.getRoleByName(user.role, society_id);
+          if (importedRole) {
+            roleId = importedRole.role_id;
+          }
         }
-      } else {
-        // For existing users, keep their current role
+        const userType = existingUser ? "existente" : "nuevo";
+        console.log(`[DEBUG] Usuario ${userType} ${user.user_name}: Asignando rol de preview ${user.role} (ID: ${roleId})`);
+      } else if (existingUser) {
+        // No role in preview, keep existing user's current role
         roleId = existingUser.role_id;
-        console.log(`[DEBUG] Usuario existente ${user.user_name}: Manteniendo rol actual`);
+        console.log(`[DEBUG] Usuario existente ${user.user_name}: Manteniendo rol actual (no asignado en preview)`);
       }
 
       // Build userData
@@ -817,7 +823,7 @@ export const createDataFromJson = async (jsonObj) => {
         email: encryptedEmail,
         phone_number: encryptedPhone,
         boss_id: boss_id,
-        active: user.active || true,
+        active: user.active,
         society_id: society_id,
         supplier: user.supplier || null
       };
@@ -831,8 +837,7 @@ export const createDataFromJson = async (jsonObj) => {
           await Admin.createUser(userData);
           summary.users.created.push(userData.user_name);
         } else {
-          // Existing user: update without password, keep role unchanged
-          delete userData.role_id;
+          // Existing user: update without password
           await Admin.updateUser(existingUser.user_id, userData);
           summary.users.updated.push(userData.user_name);
         }

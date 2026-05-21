@@ -26,6 +26,7 @@ import {
   ACCOUNTS,
   RECEIPT_TYPE_TO_ACCOUNT,
   REFUNDS,
+  DASHBOARD_PREFERENCES,
 } from './dummyData.js';
 
 /**
@@ -684,6 +685,44 @@ async function seedReferenceDataForDummySocieties() {
 }
 
 /**
+ * Create default dashboard preferences for dummy users
+ */
+async function seedDummyDashboardPreferences() {
+  console.log('Creating default dashboard preferences...');
+
+  try {
+    // Get all users and their roles
+    const users = await prisma.user.findMany({
+      include: {
+        role: {
+          select: { role_name: true },
+        },
+      },
+    });
+
+    // For each user, determine the dashboard preferences 
+    // based on their role and save it
+    for (const user of users) {
+      const roleName = user.role.role_name;
+      const actions = DASHBOARD_PREFERENCES[roleName];
+
+      if (actions && actions.length > 0) {
+        await prisma.user.update({
+          where: { user_id: user.user_id },
+          data: {
+            dashboard_preferences: JSON.stringify(actions),
+          },
+        });
+      }
+    }
+
+    console.log(`Created default dashboard preferences for ${users.length} users`);
+  } catch (error) {
+    console.warn('Warning: Could not create dashboard preferences:', error.message);
+  }
+}
+
+/**
  * Seed the database with dummy data
  * @returns {Promise<void>} Resolves when seeding is complete.
  * @throws Will throw an error if there is an issue during the seeding process.
@@ -705,6 +744,7 @@ async function seedDummyData() {
   await seedDummyRequests();
   await seedDummyRefunds();
   await seedDummyAuditLogs();
+  await seedDummyDashboardPreferences();
 }
 
 // Main function to run the seed
