@@ -169,6 +169,9 @@ export async function extractExternalDataFromJSON(jsonObj, societyId) {
       const costCenterCode = emp.CeCo || (deptInfo ? deptInfo.cost_center_code : null);
 
       // Add user
+      // Direct boss can be an employee number (Emp001) or a username (admin)
+      const bossUser = emp.JefeInmediato ? (employeeToUsername[emp.JefeInmediato] || emp.JefeInmediato) : null;
+
       users.push({
         employee_code: emp.NoEmpleado,
         full_name: emp.Nombre,
@@ -178,7 +181,7 @@ export async function extractExternalDataFromJSON(jsonObj, societyId) {
         role: emp.Rol || null,
         workstation: emp.EstacionTrabajo || null,
         password: emp.Contraseña || `${emp.Usuario}123`,
-        boss_user: emp.JefeInmediato ? employeeToUsername[emp.JefeInmediato] : null,
+        boss_user: bossUser,
         department_clave: emp.Departamento || null,
         department_name: departamento,
         cost_center_code: costCenterCode,

@@ -780,7 +780,7 @@ export const createDataFromJson = async (jsonObj) => {
     for (const user of users) {
       let boss_id = null;
       if (user.boss_user) {
-        const boss = await User.getUserUsername(user.boss_user);
+        const boss = await User.getUserUsername(user.boss_user, society_id);
         if (boss) {
           boss_id = boss.user_id;
         }
@@ -816,7 +816,6 @@ export const createDataFromJson = async (jsonObj) => {
 
       // Build userData
       const userData = {
-        role_id: roleId,
         department_id: await Admin.findDepartmentID(user.department_name, society_id),
         user_name: user.user_name,
         workstation: user.workstation,
@@ -830,14 +829,18 @@ export const createDataFromJson = async (jsonObj) => {
 
       try {
         if (!existingUser) {
-          // New user: add password
+          // New user: add password and role
+          userData.role_id = roleId;
           const hashedPassword = await hash(user.password);
           userData.password = hashedPassword;
 
           await Admin.createUser(userData);
           summary.users.created.push(userData.user_name);
         } else {
-          // Existing user: update without password
+          // Existing user: only update role if it changed
+          if (roleId && roleId !== existingUser.role_id) {
+            userData.role_id = roleId;
+          }
           await Admin.updateUser(existingUser.user_id, userData);
           summary.users.updated.push(userData.user_name);
         }
