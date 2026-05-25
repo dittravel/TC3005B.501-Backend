@@ -6,6 +6,13 @@
 
 import { prisma } from '../lib/prisma.js';
 
+const formatRouteDate = (date) => {
+  if (!date) return null;
+  const d = new Date(date);
+  if (isNaN(d.getTime()) || d.getFullYear() <= 1970) return null;
+  return d.toISOString().split('T')[0];
+};
+
 const RequestModel = {
   /**
    * Get requests visible to a user (requester OR assignee)
@@ -85,8 +92,8 @@ const RequestModel = {
         origin_city: rr.Route.originCity?.city_name || '',
         destination_country: rr.Route.destinationCountry?.country_name || '',
         destination_city: rr.Route.destinationCity?.city_name || '',
-        beginning_date: rr.Route.beginning_date,
-        ending_date: rr.Route.ending_date,
+        beginning_date: formatRouteDate(rr.Route.beginning_date),
+        ending_date: formatRouteDate(rr.Route.ending_date),
       }))
     }));
   }
