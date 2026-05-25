@@ -39,6 +39,10 @@ router.route("/create-travel-request/:user_id")
 router.route("/edit-travel-request/:user_id")
   .put(generalRateLimiter, authenticateToken, authorizePermission(['travel:edit']), validateId, validateTravelRequest, validateInputs, applicantController.editTravelRequest);
 
+// Save partial changes to a draft travel request (no required fields)
+router.route("/edit-draft-travel-request/:user_id")
+  .put(generalRateLimiter, authenticateToken, authorizePermission(['travel:edit']), validateId, validateDraftTravelRequest, validateInputs, applicantController.editDraftTravelRequest);
+
 // Cancel a travel request by request ID
 router.route("/cancel-travel-request/:request_id")
   .put(generalRateLimiter, authenticateToken, authorizePermission(['travel:cancel', 'travel:edit'], { mode: 'any' }), validateSocietyAccess('request'), validateId, validateInputs, applicantController.cancelTravelRequest);

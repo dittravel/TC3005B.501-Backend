@@ -447,10 +447,98 @@ const Applicant = {
         requestId: Number(requestId),
         message: "Travel request successfully updated",
       };
-      
+
     } catch (error) {
       console.error("Error editing travel request:", error);
       throw new Error("Database Error: Unable to edit travel request");
+    }
+  },
+
+  // Save partial changes to a draft travel request (same safe defaults as createDraftTravelRequest)
+  async editDraftTravelRequest(requestId, travelChanges) {
+    try {
+      const {
+        router_index = 0,
+        notes = '',
+        requested_fee = 0,
+        imposed_fee = 0,
+        currency = 'MXN',
+        origin_country_name = 'notSelected',
+        origin_city_name = 'notSelected',
+        destination_country_name = 'notSelected',
+        destination_city_name = 'notSelected',
+        beginning_date = '0000-01-01',
+        beginning_time = '00:00:00',
+        ending_date = '0000-01-01',
+        ending_time = '00:00:00',
+        plane_needed = false,
+        hotel_needed = false,
+        additionalRoutes = [],
+      } = travelChanges;
+
+      const allRoutes = formatRoutes(
+        {
+          router_index,
+          origin_country_name,
+          origin_city_name,
+          destination_country_name,
+          destination_city_name,
+          beginning_date,
+          beginning_time,
+          ending_date,
+          ending_time,
+          plane_needed,
+          hotel_needed,
+        },
+        additionalRoutes
+      );
+
+      const request_days = getRequestDays(allRoutes);
+      await prisma.$transaction(async (tx) => {
+        await tx.request.update({
+          where: { request_id: Number(requestId) },
+          data: {
+            notes,
+            requested_fee,
+            currency,
+            imposed_fee,
+            request_days,
+            last_mod_date: new Date(),
+          },
+        });
+
+        const oldRoutesIds = await tx.route_Request.findMany({
+          where: { request_id: Number(requestId) },
+          select: { route_id: true },
+        });
+
+        await tx.route_Request.deleteMany({
+          where: { request_id: Number(requestId) },
+        });
+
+        const routeIdsToDelete = oldRoutesIds
+          .map((row) => row.route_id)
+          .filter((id) => id !== null);
+
+        if (routeIdsToDelete.length > 0) {
+          await tx.route.deleteMany({
+            where: { route_id: { in: routeIdsToDelete } },
+          });
+        }
+
+        await createRoutesForRequest(tx, requestId, allRoutes);
+      });
+
+      console.log(`Draft travel request ${requestId} updated successfully.`);
+
+      return {
+        requestId: Number(requestId),
+        message: "Draft travel request successfully updated",
+      };
+
+    } catch (error) {
+      console.error("Error editing draft travel request:", error);
+      throw new Error("Database Error: Unable to edit draft travel request");
     }
   },
   
