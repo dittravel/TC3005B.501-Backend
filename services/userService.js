@@ -164,43 +164,58 @@ export async function updateOutOfOffice(userId, data) {
 }
 
 /**
- * Issue a password reset token and send a recovery email.
- * Always resolves without error to avoid user enumeration.
- * @param {string} username
+ * Testable factory for the password-recovery slice of userService.
+ * Inject { userModel, mailer } in tests; omit for production (falls back to the real deps).
  */
-export async function requestPasswordReset(email) {
-  const user = await userModel.getUserByEmail(email);
+export function buildUserService({ userModel: userModelDep, mailer: mailerDep } = {}) {
+  const model = userModelDep ?? userModel;
+  const sendEmail = mailerDep?.sendPasswordResetEmail ?? sendPasswordResetEmail;
 
-  // Bail silently if user not found — don't leak whether email is registered
-  if (!user) return;
+  async function requestPasswordReset(email) {
+    const user = await model.getUserByEmail(email);
+    if (!user) return; // silent bail — never reveal whether the email is registered
 
-  const token = crypto.randomBytes(32).toString('hex');
-  const expires = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+    const token = crypto.randomBytes(32).toString('hex');
+    const expires = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
 
-  await userModel.setPasswordResetToken(user.user_id, token, expires);
-  await sendPasswordResetEmail(email, user.user_name, token);
-}
-
-/**
- * Validate a reset token and update the user's password.
- * @param {string} token - Plaintext reset token from the email link
- * @param {string} newPassword - New plaintext password
- */
-export async function resetPassword(token, newPassword) {
-  const user = await userModel.getUserByResetToken(token);
-  if (!user) {
-    const err = new Error('Invalid or expired password reset token');
-    err.status = 400;
-    throw err;
+    await model.setPasswordResetToken(user.user_id, token, expires);
+    await sendEmail(email, user.user_name, token);
   }
 
-  const hashed = await bcrypt.hash(newPassword, 10);
-  await userModel.updatePassword(user.user_id, hashed);
-  await userModel.clearPasswordResetToken(user.user_id);
+  const PASSWORD_POLICY = /^(?=.*[A-Z])(?=.*[a-z])(?=.*[0-9])(?=.*[^A-Za-z0-9]).{8,128}$/;
+
+  async function resetPassword(token, newPassword) {
+    if (!newPassword || !PASSWORD_POLICY.test(newPassword)) {
+      const err = new Error(
+        'new_password must be 8–128 characters and contain at least one uppercase letter, one lowercase letter, one number, and one special character',
+      );
+      err.status = 400;
+      throw err;
+    }
+
+    const user = await model.getUserByResetToken(token);
+    if (!user) {
+      const err = new Error('Invalid or expired password reset token');
+      err.status = 400;
+      throw err;
+    }
+
+    const hashed = await bcrypt.hash(newPassword, 12);
+    await model.updatePassword(user.user_id, hashed);
+    await model.clearPasswordResetToken(user.user_id);
+  }
+
+  return { requestPasswordReset, resetPassword };
 }
+
+// Backward-compat named exports so the controller import stays unchanged:
+//   import { requestPasswordReset, resetPassword as resetPasswordService } from '../services/userService.js';
+const _svc = buildUserService();
+export const requestPasswordReset = (email) => _svc.requestPasswordReset(email);
+export const resetPassword = (token, pw) => _svc.resetPassword(token, pw);
 
 // Export default object with all service functions
 export default {
   getUserById,
   updateOutOfOffice
-};  
+};

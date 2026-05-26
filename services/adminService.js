@@ -34,7 +34,7 @@ const encrypt = (data) => {
 
 // Hashing function for passwords
 const hash = async (data) => {
-  return await bcrypt.hash(data, 10);
+  return await bcrypt.hash(data, 12);
 }
 
 /**
@@ -632,7 +632,6 @@ export const createDataFromJson = async (jsonObj) => {
       const encryptedEmail = encrypt(user.email);
       const encryptedPhone = user.phone_number ? encrypt(user.phone_number) : null;
 
-      console.log(`[DEBUG] Usuario: ${user.user_name}, Rol asignado: ${user.role}`);
 
       let roleId = society_group_id
         ? await Admin.findRoleID(user.role, society_group_id)

@@ -894,7 +894,16 @@ export const validateResetPassword = [
   body('new_password')
     .isString()
     .isLength({ min: 8, max: 128 })
-    .withMessage('new_password must be between 8 and 128 characters'),
+    .withMessage('new_password must be between 8 and 128 characters')
+    .bail()
+    .matches(/[A-Z]/)
+    .withMessage('new_password must contain at least one uppercase letter')
+    .matches(/[a-z]/)
+    .withMessage('new_password must contain at least one lowercase letter')
+    .matches(/[0-9]/)
+    .withMessage('new_password must contain at least one number')
+    .matches(/[^A-Za-z0-9]/)
+    .withMessage('new_password must contain at least one special character'),
 ];
 
 // Validate receipt search query parameters

@@ -1,10 +1,12 @@
 /**
 * Organization Parser Service
-* 
+*
 * This service provides functions to parse data from external ERP sources in XML or JSON format.
 * This file contains an organigram of the departments and eployees of a company,
 * which is used to populate the database with the corresponding data.
 */
+
+import crypto from 'crypto';
 
 /**
 * Parse the organizational structure from an XML file and extract relevant data.
@@ -67,7 +69,7 @@ export async function extractExternalData(xmlObj) {
           phone_number: emp.$.telefono || null,
           role: emp.$.rol,
           workstation: emp.$.workstation,
-          password: emp.$.password,
+          password: emp.$.password || crypto.randomBytes(12).toString('base64url'),
           jefe_usuario: emp.$.jefe_usuario || null,
           department_name: deptName,
         });
@@ -197,7 +199,7 @@ export async function extractExternalDataFromJSON(jsonObj, societyGroupId) {
           phone_number: emp.Telefono || null,
           role: null, // Will be assigned automatically
           workstation: emp.EstacionTrabajo || null,
-          password: emp.Contraseña || `${emp.Usuario}123`,
+          password: emp.Contraseña || crypto.randomBytes(12).toString('base64url'),
           boss_user: emp.JefeInmediato ? employeeToUsername[emp.JefeInmediato] : null,
           department_name: departamento,
           cost_center_id: costCenterId,
