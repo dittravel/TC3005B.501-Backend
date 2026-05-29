@@ -42,7 +42,7 @@ services:
         condition: service_healthy
     environment:
       PORT: ${PORT:-3000}
-      NODE_ENV: ${NODE_ENV:-production}
+      NODE_ENV: ${NODE_ENV:-development}
       DB_HOST: mariadb
       DB_PORT: 3306
       DB_NAME: ${DB_NAME:-CocoScheme}
@@ -56,6 +56,9 @@ services:
       FRONTEND_URL: ${FRONTEND_URL:-https://localhost:4321}
       BACKEND_URL: ${BACKEND_URL:-https://localhost:3000}
       MONGO_URI: mongodb://mongodb:27017
+      DATABASE_HOST: mariadb
+    volumes:
+      - ./certs:/app/certs:ro
     ports:
       - "${PORT:-3000}:3000"
 

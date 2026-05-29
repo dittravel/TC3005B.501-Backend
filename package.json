@@ -23,8 +23,10 @@
         "prisma:seed:dummy": "npx prisma migrate reset --force && npx prisma generate && node prisma/seedDummy.js",
         "prisma:seed:ci": "npx prisma migrate reset --force && npx prisma generate && node prisma/seedDummy.js",
         "docker:start:prisma": "node docker-start.js",
-        "env:local": "node scripts/switch-env.js local",
-        "env:docker": "node scripts/switch-env.js docker"
+        "env:devLocal": "bash switch-env.sh devLocal",
+        "env:devDocker": "bash switch-env.sh devDocker",
+        "env:serverDocker": "bash switch-env.sh serverDocker",
+        "env:serverDockerDB": "bash switch-env.sh serverDockerDB"
     },
     "repository": {
         "type": "git",
