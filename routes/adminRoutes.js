@@ -71,38 +71,38 @@ router.route("/get-roles")
   .get(
     generalRateLimiter,
     authenticateToken,
-    authorizePermission(['users:view', 'users:create', 'users:edit'], { mode: 'any' }),
+    authorizePermission(['roles:manage'], { mode: 'any' }),
     adminController.getRoles,
   );
 
 // Get role details by ID
 router.route('/roles/:role_id')
-  .get(generalRateLimiter, authenticateToken, authorizePermission(['users:view']), adminController.getRoleById);
+  .get(generalRateLimiter, authenticateToken, authorizePermission(['roles:manage']), adminController.getRoleById);
 
 // Create role
 router.route('/create-role')
-  .post(generalRateLimiter, authenticateToken, authorizePermission(['users:create']), adminController.createRole);
+  .post(generalRateLimiter, authenticateToken, authorizePermission(['roles:manage']), adminController.createRole);
 
 // Update role
 router.route('/update-role/:role_id')
-  .put(generalRateLimiter, authenticateToken, authorizePermission(['users:edit']), adminController.updateRole);
+  .put(generalRateLimiter, authenticateToken, authorizePermission(['roles:manage']), adminController.updateRole);
 
 // Get default role for current society group
 router.route('/get-default-role')
   .get(
     generalRateLimiter,
     authenticateToken,
-    authorizePermission(['users:view', 'users:create', 'users:edit'], { mode: 'any' }),
+    authorizePermission(['roles:manage'], { mode: 'any' }),
     adminController.getDefaultRole,
   );
 
 // Set default role for current society group
 router.route('/set-default-role/:role_id')
-  .put(generalRateLimiter, authenticateToken, authorizePermission(['users:edit']), adminController.setDefaultRole);
+  .put(generalRateLimiter, authenticateToken, authorizePermission(['roles:manage']), adminController.setDefaultRole);
 
 // Delete role
 router.route('/delete-role/:role_id')
-  .delete(generalRateLimiter, authenticateToken, authorizePermission(['users:delete']), adminController.deleteRole);
+  .delete(generalRateLimiter, authenticateToken, authorizePermission(['roles:manage']), adminController.deleteRole);
 
 // Get an auth rule by ID
 router.route("/auth-rules/:rule_id")

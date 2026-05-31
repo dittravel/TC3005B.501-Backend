@@ -47,8 +47,6 @@ async function seedDefaultSocietyGroupAndSociety() {
   }
 }
 
-
-
 /**
  * Seed the database with base data
  * @returns {Promise<void>} Resolves when seeding is complete.
