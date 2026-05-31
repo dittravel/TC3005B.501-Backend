@@ -286,6 +286,11 @@ export async function seedReferenceData(prisma, defaultSocietyId) {
     { permission_key: 'superadmin:manage_groups', permission_name: 'Administrar grupos de sociedades', module: 'superadmin', action: 'manage_groups', description: 'Create, update and delete society groups and bootstrap tenant data' },
     { permission_key: 'superadmin:manage_master_admins', permission_name: 'Administrar administradores maestros', module: 'superadmin', action: 'manage_master_admins', description: 'Manage top-level superadmin users' },
     { permission_key: 'superadmin:view_group_audit_log', permission_name: 'Ver bitácora por grupo', module: 'superadmin', action: 'view_group_audit_log', description: 'Read audit logs filtered by society group' },
+    // Accounting Accounts
+    { permission_key: 'accounts:view', permission_name: 'Ver cuentas contables', module: 'accounts', action: 'view', description: 'View accounting accounts' },
+    { permission_key: 'accounts:create', permission_name: 'Crear cuentas contables', module: 'accounts', action: 'create', description: 'Create accounting accounts' },
+    { permission_key: 'accounts:edit', permission_name: 'Editar cuentas contables', module: 'accounts', action: 'edit', description: 'Edit accounting accounts' },
+    { permission_key: 'accounts:delete', permission_name: 'Eliminar cuentas contables', module: 'accounts', action: 'delete', description: 'Deactivate accounting accounts' },
   ];
 
   await upsertOrderedRecords(prisma.permission, permissions, (item) => ({
@@ -356,6 +361,11 @@ export async function seedReferenceData(prisma, defaultSocietyId) {
       // Configuration
       'auth_rules:manage',
       'refund_policies:manage',
+      // Accounting accounts
+      'accounts:view',
+      'accounts:create',
+      'accounts:edit',
+      'accounts:delete',
     ],
     'Superadministrador': [
       // Society groups

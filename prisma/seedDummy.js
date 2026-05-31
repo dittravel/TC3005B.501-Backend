@@ -224,20 +224,23 @@ async function seedDummyAccountability(societies) {
   // Create accounts for each society
   for (const account of ACCOUNTS) {
     for (const society of societies) {
-      await prisma.account.upsert({
-        where: { account_code: account.account_code },
-        create: {
+      const existing = await prisma.account.findFirst({
+        where: {
           account_code: account.account_code,
-          account_name: account.account_name,
-          account_type: account.account_type,
-          society_id: society.id,
-        },
-        update: {
-          account_name: account.account_name,
-          account_type: account.account_type,
           society_id: society.id,
         },
       });
+
+      if (!existing) {
+        await prisma.account.create({
+          data: {
+            account_code: account.account_code,
+            account_name: account.account_name,
+            account_type: account.account_type,
+            society_id: society.id,
+          },
+        });
+      }
     }
   }
 
@@ -248,7 +251,7 @@ async function seedDummyAccountability(societies) {
       select: { receipt_type_id: true },
     });
 
-    const account = await prisma.account.findUnique({
+    const account = await prisma.account.findFirst({
       where: { account_code: accountCode },
       select: { account_id: true },
     });

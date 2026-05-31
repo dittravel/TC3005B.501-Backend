@@ -420,7 +420,7 @@ model Society {
 /// General ledger accounts for financial classification
 model Account {
   account_id          Int                   @id @default(autoincrement())
-  account_code        String                @unique @db.VarChar(20)
+  account_code        String                @db.VarChar(20)
   account_name        String                @db.VarChar(100)
   account_type        String                @db.VarChar(50)
   description         String?               @db.VarChar(255)
@@ -433,6 +433,7 @@ model Account {
   CostCenter          CostCenter?           @relation(fields: [cost_center_id], references: [cost_center_id], map: "fk_account_costcenter")
   ReceiptType_Account ReceiptType_Account[]
 
+  @@unique([account_code, society_id])
   @@index([society_id])
   @@index([cost_center_id])
 }
