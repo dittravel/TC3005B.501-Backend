@@ -182,6 +182,14 @@ services:
       BACKEND_URL: ${BACKEND_URL:-https://localhost:3000}
       MONGO_URI: mongodb://mongodb:27017
       DATABASE_HOST: mariadb
+      DUFFEL_TOKEN: ${DUFFEL_TOKEN:-}
+      SERPAPI_API_KEY: ${SERPAPI_API_KEY:-}
+      BANXICO_API_KEY: ${BANXICO_API_KEY:-}
+      BANXICO_API_URL: ${BANXICO_API_URL:-https://www.banxico.org.mx/SieAPIRest/service/v1/}
+      BANXICO_CACHE_TTL: ${BANXICO_CACHE_TTL:-3600}
+      VALIDA_CFDI_API_KEY: ${VALIDA_CFDI_API_KEY:-}
+      FLIGHT_SEARCH_PAGE_SIZE: ${FLIGHT_SEARCH_PAGE_SIZE:-10}
+      HOTEL_SEARCH_PAGE_SIZE: ${HOTEL_SEARCH_PAGE_SIZE:-10}
     volumes:
       - ./certs:/app/certs:ro
     ports:
@@ -269,6 +277,14 @@ services:
       BACKEND_URL: \${BACKEND_URL:-https://localhost:3000}
       MONGO_URI: mongodb://${DB_IP}:27017
       DATABASE_HOST: "${DB_IP}"
+      DUFFEL_TOKEN: \${DUFFEL_TOKEN:-}
+      SERPAPI_API_KEY: \${SERPAPI_API_KEY:-}
+      BANXICO_API_KEY: \${BANXICO_API_KEY:-}
+      BANXICO_API_URL: \${BANXICO_API_URL:-https://www.banxico.org.mx/SieAPIRest/service/v1/}
+      BANXICO_CACHE_TTL: \${BANXICO_CACHE_TTL:-3600}
+      VALIDA_CFDI_API_KEY: \${VALIDA_CFDI_API_KEY:-}
+      FLIGHT_SEARCH_PAGE_SIZE: \${FLIGHT_SEARCH_PAGE_SIZE:-10}
+      HOTEL_SEARCH_PAGE_SIZE: \${HOTEL_SEARCH_PAGE_SIZE:-10}
     volumes:
       - ./certs:/app/certs:ro
     ports:
