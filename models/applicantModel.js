@@ -457,24 +457,22 @@ const Applicant = {
   // Save partial changes to a draft travel request (same safe defaults as createDraftTravelRequest)
   async editDraftTravelRequest(requestId, travelChanges) {
     try {
-      const {
-        router_index = 0,
-        notes = '',
-        requested_fee = 0,
-        imposed_fee = 0,
-        currency = 'MXN',
-        origin_country_name = 'notSelected',
-        origin_city_name = 'notSelected',
-        destination_country_name = 'notSelected',
-        destination_city_name = 'notSelected',
-        beginning_date = '0000-01-01',
-        beginning_time = '00:00:00',
-        ending_date = '0000-01-01',
-        ending_time = '00:00:00',
-        plane_needed = false,
-        hotel_needed = false,
-        additionalRoutes = [],
-      } = travelChanges;
+      const router_index = travelChanges.router_index ?? 0;
+      const notes = travelChanges.notes ?? '';
+      const requested_fee = travelChanges.requested_fee ?? 0;
+      const imposed_fee = travelChanges.imposed_fee ?? 0;
+      const currency = travelChanges.currency ?? 'MXN';
+      const origin_country_name = travelChanges.origin_country_name ?? 'notSelected';
+      const origin_city_name = travelChanges.origin_city_name ?? 'notSelected';
+      const destination_country_name = travelChanges.destination_country_name ?? 'notSelected';
+      const destination_city_name = travelChanges.destination_city_name ?? 'notSelected';
+      const beginning_date = travelChanges.beginning_date ?? '0000-01-01';
+      const beginning_time = travelChanges.beginning_time ?? '00:00:00';
+      const ending_date = travelChanges.ending_date ?? '0000-01-01';
+      const ending_time = travelChanges.ending_time ?? '00:00:00';
+      const plane_needed = travelChanges.plane_needed ?? false;
+      const hotel_needed = travelChanges.hotel_needed ?? false;
+      const additionalRoutes = travelChanges.additionalRoutes ?? [];
 
       const allRoutes = formatRoutes(
         {
