@@ -158,6 +158,8 @@ services:
       context: .
       dockerfile: Dockerfile
     restart: unless-stopped
+    env_file:
+      - .env
     depends_on:
       mongodb:
         condition: service_healthy
@@ -248,6 +250,8 @@ services:
       context: .
       dockerfile: Dockerfile
     restart: unless-stopped
+    env_file:
+      - .env
     environment:
       PORT: \${PORT:-3000}
       NODE_ENV: production

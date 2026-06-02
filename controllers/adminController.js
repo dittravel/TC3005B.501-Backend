@@ -10,12 +10,21 @@
 */
 
 import * as adminService from "../services/adminService.js";
+import backupAutomationService from "../services/backupAutomationService.js";
 import Admin from "../models/adminModel.js";
 import userModel from "../models/userModel.js";
 import AuditLogService from "../services/auditLogService.js";
 
 // Data parsing (JSON)
 import { extractExternalDataFromJSON } from '../services/orgParserService.js';
+
+function isBackupAutomationAuthorized(user) {
+  const permissions = Array.isArray(user?.permissions)
+    ? user.permissions.map((permission) => String(permission).trim())
+    : [];
+
+  return user?.role === 'Superadministrador' || permissions.includes('superadmin:manage_groups');
+}
 
 /**
 * Get list of all users
@@ -536,6 +545,50 @@ export const previewImport = async (req, res) => {
   }
 };
 
+export const getBackupAutomationConfig = async (req, res) => {
+  try {
+    if (!isBackupAutomationAuthorized(req.user)) {
+      return res.status(403).json({ error: 'Access denied: requires superadmin privileges' });
+    }
+
+    const config = await backupAutomationService.getBackupAutomationConfig();
+    return res.status(200).json(config);
+  } catch (error) {
+    console.error('Error getting backup automation config:', error.message);
+    return res.status(500).json({ error: error.message || 'Internal server error' });
+  }
+};
+
+export const updateBackupAutomationConfig = async (req, res) => {
+  try {
+    if (!isBackupAutomationAuthorized(req.user)) {
+      return res.status(403).json({ error: 'Access denied: requires superadmin privileges' });
+    }
+
+    const updated = await backupAutomationService.updateBackupAutomationConfig(req.body || {});
+
+    await AuditLogService.recordAuditLogFromRequest(req, {
+      actionType: 'BACKUP_AUTOMATION_UPDATED',
+      entityType: 'System',
+      entityId: 'backup-automation',
+      metadata: {
+        enabled: updated.enabled,
+        schedule: updated.schedule,
+        mariadbRetentionDays: updated.mariadbRetentionDays,
+        mongodbRetentionDays: updated.mongodbRetentionDays,
+      },
+    });
+
+    return res.status(200).json({
+      message: 'Backup automation updated successfully',
+      config: updated,
+    });
+  } catch (error) {
+    console.error('Error updating backup automation config:', error.message);
+    return res.status(400).json({ error: error.message || 'Failed to update backup automation config' });
+  }
+};
+
 export default {
   // Users
   getUserList,
@@ -563,4 +616,7 @@ export default {
   // Data import
   importData,
   previewImport,
+  // Backup automation
+  getBackupAutomationConfig,
+  updateBackupAutomationConfig,
 };

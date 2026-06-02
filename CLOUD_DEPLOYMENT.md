@@ -1,5 +1,53 @@
 # Dittravel Cloud Deployment (3 Debian Instances, Docker-only)
 
+## Quick Reference
+
+Daily update loop on any VM (after `git pull`):
+
+```bash
+# DB VM
+cd ~/TC3005B.501-Backend  && git pull && bash switch-env.sh serverDockerDB
+
+# Backend VM
+cd ~/TC3005B.501-Backend  && git pull && bash switch-env.sh serverDocker
+
+# Frontend VM
+cd ~/TC3005B.501-Frontend && git pull && bash switch-env.sh serverDocker
+```
+
+Force a full container down/up (rare):
+
+```bash
+FORCE_DOWN=1 bash switch-env.sh <mode>
+```
+
+Apply backend DB migrations after deploy:
+
+```bash
+docker compose exec -T backend npx prisma migrate deploy
+```
+
+Validate from your laptop:
+
+```bash
+ssh puertos          # opens tunnels 4321 and 3000
+# then browse https://localhost:4321 and https://localhost:3000
+```
+
+Common checks per VM:
+
+```bash
+docker compose ps
+docker compose logs -f <service>     # mariadb | mongodb | backend | frontend
+ss -ltnp | grep -E '3306|27017|3000|4321'
+nc -zv 172.16.60.115 3306            # from backend VM
+nc -zv <BACKEND_PRIVATE_IP> 3000     # from frontend VM
+```
+
+Full setup details below.
+
+---
+
 Three Debian VMs, all using Docker. Each instance runs one role.
 
 | Role | Repo cloned | Mode |
@@ -10,7 +58,7 @@ Three Debian VMs, all using Docker. Each instance runs one role.
 
 Needed known IPs:
 
-- DB:       `<DATABASE_PRIVATE_IP>`
+- DB:       `172.16.60.115`
 - Backend:  `<BACKEND_PRIVATE_IP>`
 - Frontend: `<FRONTEND_PRIVATE_IP>`
 
