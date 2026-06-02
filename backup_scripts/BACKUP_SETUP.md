@@ -123,7 +123,7 @@ BACKUP_CONFIG=./backup.env ./mongodb_backup.sh
 The superadmin can configure frequency by editing:
 
 ```dotenv
-BACKUP_CRON_SCHEDULE=0 */6 * * *
+BACKUP_CRON_SCHEDULE="0 */6 * * *"
 ```
 
 Examples:

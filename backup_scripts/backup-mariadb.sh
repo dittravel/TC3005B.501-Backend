@@ -62,7 +62,7 @@ run_local_backup() {
 run_docker_backup() {
     log "Creating Docker MariaDB backup from service '$MARIADB_DOCKER_SERVICE'."
     docker compose -f "$COMPOSE_PROJECT_DIR/docker-compose.yml" exec -T \
-        -e MARIADB_PWD="$MARIADB_PASSWORD" \
+    -e MYSQL_PWD="$MARIADB_PASSWORD" \
         "$MARIADB_DOCKER_SERVICE" \
         mariadb-dump -u"$MARIADB_USER" "$MARIADB_DB_NAME" > "$backup_file"
 }
