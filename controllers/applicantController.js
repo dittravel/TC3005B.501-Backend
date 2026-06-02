@@ -167,6 +167,22 @@ export const editTravelRequest = async (req, res) => {
   }
 };
 
+// Save partial changes to a draft travel request (no required fields)
+export const editDraftTravelRequest = async (req, res) => {
+  const travelRequestId = Number(req.params.user_id);
+  const travelDetails = req.body;
+  try {
+    const updatedTravelRequest = await Applicant.editDraftTravelRequest(
+      travelRequestId,
+      travelDetails,
+    );
+    res.status(200).json(updatedTravelRequest);
+  } catch (err) {
+    console.error("Controller error:", err);
+    res.status(500).json({ error: "Controller: Internal Server Error" });
+  }
+};
+
 // Cancel a travel request and send notification
 export const cancelTravelRequest = async (req, res) => {
   const { request_id } = req.params;
@@ -528,6 +544,7 @@ export default {
   getCostCenterByUserId,
   createTravelRequest,
   editTravelRequest,
+  editDraftTravelRequest,
   cancelTravelRequest,
   getCompletedRequests,
   createExpenseValidationHandler,
