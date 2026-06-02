@@ -1,7 +1,7 @@
-import fs from 'fs/promises';
-import path from 'path';
-import { execFile } from 'child_process';
-import { promisify } from 'util';
+import fs from 'node:fs/promises';
+import path from 'node:path';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
 
 const execFileAsync = promisify(execFile);
 
@@ -12,6 +12,10 @@ const BACKUP_CONFIG_FILE =
 const INSTALL_CRON_SCRIPT =
   process.env.BACKUP_INSTALL_CRON_SCRIPT ||
   path.resolve(process.cwd(), 'backup_scripts', 'install-backup-cron.sh');
+
+const APPLY_CRON_ON_SAVE = ['true', '1', 'yes'].includes(
+  String(process.env.BACKUP_APPLY_CRON_ON_SAVE || '').trim().toLowerCase()
+);
 
 function parseEnvLines(content) {
   return content.split(/\r?\n/);
@@ -108,15 +112,32 @@ export async function updateBackupAutomationConfig(input) {
 
   await fs.writeFile(BACKUP_CONFIG_FILE, `${lines.join('\n').trimEnd()}\n`, 'utf-8');
 
-  await execFileAsync('bash', [INSTALL_CRON_SCRIPT], {
-    cwd: process.cwd(),
-    env: {
-      ...process.env,
-      BACKUP_CONFIG: BACKUP_CONFIG_FILE,
-    },
-  });
+  let cronApplied = false;
+  let cronInstallError = null;
 
-  return getBackupAutomationConfig();
+  if (APPLY_CRON_ON_SAVE) {
+    try {
+      await execFileAsync('/bin/bash', [INSTALL_CRON_SCRIPT], {
+        cwd: process.cwd(),
+        env: {
+          ...process.env,
+          BACKUP_CONFIG: BACKUP_CONFIG_FILE,
+        },
+      });
+      cronApplied = true;
+    } catch (error) {
+      cronInstallError = error instanceof Error ? error.message : String(error);
+      console.warn('[backupAutomationService] Cron install skipped or failed:', cronInstallError);
+    }
+  }
+
+  const config = await getBackupAutomationConfig();
+  return {
+    ...config,
+    cronApplied,
+    cronInstallError,
+    cronInstallationAttempted: APPLY_CRON_ON_SAVE,
+  };
 }
 
 export default {

@@ -582,6 +582,9 @@ export const updateBackupAutomationConfig = async (req, res) => {
     return res.status(200).json({
       message: 'Backup automation updated successfully',
       config: updated,
+      cronApplied: updated.cronApplied,
+      cronInstallationAttempted: updated.cronInstallationAttempted,
+      cronInstallError: updated.cronInstallError,
     });
   } catch (error) {
     console.error('Error updating backup automation config:', error.message);
