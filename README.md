@@ -48,9 +48,9 @@ This section is a practical, step-by-step runbook for the team.
 
 | Step # | Local Docker | Local native | Cloud VMs |
 | --- | --- | --- | --- |
-| 1. Set mode | `pnpm env:devDocker` | `pnpm env:devLocal` | `bash switch-env.sh serverDocker` (backend VM) / `bash switch-env.sh serverDockerDB` (DB VM) |
+| 1. Set mode + bring up | `pnpm up:devDocker` | `pnpm up:devLocal` | `bash switch-env.sh serverDocker` (backend VM) / `bash switch-env.sh serverDockerDB` (DB VM) |
 | 2. Install deps | `pnpm install` | `pnpm install` | `git pull` only (no Node/pnpm required on VMs) |
-| 3. Start services | already handled by `pnpm env:devDocker` | Local MariaDB + MongoDB running | `switch-env.sh` handles compose |
+| 3. Start services | already handled by `pnpm up:devDocker` | Local MariaDB + MongoDB running; backend starts with `pnpm dev:local` | `switch-env.sh` handles compose |
 | 4. Migrations | `docker compose exec -T backend npx prisma migrate deploy` | `npx prisma migrate deploy` | Backend VM: `docker compose exec -T backend npx prisma migrate deploy` |
 | 5. Seed (optional) | `docker compose exec -T backend pnpm prisma:seed` | `pnpm prisma:seed` | Backend VM only, same Docker command |
 | 6. Run backend | Containerized (`https://localhost:3000`) | `pnpm dev:local` | Containerized on backend VM |
@@ -68,11 +68,13 @@ Set these once in backend `.env`:
 Then use:
 
 ```sh
-pnpm env:devLocal
-pnpm env:devDocker
-pnpm env:serverDocker
-pnpm env:serverDockerDB
+pnpm up:devLocal
+pnpm up:devDocker
+pnpm up:serverDocker
+pnpm up:serverDockerDB
 ```
+
+`pnpm up:*` auto-bootstraps `.env` from the matching example file when missing, patches the selected mode, rewrites `docker-compose.yml` when needed, and starts the services. The older `pnpm env:*` commands are still available if you only want to switch files without using the one-shot flow.
 
 On cloud VMs, run bash directly (no Node/pnpm required there):
 
@@ -104,10 +106,10 @@ pnpm install
 #### 2. Switch mode and start/rebuild containers
 
 ```sh
-pnpm env:devDocker
+pnpm up:devDocker
 ```
 
-`pnpm env:devDocker` rewrites `docker-compose.yml` and runs compose automatically.
+`pnpm up:devDocker` rewrites `docker-compose.yml`, ensures `.env` exists, and runs compose automatically.
 
 #### 3. Apply Prisma migrations in Docker
 
@@ -445,7 +447,7 @@ Quick setup on DB host:
 
 ```sh
 cd backup_scripts
-cp backup.env.example backup.env
+cp -n backup.env.example backup.env
 chmod +x *.sh
 BACKUP_CONFIG=./backup.env ./install-backup-cron.sh
 BACKUP_CONFIG=./backup.env ./backup-all.sh
@@ -456,15 +458,16 @@ Superadmin control panel:
 - In frontend grouped log page (`/bitacora-grupo`), Superadministrador can edit backup schedule/toggle/retention.
 - Schedule is configured with user-friendly fields (frequency, time, day) that are translated to cron automatically.
 - For expert usage, the panel includes an advanced manual cron mode.
-- The backend API updates `backup_scripts/backup.env` and reapplies cron.
-- In segmented cloud deployments, replicate that config on DB instance where backups run.
+- The backend API always updates `backup_scripts/backup.env`.
+- In the 3-VM topology, the real cron runs on the DB VM. If the panel says the config was saved but cron was not applied automatically, that means `backup.env` was updated successfully but the backend container could not modify the host cron. This is expected unless cron installation is explicitly enabled on that host.
+- In segmented cloud deployments, copy or replicate the final `backup.env` values to the DB instance where backups actually run, then run `install-backup-cron.sh` there.
 
 Restore (summary):
 
 1. Stop backend writes.
 2. Restore MariaDB from `.sql.gz`.
 3. Restore MongoDB from `.archive.gz`.
-4. Run `docker compose exec -T backend npx prisma migrate deploy` if needed.
+4. Restart backend and run `docker compose exec -T backend npx prisma migrate deploy` if needed.
 5. Validate login and critical flows.
 
 Detailed restore and cloud rollout steps: `backup_scripts/BACKUP_SETUP.md`.

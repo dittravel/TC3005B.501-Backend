@@ -22,7 +22,7 @@ The scripts are configurable through `backup.env` and can run manually or automa
 
 ```bash
 cd backup_scripts
-cp backup.env.example backup.env
+cp -n backup.env.example backup.env
 ```
 
 2. Set execution permissions:
@@ -150,8 +150,11 @@ Superadmin UI:
 - The grouped audit log screen (`/bitacora-grupo`) includes a "Automatización de respaldos" panel.
 - The schedule is configured with guided fields (frequency, hour, minute, day) and the UI generates the cron expression automatically.
 - If needed, there is an "Avanzado (cron)" mode for direct manual cron expressions.
-- It updates `backup_scripts/backup.env` and re-runs `install-backup-cron.sh` on the host where the backend API is running.
-- In segmented cloud topology, sync those changes to the DB instance (see section 10).
+- It always updates `backup_scripts/backup.env`.
+- It only re-runs `install-backup-cron.sh` automatically when the backend host has cron installation enabled and available.
+- In the segmented 3-VM topology, this usually means the UI saves the config file but does not touch the real cron job. The cron that matters lives on the DB VM, so you must sync those values to the DB VM and apply `install-backup-cron.sh` there.
+- UI message meaning: "Configuración guardada" means `backup.env` was updated successfully.
+- UI message meaning: "La tarea cron no se pudo aplicar automáticamente en este entorno" means the backend host could not install or update `crontab`; backups can still work if the DB VM cron already points to the same `backup.env` values.
 
 ## 6. Output, retention, and logs
 
@@ -219,6 +222,14 @@ gunzip -c /var/backups/dittravel/mariadb/<file>.sql.gz | \
 	mariadb -u<db_user> -p<db_password> <db_name>
 ```
 
+Typical 3-VM production example on the DB VM:
+
+```bash
+gunzip -c /var/backups/dittravel/mariadb/<file>.sql.gz | \
+	docker compose -f /home/dittravel/TC3005B.501-Backend/docker-compose.yml exec -T mariadb \
+	mariadb -uroot -p"$DB_ROOT_PASSWORD" CocoScheme
+```
+
 ### 9.2 Restore MongoDB
 
 From archive file (`*.archive.gz`) native restore:
@@ -236,6 +247,14 @@ docker compose -f /home/dittravel/TC3005B.501-Backend/docker-compose.yml exec -T
 	< /var/backups/dittravel/mongodb/<file>.archive.gz
 ```
 
+Typical 3-VM production example on the DB VM:
+
+```bash
+docker compose -f /home/dittravel/TC3005B.501-Backend/docker-compose.yml exec -T mongodb \
+	mongorestore --db CocoScheme --drop --gzip --archive \
+	< /var/backups/dittravel/mongodb/<file>.archive.gz
+```
+
 ### 9.3 Post-restore validation
 
 1. Validate DB connectivity from backend host (`nc -zv <db_ip> 3306` and `27017`).
@@ -246,6 +265,12 @@ docker compose exec -T backend npx prisma migrate deploy
 ```
 
 3. Validate login + one critical read flow + one write flow.
+
+Recommended operational note for production restore:
+
+- Stop the backend container on the backend VM before restore so the app does not write while data is being replaced.
+- Restore both databases on the DB VM.
+- Start the backend again and validate exchange rate, login, and one request creation flow.
 
 ## 10. Cloud rollout for backup changes
 
@@ -259,7 +284,7 @@ cd ~/TC3005B.501-Backend/backup_scripts
 cat backup.env
 ```
 
-Apply same values in DB VM `backup.env` (DB VM is where cron must run).
+Apply same values in DB VM `backup.env` (DB VM is where cron must run). In other words, the backend UI is the editor for the config file, but the DB VM is the owner of the active cron job.
 
 2. Update DB instance code:
 

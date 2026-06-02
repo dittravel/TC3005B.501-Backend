@@ -38,9 +38,20 @@ case "$MODE" in
 esac
 
 if [[ ! -f .env ]]; then
-  echo "Error: .env not found in $(pwd)"
-  echo "Hint: cp .env.docker.example .env  (or .env.local.example) and fill secrets."
-  exit 1
+  # Auto-bootstrap from the closest matching example so users don't have to copy manually.
+  if [[ "$MODE" == "devLocal" && -f .env.local.example ]]; then
+    cp .env.local.example .env
+    echo "Bootstrapped .env from .env.local.example (fill in secrets before using)."
+  elif [[ -f .env.docker.example ]]; then
+    cp .env.docker.example .env
+    echo "Bootstrapped .env from .env.docker.example (fill in secrets before using)."
+  elif [[ -f .env.example ]]; then
+    cp .env.example .env
+    echo "Bootstrapped .env from .env.example (fill in secrets before using)."
+  else
+    echo "Error: .env not found in $(pwd) and no example file available."
+    exit 1
+  fi
 fi
 
 # Read KEY=value from .env (last occurrence wins).

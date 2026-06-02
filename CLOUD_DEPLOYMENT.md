@@ -15,6 +15,23 @@ cd ~/TC3005B.501-Backend  && git pull && bash switch-env.sh serverDocker
 cd ~/TC3005B.501-Frontend && git pull && bash switch-env.sh serverDocker
 ```
 
+If Node and pnpm are installed on a local/dev machine, the equivalent one-shot commands are:
+
+```bash
+# Backend repo
+pnpm up:devLocal
+pnpm up:devDocker
+pnpm up:serverDocker
+pnpm up:serverDockerDB
+
+# Frontend repo
+pnpm up:devLocal
+pnpm up:devDocker
+pnpm up:serverDocker
+```
+
+These `up:*` commands auto-create `.env` from the matching example file when missing, apply the mode switch, rewrite compose files when needed, and bring services up.
+
 Force a full container down/up (rare):
 
 ```bash
