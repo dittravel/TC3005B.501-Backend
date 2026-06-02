@@ -468,7 +468,7 @@ export async function seedReferenceData(prisma, defaultSocietyId) {
     await prisma.refundPolicy.create({
       data: {
         policy_name: `Política Defecto ${societyName}`,
-        min_amount: 0,
+        min_amount: 1,
         max_amount: 100000,
         submission_deadline_days: 30,
         society_id: defaultSocietyId,
