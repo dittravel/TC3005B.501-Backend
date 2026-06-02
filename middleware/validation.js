@@ -289,14 +289,14 @@ export const validateExpenseReceipts = [
 
 // Validate draft travel request parameters
 export const validateDraftTravelRequest = [
-  // Basic request information 
+  // Basic request information
   body('router_index')
-    .optional()
+    .optional({ nullable: true })
     .isInt({ min: 0 })
     .withMessage('Router index must be a valid number')
     .bail(),
   body('notes')
-    .optional()
+    .optional({ nullable: true })
     .isString()
     .trim()
     .escape()
@@ -304,17 +304,15 @@ export const validateDraftTravelRequest = [
     .withMessage('Notes have to be a string')
     .bail(),
 
-  // Financial information 
+  // Financial information
   body('requested_fee')
-    .optional()
+    .optional({ nullable: true })
     .isFloat({min: 0})
-    .exists()
     .withMessage('The minimum requested fee is 0')
     .bail(),
   body('imposed_fee')
-    .optional()
+    .optional({ nullable: true })
     .isFloat({min: 0})
-    .exists()
     .withMessage('The minimum imposed fee is 0')
     .bail(),
   
@@ -380,32 +378,29 @@ export const validateDraftTravelRequest = [
 
   // Transportation and accommodation requirements
   body('plane_needed')
-    .optional()
+    .optional({ nullable: true })
     .isBoolean()
     .toBoolean()
-    .exists()
     .withMessage('Please select if plane reservation is required or not.')
     .bail(),
   body('hotel_needed')
-    .optional()
+    .optional({ nullable: true })
     .isBoolean()
     .toBoolean()
-    .exists()
     .withMessage('Please select if hotel reservation is required or not.')
     .bail(),
 
   // Additional routes validation
   body('additionalRoutes')
-    .optional()
+    .optional({ nullable: true })
     .isArray()
     .withMessage('Additional routes must be an array')
     .bail(),
-    
+
   // Additional routes - basic information
   body('additionalRoutes.*.router_index')
-    .optional()
+    .optional({ nullable: true })
     .isNumeric()
-    .exists()
     .withMessage("Router index must be a valid number")
     .bail(),
     
@@ -478,10 +473,9 @@ export const validateDraftTravelRequest = [
     .withMessage('Please select if plane reservation is required or not.')
     .bail(),
   body('additionalRoutes.*.hotel_needed')
-    .optional()
+    .optional({ nullable: true })
     .isBoolean()
     .toBoolean()
-    .exists()
     .withMessage('Please select if hotel reservation is required or not.')
     .bail(),
 ];

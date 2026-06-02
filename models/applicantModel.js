@@ -447,10 +447,96 @@ const Applicant = {
         requestId: Number(requestId),
         message: "Travel request successfully updated",
       };
-      
+
     } catch (error) {
       console.error("Error editing travel request:", error);
       throw new Error("Database Error: Unable to edit travel request");
+    }
+  },
+
+  // Save partial changes to a draft travel request (same safe defaults as createDraftTravelRequest)
+  async editDraftTravelRequest(requestId, travelChanges) {
+    try {
+      const router_index = travelChanges.router_index ?? 0;
+      const notes = travelChanges.notes ?? '';
+      const requested_fee = travelChanges.requested_fee ?? 0;
+      const imposed_fee = travelChanges.imposed_fee ?? 0;
+      const currency = travelChanges.currency ?? 'MXN';
+      const origin_country_name = travelChanges.origin_country_name ?? 'notSelected';
+      const origin_city_name = travelChanges.origin_city_name ?? 'notSelected';
+      const destination_country_name = travelChanges.destination_country_name ?? 'notSelected';
+      const destination_city_name = travelChanges.destination_city_name ?? 'notSelected';
+      const beginning_date = travelChanges.beginning_date ?? '0000-01-01';
+      const beginning_time = travelChanges.beginning_time ?? '00:00:00';
+      const ending_date = travelChanges.ending_date ?? '0000-01-01';
+      const ending_time = travelChanges.ending_time ?? '00:00:00';
+      const plane_needed = travelChanges.plane_needed ?? false;
+      const hotel_needed = travelChanges.hotel_needed ?? false;
+      const additionalRoutes = travelChanges.additionalRoutes ?? [];
+
+      const allRoutes = formatRoutes(
+        {
+          router_index,
+          origin_country_name,
+          origin_city_name,
+          destination_country_name,
+          destination_city_name,
+          beginning_date,
+          beginning_time,
+          ending_date,
+          ending_time,
+          plane_needed,
+          hotel_needed,
+        },
+        additionalRoutes
+      );
+
+      const request_days = getRequestDays(allRoutes);
+      await prisma.$transaction(async (tx) => {
+        await tx.request.update({
+          where: { request_id: Number(requestId) },
+          data: {
+            notes,
+            requested_fee,
+            currency,
+            imposed_fee,
+            request_days,
+            last_mod_date: new Date(),
+          },
+        });
+
+        const oldRoutesIds = await tx.route_Request.findMany({
+          where: { request_id: Number(requestId) },
+          select: { route_id: true },
+        });
+
+        await tx.route_Request.deleteMany({
+          where: { request_id: Number(requestId) },
+        });
+
+        const routeIdsToDelete = oldRoutesIds
+          .map((row) => row.route_id)
+          .filter((id) => id !== null);
+
+        if (routeIdsToDelete.length > 0) {
+          await tx.route.deleteMany({
+            where: { route_id: { in: routeIdsToDelete } },
+          });
+        }
+
+        await createRoutesForRequest(tx, requestId, allRoutes);
+      });
+
+      console.log(`Draft travel request ${requestId} updated successfully.`);
+
+      return {
+        requestId: Number(requestId),
+        message: "Draft travel request successfully updated",
+      };
+
+    } catch (error) {
+      console.error("Error editing draft travel request:", error);
+      throw new Error("Database Error: Unable to edit draft travel request");
     }
   },
   
