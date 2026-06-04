@@ -31,9 +31,15 @@
         "up:devDocker": "node scripts/up.mjs devDocker",
         "up:serverDocker": "node scripts/up.mjs serverDocker",
         "up:serverDockerDB": "node scripts/up.mjs serverDockerDB",
+        "backup:mariadb": "BACKUP_CONFIG=./backup_scripts/backup.env bash ./backup_scripts/backup-mariadb.sh",
+        "backup:mongodb": "BACKUP_CONFIG=./backup_scripts/backup.env bash ./backup_scripts/mongodb_backup.sh",
+        "backup:all": "BACKUP_CONFIG=./backup_scripts/backup.env bash ./backup_scripts/backup-all.sh",
+        "backup:cron:install": "BACKUP_CONFIG=./backup_scripts/backup.env bash ./backup_scripts/install-backup-cron.sh",
         "restore:mariadb": "BACKUP_CONFIG=./backup_scripts/backup.env bash ./backup_scripts/restore-mariadb.sh",
         "restore:mongodb": "BACKUP_CONFIG=./backup_scripts/backup.env bash ./backup_scripts/restore-mongodb.sh",
-        "restore:all": "BACKUP_CONFIG=./backup_scripts/backup.env bash ./backup_scripts/restore-all.sh"
+        "restore:all": "BACKUP_CONFIG=./backup_scripts/backup.env bash ./backup_scripts/restore-all.sh",
+        "bootstrap:server": "bash ./scripts/bootstrap-server.sh",
+        "menu": "node scripts/menu.mjs"
     },
     "repository": {
         "type": "git",

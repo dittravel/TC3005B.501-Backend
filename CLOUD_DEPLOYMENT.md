@@ -2,6 +2,18 @@
 
 ## Quick Reference
 
+Preferred first-time setup path (Flow B, backend repo):
+
+```bash
+cd ~/TC3005B.501-Backend
+pnpm run bootstrap:server
+# logout/login once
+pnpm run menu
+# choose 0) Initial setup wizard, then pick Backend VM or DB VM setup
+```
+
+Manual path is still supported below.
+
 Daily update loop on any VM (after `git pull`):
 
 ```bash
@@ -151,6 +163,13 @@ icacls $env:USERPROFILE\.ssh\dittravel /inheritance:r /grant:r "$env:USERNAME`:F
 
 ## 2. Common Base Install (run ONCE per fresh VM)
 
+You can use either:
+
+- Flow B automation: `pnpm run bootstrap:server` (from backend repo), or
+- the manual commands in this section.
+
+If you use `bootstrap:server`, keep this section as reference/troubleshooting.
+
 Run on all three VMs:
 
 ```bash
@@ -185,6 +204,16 @@ docker compose version
 
 ## 3. Per-Instance Setup (one-time)
 
+Flow B equivalent:
+
+- Run `pnpm run menu`
+- Enter `0) Initial setup wizard (Flow B)`
+- On DB VM choose DB setup (`serverDockerDB`)
+- On Backend VM choose Backend setup (`serverDocker`)
+- Frontend VM keeps its own frontend repo switcher flow (`bash switch-env.sh serverDocker`)
+
+Manual commands remain below.
+
 ### 3.1 DB Instance (`dittdb`, 172.16.60.115)
 
 ```bash
@@ -206,6 +235,16 @@ Then:
 bash switch-env.sh serverDockerDB
 docker compose ps
 ss -ltnp | grep -E '3306|27017'
+```
+
+Backup setup on DB VM (required):
+
+```bash
+cd ~/TC3005B.501-Backend
+cp -n backup_scripts/backup.env.example backup_scripts/backup.env
+chmod +x backup_scripts/*.sh
+pnpm run backup:all
+pnpm run backup:cron:install
 ```
 
 ### 3.2 Backend Instance (`dittback`)
@@ -286,6 +325,14 @@ Default behavior avoids a full `docker compose down`. Force a full stop/start on
 ```bash
 FORCE_DOWN=1 bash switch-env.sh <mode>
 ```
+
+Menu-based daily operation (if Node+pnpm is available on VM):
+
+```bash
+pnpm run menu
+```
+
+Use menu options for mode switching, backups, recovery, and quick checks.
 
 ## 5. Validation From Your Laptop
 

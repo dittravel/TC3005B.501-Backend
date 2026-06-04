@@ -81,6 +81,92 @@ pnpm restore:mariadb
 pnpm restore:mongodb
 ```
 
+### Interactive Shortcut Menu (for less technical users)
+
+You can run a guided CLI menu that groups environment switching, backups, recovery and quick commands:
+
+```sh
+pnpm run menu
+```
+
+The menu does not replace existing commands (`env:*`, `up:*`, `backup:*`, `restore:*`); it is a shortcut wrapper around them.
+
+Flow B (server-friendly guided setup):
+
+1. Run one-time bootstrap (installs git + docker + node + pnpm on Debian/Ubuntu):
+
+```sh
+pnpm run bootstrap:server
+```
+
+2. Start guided setup:
+
+```sh
+pnpm run menu
+```
+
+3. In the menu use `0) Initial setup wizard (Flow B)` and choose:
+
+- Backend VM setup (`serverDocker` + optional migrate deploy), or
+- DB VM setup (`serverDockerDB` + backup config + optional cron install)
+
+### VM Rollout Step-by-Step (Flow B recommended)
+
+Use this sequence when preparing cloud/server VMs from scratch.
+
+1. Clone repository on each VM:
+
+```sh
+git clone <BACKEND_REPO_URL> ~/TC3005B.501-Backend
+cd ~/TC3005B.501-Backend
+```
+
+2. One-time bootstrap on each backend/db VM (installs git, docker, node, pnpm):
+
+```sh
+pnpm run bootstrap:server
+```
+
+3. Log out and log back in (required for docker group permissions).
+
+4. Configure `.env` in each VM:
+
+- DB VM: set at least `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `DB_ROOT_PASSWORD`
+- Backend VM: set at least `SERVER_DOCKER_DB_IP`, DB credentials, and secrets (`JWT_SECRET`, `AES_SECRET_KEY`, `AES_IV`)
+
+5. Run setup wizard:
+
+```sh
+pnpm run menu
+```
+
+6. In menu choose `0) Initial setup wizard (Flow B)`:
+
+- DB VM: choose DB setup (`serverDockerDB`) and optionally install backup cron.
+- Backend VM: choose Backend setup (`serverDocker`) and optionally run migrate deploy.
+
+7. Validate services:
+
+```sh
+docker compose ps
+docker compose logs -f backend
+```
+
+8. For DB VM backup baseline:
+
+```sh
+pnpm run backup:all
+pnpm run backup:cron:install
+```
+
+9. Recovery drill (recommended in non-production):
+
+```sh
+pnpm run restore:all
+```
+
+Flow B keeps legacy commands available. You can still run `bash switch-env.sh <mode>`, `pnpm backup:*`, `pnpm restore:*` directly when needed.
+
 ### Configure Once
 
 Set these once in backend `.env`:

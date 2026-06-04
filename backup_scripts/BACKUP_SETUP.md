@@ -8,6 +8,15 @@ This folder provides a unified backup workflow for three environments:
 
 The scripts are configurable through `backup.env` and can run manually or automatically with cron.
 
+If Node and pnpm are available on the DB VM, you can operate the same workflow through the interactive menu:
+
+```bash
+cd /home/dittravel/TC3005B.501-Backend
+pnpm run menu
+```
+
+Menu shortcuts are wrappers around the same scripts (`backup:*`, `restore:*`), so both methods are equivalent.
+
 ## 1. Files in this folder
 
 - `backup-mariadb.sh`: MariaDB dump
@@ -102,6 +111,15 @@ Important: run backups on the DB instance, not on backend/frontend instances.
 
 ## 4. Manual execution
 
+PNPM shortcuts (same behavior):
+
+```bash
+cd /home/dittravel/TC3005B.501-Backend
+pnpm run backup:all
+pnpm run backup:mariadb
+pnpm run backup:mongodb
+```
+
 Run both backups:
 
 ```bash
@@ -140,6 +158,13 @@ Install/update cron job:
 ```bash
 cd /home/dittravel/TC3005B.501-Backend/backup_scripts
 BACKUP_CONFIG=./backup.env ./install-backup-cron.sh
+```
+
+Equivalent shortcut:
+
+```bash
+cd /home/dittravel/TC3005B.501-Backend
+pnpm run backup:cron:install
 ```
 
 Check installed cron:
@@ -224,6 +249,13 @@ If Node and pnpm are available in that host, equivalent shortcut:
 ```bash
 pnpm restore:all
 ```
+
+Menu path (same operation):
+
+1. `pnpm run menu`
+2. `3) Recovery`
+3. `1) Restore all (MariaDB -> MongoDB)`
+4. Type `RESTORE` to confirm.
 
 Default behavior:
 
@@ -364,3 +396,17 @@ BACKUP_CONFIG=./backup.env ./backup-all.sh
 ```
 
 6. Validate output files and logs.
+
+## 11. Flow B (DB VM) quick start
+
+When preparing a new DB VM using the guided menu:
+
+1. Clone backend repo in VM.
+2. Run `pnpm run bootstrap:server` once.
+3. Log out and back in.
+4. Configure `.env` DB credentials.
+5. Run `pnpm run menu`.
+6. Choose `0) Initial setup wizard (Flow B)`.
+7. Choose `3) Setup this machine as DB VM (serverDockerDB + backups)`.
+8. Optionally install cron when prompted.
+9. Run one manual backup (`pnpm run backup:all`) and verify logs/files.
