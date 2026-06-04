@@ -212,6 +212,8 @@ Flow B equivalent:
 - On Backend VM choose Backend setup (`serverDocker`)
 - Frontend VM keeps its own frontend repo switcher flow (`bash switch-env.sh serverDocker`)
 
+In DB setup, backup cron is installed/updated automatically from `backup_scripts/backup.env`.
+
 Manual commands remain below.
 
 ### 3.1 DB Instance (`dittdb`, 172.16.60.115)

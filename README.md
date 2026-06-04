@@ -127,6 +127,8 @@ cd ~/TC3005B.501-Backend
 pnpm run bootstrap:server
 ```
 
+`bootstrap:server` also installs and enables `cron` on Debian/Ubuntu.
+
 3. Log out and log back in (required for docker group permissions).
 
 4. Configure `.env` in each VM:
@@ -142,7 +144,7 @@ pnpm run menu
 
 6. In menu choose `0) Initial setup wizard (Flow B)`:
 
-- DB VM: choose DB setup (`serverDockerDB`) and optionally install backup cron.
+- DB VM: choose DB setup (`serverDockerDB`), and backup cron is installed/updated automatically.
 - Backend VM: choose Backend setup (`serverDocker`) and optionally run migrate deploy.
 
 7. Validate services:

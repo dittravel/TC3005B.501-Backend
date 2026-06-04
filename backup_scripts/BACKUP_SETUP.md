@@ -408,5 +408,5 @@ When preparing a new DB VM using the guided menu:
 5. Run `pnpm run menu`.
 6. Choose `0) Initial setup wizard (Flow B)`.
 7. Choose `3) Setup this machine as DB VM (serverDockerDB + backups)`.
-8. Optionally install cron when prompted.
+8. Cron is installed/updated automatically from `backup.env`.
 9. Run one manual backup (`pnpm run backup:all`) and verify logs/files.

@@ -272,14 +272,13 @@ async function setupDbVmFlow() {
   ensureBackupConfigExists();
   runShell('bash -lc "chmod +x backup_scripts/backup-mariadb.sh backup_scripts/mongodb_backup.sh backup_scripts/backup-all.sh backup_scripts/install-backup-cron.sh backup_scripts/restore-mariadb.sh backup_scripts/restore-mongodb.sh backup_scripts/restore-all.sh"');
 
-  const installCron = (await ask('Install/update backup cron now? [y/N]: ')).toLowerCase();
-  if (installCron === 'y') {
-    runPnpmScript('backup:cron:install');
-  }
+  console.log('\nInstalling/updating backup cron automatically...');
+  runPnpmScript('backup:cron:install');
 
   console.log('\nDB VM setup complete.');
   console.log('Next checks:');
   console.log('- docker compose ps');
+  console.log('- crontab -l');
   console.log('- pnpm run backup:all');
 }
 
