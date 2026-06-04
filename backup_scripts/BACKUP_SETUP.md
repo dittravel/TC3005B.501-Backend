@@ -14,6 +14,9 @@ The scripts are configurable through `backup.env` and can run manually or automa
 - `mongodb_backup.sh`: MongoDB dump
 - `backup-all.sh`: runs MariaDB + MongoDB backups in sequence
 - `install-backup-cron.sh`: installs/updates cron job using schedule in config
+- `restore-mariadb.sh`: restore MariaDB from latest (or explicit) `.sql.gz`
+- `restore-mongodb.sh`: restore MongoDB from latest (or explicit) `.archive.gz`
+- `restore-all.sh`: runs MariaDB + MongoDB restore in order
 - `backup.env.example`: template for configuration
 
 ## 2. One-time setup (all environments)
@@ -28,7 +31,7 @@ cp -n backup.env.example backup.env
 2. Set execution permissions:
 
 ```bash
-chmod +x backup-mariadb.sh mongodb_backup.sh backup-all.sh install-backup-cron.sh
+chmod +x backup-mariadb.sh mongodb_backup.sh backup-all.sh install-backup-cron.sh restore-mariadb.sh restore-mongodb.sh restore-all.sh
 ```
 
 3. Install required tools:
@@ -198,6 +201,8 @@ After any backup run:
 
 ## 9. Restore procedure
 
+Recovery is intentionally CLI-only (not UI-driven), so it can run during incidents where normal app auth/UI is unavailable.
+
 Always restore in this order to keep application consistency:
 
 1. Stop backend writes (maintenance mode or stop backend container).
@@ -205,9 +210,45 @@ Always restore in this order to keep application consistency:
 3. Restore MongoDB.
 4. Restart backend and validate critical flows.
 
+### 9.0 One-command disaster recovery
+
+Run on the DB VM (the one with `serverDockerDB`):
+
+```bash
+cd /home/dittravel/TC3005B.501-Backend
+BACKUP_CONFIG=./backup_scripts/backup.env ./backup_scripts/restore-all.sh
+```
+
+If Node and pnpm are available in that host, equivalent shortcut:
+
+```bash
+pnpm restore:all
+```
+
+Default behavior:
+
+- Uses latest MariaDB `.sql.gz` and latest MongoDB `.archive.gz`.
+- Reuses `backup.env` (same integration as backup scripts).
+- For MariaDB, creates a safety backup before restore (`MARIADB_RESTORE_CREATE_SAFETY_BACKUP=true`).
+- For MongoDB, restores with `--drop` by default (`MONGODB_RESTORE_DROP=true`).
+
+Override file selection in `backup.env` when needed:
+
+```dotenv
+MARIADB_RESTORE_FILE=/var/backups/dittravel/mariadb/CocoScheme_production_20260101_030000.sql.gz
+MONGODB_RESTORE_FILE=/var/backups/dittravel/mongodb/fileStorage_production_20260101_030000.archive.gz
+```
+
 ### 9.1 Restore MariaDB
 
-From SQL backup file (`*.sql.gz`):
+CLI command:
+
+```bash
+cd /home/dittravel/TC3005B.501-Backend
+BACKUP_CONFIG=./backup_scripts/backup.env ./backup_scripts/restore-mariadb.sh
+```
+
+Manual equivalent from SQL backup file (`*.sql.gz`):
 
 ```bash
 gunzip -c /var/backups/dittravel/mariadb/<file>.sql.gz | \
@@ -232,7 +273,14 @@ gunzip -c /var/backups/dittravel/mariadb/<file>.sql.gz | \
 
 ### 9.2 Restore MongoDB
 
-From archive file (`*.archive.gz`) native restore:
+CLI command:
+
+```bash
+cd /home/dittravel/TC3005B.501-Backend
+BACKUP_CONFIG=./backup_scripts/backup.env ./backup_scripts/restore-mongodb.sh
+```
+
+Manual equivalent from archive file (`*.archive.gz`) native restore:
 
 ```bash
 mongorestore --host <mongo_host> --port 27017 --db <mongo_db> --drop --gzip \

@@ -44,6 +44,21 @@ Apply backend DB migrations after deploy:
 docker compose exec -T backend npx prisma migrate deploy
 ```
 
+Disaster recovery (run on DB VM, no UI required):
+
+```bash
+cd ~/TC3005B.501-Backend
+BACKUP_CONFIG=./backup_scripts/backup.env ./backup_scripts/restore-all.sh
+```
+
+Optional shortcuts when Node+pnpm are installed on that VM:
+
+```bash
+pnpm restore:all
+pnpm restore:mariadb
+pnpm restore:mongodb
+```
+
 Validate from your laptop:
 
 ```bash

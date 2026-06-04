@@ -57,6 +57,30 @@ This section is a practical, step-by-step runbook for the team.
 
 For complete 3-instance setup details, see [CLOUD_DEPLOYMENT.md](CLOUD_DEPLOYMENT.md).
 
+### Disaster Recovery (CLI only)
+
+Recovery is command-based (not UI-based) by design, so it works even if the app/auth UI is unavailable.
+
+On the DB VM:
+
+```sh
+cd /home/dittravel/TC3005B.501-Backend
+BACKUP_CONFIG=./backup_scripts/backup.env ./backup_scripts/restore-all.sh
+```
+
+Optional if Node+pnpm are installed:
+
+```sh
+pnpm restore:all
+```
+
+Individual restore commands:
+
+```sh
+pnpm restore:mariadb
+pnpm restore:mongodb
+```
+
 ### Configure Once
 
 Set these once in backend `.env`:
