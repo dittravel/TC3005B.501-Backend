@@ -74,7 +74,7 @@ create_safety_backup_docker() {
     docker compose -f "$COMPOSE_PROJECT_DIR/docker-compose.yml" exec -T \
         -e MYSQL_PWD="$MARIADB_PASSWORD" \
         "$MARIADB_DOCKER_SERVICE" \
-        mariadb-dump -u"$MARIADB_USER" "$MARIADB_DB_NAME" | gzip > "$safety_file"
+        mariadb-dump -h127.0.0.1 -u"$MARIADB_USER" "$MARIADB_DB_NAME" | gzip > "$safety_file"
 }
 
 restore_local() {
@@ -93,7 +93,7 @@ restore_docker() {
     gunzip -c "$backup_file" | docker compose -f "$COMPOSE_PROJECT_DIR/docker-compose.yml" exec -T \
         -e MYSQL_PWD="$MARIADB_PASSWORD" \
         "$MARIADB_DOCKER_SERVICE" \
-        mariadb -u"$MARIADB_USER" "$MARIADB_DB_NAME"
+        mariadb -h127.0.0.1 -u"$MARIADB_USER" "$MARIADB_DB_NAME"
 }
 
 backup_to_restore="$MARIADB_RESTORE_FILE"

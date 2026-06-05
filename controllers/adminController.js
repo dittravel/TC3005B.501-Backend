@@ -583,6 +583,7 @@ export const updateBackupAutomationConfig = async (req, res) => {
       message: 'Backup automation updated successfully',
       config: updated,
       cronApplied: updated.cronApplied,
+      cronInstallTarget: updated.cronInstallTarget,
       cronInstallationAttempted: updated.cronInstallationAttempted,
       cronInstallError: updated.cronInstallError,
     });

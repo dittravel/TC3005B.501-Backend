@@ -37,7 +37,12 @@ mkdir -p "$backup_dir"
 mkdir -p "$(dirname "$BACKUP_LOG_FILE")"
 
 log() {
-    printf '[%s] [mariadb] %s\n' "$(date +"%Y-%m-%d %H:%M:%S")" "$*" | tee -a "$BACKUP_LOG_FILE"
+    local line
+    line="[$(date +"%Y-%m-%d %H:%M:%S")] [mariadb] $*"
+    printf '%s\n' "$line" >> "$BACKUP_LOG_FILE"
+    if [[ -t 1 ]]; then
+        printf '%s\n' "$line"
+    fi
 }
 
 has_docker_service_running() {
@@ -64,7 +69,7 @@ run_docker_backup() {
     docker compose -f "$COMPOSE_PROJECT_DIR/docker-compose.yml" exec -T \
     -e MYSQL_PWD="$MARIADB_PASSWORD" \
         "$MARIADB_DOCKER_SERVICE" \
-        mariadb-dump -u"$MARIADB_USER" "$MARIADB_DB_NAME" > "$backup_file"
+    mariadb-dump -h127.0.0.1 -u"$MARIADB_USER" "$MARIADB_DB_NAME" > "$backup_file"
 }
 
 upload_remote_backup() {

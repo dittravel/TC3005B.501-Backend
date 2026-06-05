@@ -14,7 +14,12 @@ BACKUP_LOG_FILE="${BACKUP_LOG_FILE:-/var/backups/dittravel/backup.log}"
 mkdir -p "$(dirname "$BACKUP_LOG_FILE")"
 
 log() {
-  printf '[%s] [backup-all] %s\n' "$(date +"%Y-%m-%d %H:%M:%S")" "$*" | tee -a "$BACKUP_LOG_FILE"
+  local line
+  line="[$(date +"%Y-%m-%d %H:%M:%S")] [backup-all] $*"
+  printf '%s\n' "$line" >> "$BACKUP_LOG_FILE"
+  if [[ -t 1 ]]; then
+    printf '%s\n' "$line"
+  fi
 }
 
 log "Starting full backup workflow."
