@@ -33,8 +33,12 @@ fi
 BACKUP_AUTOMATION_ENABLED="${BACKUP_AUTOMATION_ENABLED:-true}"
 BACKUP_CRON_SCHEDULE="${BACKUP_CRON_SCHEDULE:-0 */6 * * *}"
 BACKUP_LOG_FILE="${BACKUP_LOG_FILE:-/var/backups/dittravel/backup.log}"
+
+# Always use absolute paths in the cron entry so it works regardless of cron's working directory.
+BACKUP_CONFIG_ABS="$(cd "$(dirname "$BACKUP_CONFIG")" && pwd)/$(basename "$BACKUP_CONFIG")"
+
 CRON_TAG="# dittravel-backup-job"
-JOB_CMD="BACKUP_CONFIG=$BACKUP_CONFIG $SCRIPT_DIR/backup-all.sh >> $BACKUP_LOG_FILE 2>&1"
+JOB_CMD="BACKUP_CONFIG=$BACKUP_CONFIG_ABS $SCRIPT_DIR/backup-all.sh >> $BACKUP_LOG_FILE 2>&1"
 CRON_LINE="$BACKUP_CRON_SCHEDULE $JOB_CMD $CRON_TAG"
 
 ensure_cron_available() {
