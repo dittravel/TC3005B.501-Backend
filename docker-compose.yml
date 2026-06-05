@@ -59,6 +59,7 @@ services:
       DATABASE_HOST: mariadb
     volumes:
       - ./certs:/app/certs:ro
+      - /home/dittravel/.ssh:/home/dittravel/.ssh:ro
     ports:
       - "${PORT:-3000}:3000"
 

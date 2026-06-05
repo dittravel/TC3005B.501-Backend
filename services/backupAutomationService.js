@@ -76,7 +76,7 @@ function isValidCronExpression(value) {
 }
 
 function buildSshOptions() {
-  const sshOptions = [];
+  const sshOptions = ['-o', 'BatchMode=yes', '-o', 'StrictHostKeyChecking=accept-new'];
   if (REMOTE_SYNC_SSH_KEY) {
     sshOptions.push('-i', REMOTE_SYNC_SSH_KEY);
   }

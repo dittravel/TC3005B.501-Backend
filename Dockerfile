@@ -15,6 +15,7 @@ RUN pnpm prisma:generate
 FROM base AS runtime
 ENV NODE_ENV=production
 WORKDIR /app
+RUN apk add --no-cache openssh-client
 COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app .
 EXPOSE 3000
