@@ -298,6 +298,7 @@ services:
       HOTEL_SEARCH_PAGE_SIZE: \${HOTEL_SEARCH_PAGE_SIZE:-10}
     volumes:
       - ./certs:/app/certs:ro
+      - /home/dittravel/.ssh:/home/dittravel/.ssh:ro
     ports:
       - "\${PORT:-3000}:3000"
 EOF

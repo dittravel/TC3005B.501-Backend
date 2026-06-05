@@ -1,745 +1,201 @@
 # TC3005B.501-Backend
 
-API and Database for the conection and the functioning of the trip management system portal developed in course TC3005B by group 501.
+## Quick Orientation
 
-## File Structure
+The backend is responsible for:
 
-```
+- Exposing the API used by the frontend.
+- Connecting to MariaDB and MongoDB.
+- Managing Prisma migrations and seed scripts.
+- Generating and consuming HTTPS certificates for local and Docker-based development.
+- Running backup and restore workflows for the databases.
+
+The most important operational idea is this:
+
+- `devLocal` runs the backend natively on your machine.
+- `devDocker` runs backend + MariaDB + MongoDB as three containers on your machine.
+- `serverDocker` runs only the backend container and points it to external databases.
+- `serverDockerDB` runs only the database containers on a separate host and exposes their ports for the backend host to consume.
+
+For the 3-container local topology, the recommended path is `devDocker`.
+For a blank Debian host, the recommended path is: base packages -> clone repo -> bootstrap -> choose mode.
+
+## How the Backend Works
+
+At runtime, the backend follows a simple receive-process-send-wait loop.
+
+1. It receives HTTP requests from the frontend, CLI-triggered scripts, or direct operator checks such as health endpoints.
+2. It validates the request, parses the payload, and routes the call to the correct controller.
+3. The controller delegates work to services or model helpers.
+4. Services may read or write MariaDB, MongoDB, files, or backup config, and may also call external APIs such as Banxico, CFDI validation, or email delivery providers.
+5. The backend waits on those I/O operations and returns the response only after the service finishes or fails.
+6. The response is then sent back to the frontend or caller with a success payload or an error message.
+
+Practical examples:
+
+- A travel request waits on database writes and then returns the updated request state.
+- A receipt upload waits on XML/PDF parsing, CFDI validation, and database persistence.
+- A backup automation save waits on local config updates and, if configured, remote sync to the DB host.
+- A health check waits on the server process itself and returns immediately without touching business data.
+
+API and database backend for the travel management system portal developed in course TC3005B by group 501.
+
+This repository contains the backend application, database tooling, backup and restore scripts, certificate helpers, and the mode switchers used to run the project in three common ways:
+
+1. Native backend on a local machine.
+2. Local Docker topology with three segmented containers on the same computer: backend, MariaDB, and MongoDB.
+3. Split deployment where the backend runs in one Docker host and the databases run in a separate Docker host, or on cloud VMs when needed.
+
+If you are starting from a blank Debian machine, do not begin by looking for pnpm or Docker. First install the base tools, clone the repository, and then run the bootstrap script described below.
+
+## Repository Structure
+
+```text
 TC3005B.501-Backend/
 ├─ index.js                    # Entry point of the application
-├─ controllers/                # Controllers for handling API logic for different modules
+├─ controllers/                # API controllers for the business modules
 ├─ models/                     # Data models for database entities
-├─ routes/                     # API route definitions for different endpoints
-├─ services/                   # Business logic services for processing data and operations
-├─ middleware/                 # Authentication, validation, rate limiting, decryption, and sanitization middleware
+├─ routes/                     # API route definitions
+├─ services/                   # Business logic and operational services
+├─ middleware/                 # Auth, validation, rate limiting, decryption, sanitization
 ├─ database/                   # Database configuration, schemas, and initialization scripts
-├─ openapi/                    # OpenAPI specifications for API documentation
-├─ backup_scripts/             # Scripts for backing up MariaDB and MongoDB databases
-├─ certs/                      # Scripts and configuration for generating HTTPS certificates
-├─ email/                      # Email service utilities and templates
-├─ CHANGELOG.md                # Changelog of project updates
-├─ CONTRIBUTING.md             # Guidelines for contributing to the project
-├─ mongodb_installation.md     # Instructions for MongoDB installation
+├─ openapi/                    # OpenAPI specifications and API documentation
+├─ backup_scripts/             # MariaDB and MongoDB backup/restore scripts
+├─ certs/                      # HTTPS certificate generation scripts and OpenSSL config
+├─ scripts/                    # Bootstrap, mode switchers, menu, and helper launchers
+├─ tests/                      # Automated tests
+├─ CHANGELOG.md                # Project change log
+├─ CONTRIBUTING.md             # Contribution guide
+├─ mongodb_installation.md     # MongoDB installation notes
 ├─ package.json                # Node.js dependencies and scripts
-├─ pnpm-lock.yaml              # Lock file for pnpm package manager
-└─ README.md                   # This file
+├─ pnpm-lock.yaml              # pnpm lock file
+└─ README.md                   # This guide
 ```
-
----
 
 ## Getting Started
 
-To run this backend, follow the steps in this guide.
+Use this order if you are starting from scratch.
 
-## Quick Guides (from `git pull`)
+### Debian 12 or newer
 
-This section is a practical, step-by-step runbook for the team.
+This setup is essential for server and VM installs. If you are preparing a Debian server or a VM, start here.
 
-### Environment Modes (current)
+If the machine is completely empty, install only the minimum tools needed to clone the repository and bootstrap the rest.
 
-| Mode | Typical usage | DB target | Notes |
-| --- | --- | --- | --- |
-| `devLocal` | Native backend on your machine | `DEVLOCAL_DB_HOST` / `DEVLOCAL_MONGO_HOST` from `.env` | Patches `.env` only |
-| `devDocker` | Full local Docker stack | Docker service names (`mariadb`, `mongodb`) | Rewrites `docker-compose.yml` and runs compose |
-| `serverDocker` | Backend cloud/server VM | `SERVER_DOCKER_DB_IP` (or one-off `DB_IP`) | Backend-only compose |
-| `serverDockerDB` | DB cloud/server VM | n/a (this VM hosts DB containers) | MariaDB + MongoDB compose only |
-
-### Docker vs Local vs Cloud (Summary)
-
-| Step # | Local Docker | Local native | Cloud VMs |
-| --- | --- | --- | --- |
-| 1. Set mode + bring up | `pnpm up:devDocker` | `pnpm up:devLocal` | `bash switch-env.sh serverDocker` (backend VM) / `bash switch-env.sh serverDockerDB` (DB VM) |
-| 2. Install deps | `pnpm install` | `pnpm install` | `git pull` only (no Node/pnpm required on VMs) |
-| 3. Start services | already handled by `pnpm up:devDocker` | Local MariaDB + MongoDB running; backend starts with `pnpm dev:local` | `switch-env.sh` handles compose |
-| 4. Migrations | `docker compose exec -T backend npx prisma migrate deploy` | `npx prisma migrate deploy` | Backend VM: `docker compose exec -T backend npx prisma migrate deploy` |
-| 5. Seed (optional) | `docker compose exec -T backend pnpm prisma:seed` | `pnpm prisma:seed` | Backend VM only, same Docker command |
-| 6. Run backend | Containerized (`https://localhost:3000`) | `pnpm dev:local` | Containerized on backend VM |
-
-For complete 3-instance setup details, see [CLOUD_DEPLOYMENT.md](CLOUD_DEPLOYMENT.md).
-
-### Disaster Recovery (CLI only)
-
-Recovery is command-based (not UI-based) by design, so it works even if the app/auth UI is unavailable.
-
-On the DB VM:
-
-```sh
-cd /home/dittravel/TC3005B.501-Backend
-BACKUP_CONFIG=./backup_scripts/backup.env ./backup_scripts/restore-all.sh
+```bash
+sudo apt-get update
+sudo apt-get install -y ca-certificates curl git
 ```
 
-Optional if Node+pnpm are installed:
+If you do not have `sudo`, run the same commands as `root`.
 
-```sh
-pnpm restore:all
+Then clone the repository:
+
+```bash
+git clone https://github.com/101-Coconsulting/TC3005B.501-Backend.git
+cd TC3005B.501-Backend
 ```
 
-Individual restore commands:
+Now bootstrap the machine:
 
-```sh
-pnpm restore:mariadb
-pnpm restore:mongodb
+```bash
+bash scripts/bootstrap-server.sh
 ```
 
-### Interactive Shortcut Menu (for less technical users)
+This script installs:
 
-You can run a guided CLI menu that groups environment switching, backups, recovery and quick commands:
+- Docker Engine and Docker Compose plugin
+- Node.js LTS
+- pnpm through Corepack
+- openssh-client
+- cron
 
-```sh
-pnpm run menu
+After it finishes, log out and log back in so the Docker group change takes effect.
+
+### Windows 11 or Windows 10
+
+Use this for local development. The easiest path is Docker Desktop plus WSL2 or Git Bash.
+
+1. Install Git, Docker Desktop, and Node.js LTS or a pnpm-ready Node.js install.
+2. Clone the repository.
+3. Run `pnpm up:devDocker` for the local 3-container topology, or `pnpm up:devLocal` for native backend development.
+
+If you are using Windows only for local development, you still need the backend API and databases available either locally or through Docker.
+
+### macOS 13 or newer
+
+Use this for local development with Docker Desktop or native Node.js.
+
+1. Install Git, Docker Desktop if you want containers, and Node.js LTS.
+2. Clone the repository.
+3. Follow the same local commands as the Windows flow.
+
+### 2. Choose the workflow you want to run
+
+The recommended local development flow is:
+
+1. Install prerequisites if needed.
+2. Run `pnpm up:devDocker`.
+3. Apply migrations.
+4. Seed data only if you need it.
+
+If you want native local development instead, use `pnpm env:devLocal` and `pnpm dev:local` after configuring `.env`.
+
+If you are preparing a split deployment, continue with `serverDocker` and `serverDockerDB` after the local install steps above.
+
+## Environment and Database Setup
+
+The backend runtime and the database scripts use different configuration files. Keep them separate in your head:
+
+- `.env` in the repository root controls the backend runtime, mode switchers, Prisma, and service URLs.
+- `backup_scripts/backup.env` controls backup and restore automation.
+
+MariaDB and MongoDB are not installed in only one fixed place. The install location depends on the workflow you choose:
+
+- Local Docker topology: MariaDB and MongoDB run as containers on your machine through `docker compose`.
+- Native local development: MariaDB and MongoDB must already be installed and running on your machine.
+- Split deployment: MariaDB and MongoDB run on the DB host, usually as Docker containers, while the backend runs on a separate host.
+
+### Host Materials Checklist
+
+Before you start a host, make sure the required material is present:
+
+- SSH access if the host is part of a split deployment.
+- HTTPS certificates from `certs/create_certs.sh` if the host terminates TLS.
+- `backup.env` on the DB host if the host runs backups.
+- `backup.env` remote sync values on the backend host if the UI must update DB cron automatically.
+
+### Local Database Installation
+
+If you are running native local development and do not already have the databases installed, use these commands on Debian/Ubuntu:
+
+#### MariaDB
+
+```bash
+sudo apt-get update
+sudo apt-get install -y mariadb-server mariadb-client
+sudo systemctl enable --now mariadb
+sudo mysql_secure_installation
 ```
 
-The menu does not replace existing commands (`env:*`, `up:*`, `backup:*`, `restore:*`); it is a shortcut wrapper around them.
+#### MongoDB
 
-Flow B (server-friendly guided setup):
+MongoDB installation varies more by distribution version, so the repository also keeps a dedicated guide in [mongodb_installation.md](mongodb_installation.md).
 
-1. Run one-time bootstrap (installs git + docker + node + pnpm on Debian/Ubuntu):
+If you already use the official MongoDB repository on Debian/Ubuntu, the typical service setup is:
 
-```sh
-pnpm run bootstrap:server
+```bash
+sudo systemctl enable --now mongod
+sudo systemctl status mongod
 ```
 
-2. Start guided setup:
+If MongoDB is not yet installed, follow [mongodb_installation.md](mongodb_installation.md) for the exact package repository and install commands.
 
-```sh
-pnpm run menu
-```
+### Environment Variables
 
-3. In the menu use `0) Initial setup wizard (Flow B)` and choose:
+Create your local `.env` from the example file:
 
-- Backend VM setup (`serverDocker` + optional migrate deploy), or
-- DB VM setup (`serverDockerDB` + backup config + optional cron install)
-
-### VM Rollout Step-by-Step (Flow B recommended)
-
-Use this sequence when preparing cloud/server VMs from scratch.
-
-1. Clone repository on each VM:
-
-```sh
-git clone <BACKEND_REPO_URL> ~/TC3005B.501-Backend
-cd ~/TC3005B.501-Backend
-```
-
-2. One-time bootstrap on each backend/db VM (installs git, docker, node, pnpm):
-
-```sh
-pnpm run bootstrap:server
-```
-
-`bootstrap:server` also installs and enables `cron` on Debian/Ubuntu.
-
-3. Log out and log back in (required for docker group permissions).
-
-4. Configure `.env` in each VM:
-
-- DB VM: set at least `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `DB_ROOT_PASSWORD`
-- Backend VM: set at least `SERVER_DOCKER_DB_IP`, DB credentials, and secrets (`JWT_SECRET`, `AES_SECRET_KEY`, `AES_IV`)
-
-5. Run setup wizard:
-
-```sh
-pnpm run menu
-```
-
-6. In menu choose `0) Initial setup wizard (Flow B)`:
-
-- DB VM: choose DB setup (`serverDockerDB`), and backup cron is installed/updated automatically.
-- Backend VM: choose Backend setup (`serverDocker`) and optionally run migrate deploy.
-
-7. Validate services:
-
-```sh
-docker compose ps
-docker compose logs -f backend
-```
-
-8. For DB VM backup baseline:
-
-```sh
-pnpm run backup:all
-pnpm run backup:cron:install
-```
-
-9. Recovery drill (recommended in non-production):
-
-```sh
-pnpm run restore:all
-```
-
-Flow B keeps legacy commands available. You can still run `bash switch-env.sh <mode>`, `pnpm backup:*`, `pnpm restore:*` directly when needed.
-
-### Configure Once
-
-Set these once in backend `.env`:
-
-- `DEVLOCAL_DB_HOST`
-- `DEVLOCAL_MONGO_HOST`
-- `SERVER_DOCKER_DB_IP`
-
-Then use:
-
-```sh
-pnpm up:devLocal
-pnpm up:devDocker
-pnpm up:serverDocker
-pnpm up:serverDockerDB
-```
-
-`pnpm up:*` auto-bootstraps `.env` from the matching example file when missing, patches the selected mode, rewrites `docker-compose.yml` when needed, and starts the services. The older `pnpm env:*` commands are still available if you only want to switch files without using the one-shot flow.
-
-On cloud VMs, run bash directly (no Node/pnpm required there):
-
-```sh
-bash switch-env.sh serverDocker
-bash switch-env.sh serverDockerDB
-```
-
-Optional one-off overrides (rare):
-
-```sh
-LOCAL_DB_HOST=<HOST> LOCAL_MONGO_HOST=<HOST> pnpm env:devLocal
-DB_IP=<REAL_DB_IP> pnpm env:serverDocker
-```
-
-### A) Docker Guide (recommended for the team)
-
-Use this flow when Docker Desktop is available.
-
-#### 1. Update code from the repository
-
-From the backend root:
-
-```sh
-git pull
-pnpm install
-```
-
-#### 2. Switch mode and start/rebuild containers
-
-```sh
-pnpm up:devDocker
-```
-
-`pnpm up:devDocker` rewrites `docker-compose.yml`, ensures `.env` exists, and runs compose automatically.
-
-#### 3. Apply Prisma migrations in Docker
-
-```sh
-docker compose exec -T backend npx prisma migrate deploy
-```
-
-#### 4. Seed the database (choose ONE mode)
-
-Base/normal data:
-
-```sh
-docker compose exec -T backend pnpm prisma:seed
-```
-
-Dummy/demo data:
-
-```sh
-docker compose exec -T backend pnpm prisma:seed:dummy
-```
-
-Important behavior:
-
-- `prisma:seed` keeps only base reference data and the default admin (`admin / admin123`)
-- `prisma:seed:dummy` loads demo users/data (for example `admin.tec / 123`)
-- both seed scripts run `prisma migrate reset --force` internally (development only; data is dropped and recreated)
-
-#### Default Role Permissions (base and dummy)
-
-The default permission matrix is defined in `prisma/seedShared.js` and is the same for:
-
-- base seed (`pnpm prisma:seed`)
-- dummy seed (`pnpm prisma:seed:dummy`)
-
-In dummy mode, this same matrix is replicated for each dummy society group.
-
-| Role | Permissions by module | Default permission keys |
-| --- | --- | --- |
-| Requester (Solicitante) | Travel, Receipts | `travel:view`, `travel:create`, `travel:edit`, `receipts:create`, `receipts:edit` |
-| Travel Agency (Agencia de viajes) | Travel | `travel:view`, `travel:edit`, `travel:view_flights`, `travel:view_hotels`, `travel:approve` |
-| Accounts Payable (Cuentas por pagar) | Receipts | `receipts:view`, `receipts:approve` |
-| Authorizer (Autorizador) | Travel, Receipts | `travel:view`, `travel:create`, `travel:edit`, `travel:approve`, `travel:reject`, `receipts:create`, `receipts:edit` |
-| Administrator (Administrador) | All modules | all `permission_key` values available in the `Permission` table |
-
-#### 5. Useful Docker operations and when to use them
-
-Check container status:
-
-```sh
-docker compose ps
-```
-
-View backend logs in real time:
-
-```sh
-docker compose logs -f backend
-```
-
-Stop the stack but keep DB volumes/data:
-
-```sh
-docker compose down
-```
-
-Stop the stack and remove DB volumes/data (full cleanup):
-
-```sh
-docker compose down -v
-```
-
-#### 6. End-to-end reset flow (clean machine/development reset)
-
-```sh
-docker compose down -v
-pnpm env:devDocker
-docker compose exec -T backend npx prisma migrate deploy
-docker compose exec -T backend pnpm prisma:seed
-```
-
-If you need demo data instead of base data, replace the last command with:
-
-```sh
-docker compose exec -T backend pnpm prisma:seed:dummy
-```
-
-### B) Local Guide without Docker (backend + frontend)
-
-Use this flow when someone on the team still does not have Docker.
-
-Prerequisites:
-
-- Node.js + pnpm installed
-- Local MariaDB running
-- Local MongoDB running
-
-#### 1. Backend terminal (Terminal 1)
-
-From `TC3005B.501-Backend`:
-
-```sh
-git pull
-pnpm install
-```
-
-Create `.env` from the example and adjust local values:
-
-```sh
-# PowerShell (Windows)
-Copy-Item .env.example .env
-
-# Bash
-cp .env.example .env
-```
-
-Set local mode:
-
-```sh
-pnpm env:devLocal
-```
-
-Minimum variables to verify in local mode:
-
-- `DB_HOST=localhost`
-- `DB_PORT=3306` (or the port you use for your local MariaDB)
-- `DB_NAME`, `DB_USER`, `DB_PASSWORD`
-- `DATABASE_URL` consistent with the values above
-- `MONGO_URI=mongodb://localhost:27017`
-- `JWT_SECRET`, `AES_SECRET_KEY`, `MAIL_USER`, `MAIL_PASSWORD`
-- `FRONTEND_URL=https://localhost:4321`
-- `BACKEND_URL=https://localhost:3000`
-- `DB_DOCKER_PORT=3307` and `MONGO_DOCKER_PORT=27018` (used only for Docker port publishing)
-
-Apply migrations locally:
-
-```sh
-npx prisma migrate deploy
-```
-
-Seed locally (choose ONE):
-
-```sh
-pnpm prisma:seed
-```
-
-or:
-
-```sh
-pnpm prisma:seed:dummy
-```
-
-Start backend API:
-
-```sh
-pnpm dev:local
-```
-
-#### 2. Frontend terminal (Terminal 2)
-
-From `TC3005B.501-Frontend`:
-
-```sh
-git pull
-pnpm install
-
-# PowerShell (Windows)
-Copy-Item .env.example .env
-
-# Bash
-cp .env.example .env
-
-pnpm dev
-```
-
-Verify in `TC3005B.501-Frontend/.env`:
-
-- `PUBLIC_API_BASE_URL=https://localhost:3000/api`
-
-#### 3. Local URLs
-
-- Backend API: `https://localhost:3000`
-- Frontend app: `https://localhost:4321`
-
-#### 4. Which seed should each team member use?
-
-- Use `pnpm prisma:seed` for normal development, closer to a production-like baseline.
-- Use `pnpm prisma:seed:dummy` when QA/testing needs more users and richer demo scenarios.
-
-## Installing
-
-The only option currently is to clone the repository locally from GitHub.
-
-### Using `git`
-
-```sh
-git clone https://github.com/101-Coconsulting/TC3005B.501-Backend
-```
-
-### Using `gh` (GitHub CLI)
-
-```sh
-gh repo clone 101-Coconsulting/TC3005B.501-Backend
-```
-
-## Dependencies
-
-The dependencies for this project are managed using [the pnpm package manager](https://pnpm.io/), so it is recommended to use this. However, [npm](https://www.npmjs.com/) can also be used.
-
-### Using `pnpm`
-
-```sh
-pnpm install
-```
-
-### Using `npm`
-
-```sh
-npm install
-```
-
-## Dockerized Setup (Recommended)
-
-For new machines, the recommended way to run this project is with Docker.
-
-### 1. Install Docker Desktop
-
-1. Download and install [Docker Desktop](https://www.docker.com/products/docker-desktop/).
-2. Open Docker Desktop and verify it is running.
-3. Verify Docker in terminal:
-
-```sh
-docker --version
-docker compose version
-```
-
-### 2. Prepare environment
-
-From the backend root:
-
-```sh
-cp .env.example .env
-pnpm env:devDocker
-```
-
-Then update at least these variables in `.env`:
-
-- `DB_NAME`
-- `DB_USER`
-- `DB_PASSWORD`
-- `DB_ROOT_PASSWORD`
-- `JWT_SECRET`
-- `AES_SECRET_KEY`
-- `MAIL_USER`
-- `MAIL_PASSWORD`
-- `FRONTEND_URL`
-- `BACKEND_URL`
-
-### 3. Build and start the stack
-
-```sh
-pnpm env:devDocker
-```
-
-This starts:
-
-- `backend` on `https://localhost:3000`
-- `mariadb` on host port `${DB_DOCKER_PORT:-3307}`
-- `mongodb` on host port `${MONGO_DOCKER_PORT:-27018}`
-
-### 4. Apply Prisma migrations (inside Docker)
-
-```sh
-docker compose exec -T backend npx prisma migrate deploy
-```
-
-### 5. Seed data manually (optional)
-
-Standard seed:
-
-```sh
-docker compose exec -T backend pnpm prisma:seed
-```
-
-Dummy seed:
-
-```sh
-docker compose exec -T backend pnpm prisma:seed:dummy
-```
-
-### 6. Recommended Prisma + Docker runbooks
-
-Clean reset (drop volumes and recreate everything):
-
-```sh
-docker compose down -v
-pnpm env:devDocker
-docker compose exec -T backend npx prisma migrate deploy
-```
-
-No-wipe update (preserve DB data):
-
-```sh
-pnpm env:devDocker
-docker compose exec -T backend npx prisma migrate deploy
-```
-
-## Cloud Server Deployment (Docker-only)
-
-For the 3 Debian VM topology (DB VM, Backend VM, Frontend VM), use:
-
-- DB VM: `bash switch-env.sh serverDockerDB`
-- Backend VM: `bash switch-env.sh serverDocker`
-
-And then run backend migrations:
-
-```sh
-docker compose exec -T backend npx prisma migrate deploy
-```
-
-Full runbook (SSH config, Docker install, daily update loop, network rules): [CLOUD_DEPLOYMENT.md](CLOUD_DEPLOYMENT.md)
-
-## Backup automation and restore
-
-Backup scripts are in [backup_scripts](backup_scripts) and support development, preproduction, and production.
-
-Main files:
-
-- `backup_scripts/backup.env.example` (template)
-- `backup_scripts/backup-mariadb.sh`
-- `backup_scripts/mongodb_backup.sh`
-- `backup_scripts/backup-all.sh`
-- `backup_scripts/install-backup-cron.sh`
-- `backup_scripts/BACKUP_SETUP.md`
-
-Quick setup on DB host:
-
-```sh
-cd backup_scripts
-cp -n backup.env.example backup.env
-chmod +x *.sh
-BACKUP_CONFIG=./backup.env ./install-backup-cron.sh
-BACKUP_CONFIG=./backup.env ./backup-all.sh
-```
-
-Superadmin control panel:
-
-- In frontend grouped log page (`/bitacora-grupo`), Superadministrador can edit backup schedule/toggle/retention.
-- Schedule is configured with user-friendly fields (frequency, time, day) that are translated to cron automatically.
-- For expert usage, the panel includes an advanced manual cron mode.
-- The backend API always updates `backup_scripts/backup.env`.
-- In the 3-VM topology, the real cron runs on the DB VM. If the panel says the config was saved but cron was not applied automatically, that means `backup.env` was updated successfully but the backend container could not modify the host cron. This is expected unless cron installation is explicitly enabled on that host.
-- In segmented cloud deployments, copy or replicate the final `backup.env` values to the DB instance where backups actually run, then run `install-backup-cron.sh` there.
-
-Restore (summary):
-
-1. Stop backend writes.
-2. Restore MariaDB from `.sql.gz`.
-3. Restore MongoDB from `.archive.gz`.
-4. Restart backend and run `docker compose exec -T backend npx prisma migrate deploy` if needed.
-5. Validate login and critical flows.
-
-Detailed restore and cloud rollout steps: `backup_scripts/BACKUP_SETUP.md`.
-
-## Create HTTPS certificates
-
-To succesfully create the certificates to use the server with HTTPS you will need to follow the next steps.
-
-### Configuring OpenSSL
-
-> [!Important]
-> You have to download the `.cnf` file provided in SharePoint and place it in the [`/certs`](/certs) directory.
-
-### Generating keys and certificates
-
-1. Access the [`/certs`](/certs) directory.
-
-```sh
-cd certs
-```
-
-2. Ensure the file is executable:
-
-```sh
-chmod +x create_certs.sh
-```
-
-3. Create the certificates:
-
-```sh
-./create_certs.sh
-```
-
-## Configuring the Database
-
-For the database to be operational, some initial configuration is required.
-
-### Setup MariaDB
-
-In order to properly setup MariaDB, the following steps are required:
-
-1. [Download `mariadb`](https://mariadb.com/kb/en/where-to-download-mariadb/).
-2. It is recommended that you [secure your MariaDB installation](https://mariadb.com/kb/en/mysql_secure_installation/).
-3. [Start the `mariadb` server](https://mariadb.com/kb/en/starting-and-stopping-mariadb-automatically/).
-4. To setup the database with dummy data, run `pnpm dummy_db` or `node database/config/dev_db.js dev` from the root of the repository.
-5. To setup only the database, run `pnpm empty_db` or `node database/config/init_db.js` from the root of the repository.
-
-### Manual MariaDB Setup
-
-1. Go to the [/database/Schema](/database/Schema) directory.
-
-```sh
-cd database/Schema
-```
-
-2. Run the `mariadb` client in batch mode with your user/password.
-
-Load database schema:
-
-```sh
-mariadb -u DB_USER -p DB_USER_PASSWORD < Scheme.sql
-```
-
-Load database prepopulation:
-
-```sh
-mariadb -u DB_USER -p DB_USER_PASSWORD < Prepopulate.sql
-```
-
-Load triggers:
-
-```sh
-mariadb -u DB_USER -p DB_USER_PASSWORD < Triggers.sql
-```
-
-Load views:
-
-```sh
-mariadb -u DB_USER -p DB_USER_PASSWORD < Views.sql
-```
-
-Load dummy data:
-
-```sh
-mariadb -u DB_USER -p DB_USER_PASSWORD < Dummy.sql
-```
-
-### Setup MongoDB
-
-1. [Download `mongodb`](https://www.mongodb.com/docs/manual/installation/) using your preferred method or package manager.
-2. [Download `mongosh`](https://www.mongodb.com/try/download/shell) if you want to interact with the database directly (recommended).
-3. Test that MongoDB was installed correctly by running `mongod` or `mongosh`.
-4. Verify that MongoDB is running using `systemctl status mongod`.
-5. If inactive, start it with `systemctl start mongod`.
-
-## Setup Prisma
-
-### 1. Environment Variables
-
-Setup `DATABASE_URL` and related variables in your `.env` file.
-
-```env
-DATABASE_URL="mysql://travel_user:supersecret@localhost:3306/CocoScheme"
-DATABASE_USER="travel_user"
-DATABASE_PASSWORD="supersecret"
-DATABASE_NAME="CocoScheme"
-DATABASE_HOST="localhost"
-DATABASE_PORT=3306
-```
-
-### 2. Generate Prisma Client
-
-```sh
-npx prisma generate
-```
-
-### 3. Run migrations
-
-```sh
-npx prisma migrate deploy
-```
-
-In Dockerized environments:
-
-```sh
-docker compose exec -T backend npx prisma migrate deploy
-```
-
-### 4. Seed database
-
-```sh
-pnpm prisma:seed
-pnpm prisma:seed:dummy
-```
-
-Dockerized:
-
-```sh
-docker compose exec -T backend pnpm prisma:seed
-docker compose exec -T backend pnpm prisma:seed:dummy
-```
-
-### Useful Prisma Commands
-
-| Command | Description |
-|---------|-------------|
-| `pnpm prisma:seed` | Run the seed script with initial data |
-| `pnpm prisma:seed:dummy` | Run the seed script with dummy data |
-| `npx prisma migrate dev --name <name>` | Create a new migration |
-| `npx prisma migrate deploy` | Apply pending migrations |
-| `npx prisma migrate reset` | Reset the database |
-
-> [!Important]
-> Seeding is always manual. Docker startup does not auto-run seed scripts.
-
-## Environment Variables
-
-Finally, it is crucial that a local `.env` file is created based off [`.env.example`](/.env.example).
-
-```sh
+```bash
 cp .env.example .env
 ```
 
@@ -775,73 +231,307 @@ DATABASE_HOST="localhost"
 DATABASE_PORT=3306
 ```
 
-## Email Configuration
+### Database Setup
 
-This system uses Gmail SMTP to send emails. To configure:
+#### MariaDB
 
-1. Create a dedicated email account for the system.
-2. Enable 2-factor authentication.
-3. Create an app password from <https://myaccount.google.com/apppasswords>.
-4. Set these `.env` variables:
+You can manage MariaDB with the scripts in this repository or by using your own local installation.
 
-- `MAIL_USER=<email_account>`
-- `MAIL_PASSWORD=<app_password>`
+Manual schema loading is located in `database/Schema/`.
 
-## Running
+#### MongoDB
 
-### Using `pnpm`
+MongoDB is used for document storage and backup automation. The repository includes installation notes in `mongodb_installation.md`.
 
-```sh
-pnpm run dev
+#### Prisma
+
+Prisma is configured through the standard project scripts.
+
+Generate the client:
+
+```bash
+pnpm prisma:generate
 ```
 
-### Using `npm`
+Apply migrations:
 
-```sh
-npm run dev
+```bash
+pnpm prisma:migrate:deploy
 ```
 
-### Running with Docker
+Docker equivalent:
 
-```sh
-pnpm env:devDocker
+```bash
 docker compose exec -T backend npx prisma migrate deploy
 ```
 
-If you want seed data (manual step):
+Seed data:
 
-```sh
+```bash
+pnpm prisma:seed
+pnpm prisma:seed:dummy
+```
+
+Docker equivalent:
+
+```bash
 docker compose exec -T backend pnpm prisma:seed
 docker compose exec -T backend pnpm prisma:seed:dummy
 ```
 
-Tail logs:
+## Modes and Topologies
 
-```sh
+| Mode | Where it runs | What it starts | Typical use |
+| --- | --- | --- | --- |
+| `devLocal` | Your machine | Native backend only | Fast local development with local DBs |
+| `devDocker` | Your machine | Backend + MariaDB + MongoDB | Main local Docker workflow |
+| `serverDocker` | Backend host | Backend container only | Split deployment where DBs are elsewhere |
+| `serverDockerDB` | DB host | MariaDB + MongoDB containers | Separate DB host for split deployment |
+
+The local 3-container topology is the one you should use most of the time when Docker is available on your computer.
+
+## Local Development
+
+### Native backend with local databases
+
+Use this when you want the backend to run natively and your MariaDB/MongoDB are already available locally.
+
+```bash
+cp .env.example .env
+pnpm env:devLocal
+pnpm prisma:migrate:deploy
+pnpm dev:local
+```
+
+Minimum values to verify in `.env`:
+
+- `DB_HOST=localhost`
+- `DB_PORT=3306`
+- `MONGO_URI=mongodb://localhost:27017`
+- `FRONTEND_URL=https://localhost:4321`
+- `BACKEND_URL=https://localhost:3000`
+
+### Local Docker topology on the same computer
+
+This is the recommended path for new contributors and most development tasks.
+
+```bash
+cp .env.example .env
+pnpm up:devDocker
+docker compose exec -T backend npx prisma migrate deploy
+```
+
+If you need seed data, choose one:
+
+```bash
+docker compose exec -T backend pnpm prisma:seed
+docker compose exec -T backend pnpm prisma:seed:dummy
+```
+
+The local Docker topology uses three containers on the same machine:
+
+- `backend`
+- `mariadb`
+- `mongodb`
+
+## Split Deployment Reference
+
+| Scenario | Recommended command | Notes |
+| --- | --- | --- |
+| Native local backend | `pnpm up:devLocal` | Does not rewrite `docker-compose.yml` |
+| Local 3-container Docker topology | `pnpm up:devDocker` | Rewrites `docker-compose.yml` and starts backend + DB containers |
+| Split backend host | `pnpm up:serverDocker` | Backend container only; databases live elsewhere |
+| Split DB host | `pnpm up:serverDockerDB` | MariaDB + MongoDB only |
+
+### Useful Docker commands
+
+```bash
+docker compose ps
+docker compose logs -f backend
+docker compose down
+docker compose down -v
+```
+
+## Quick Guides
+
+### Environment Modes
+
+| Mode | Typical usage | DB target | Notes |
+| --- | --- | --- | --- |
+| `devLocal` | Native backend on your machine | `DEVLOCAL_DB_HOST` / `DEVLOCAL_MONGO_HOST` from `.env` | Patches `.env` only |
+| `devDocker` | Full local Docker stack | Docker service names (`mariadb`, `mongodb`) | Rewrites `docker-compose.yml` and runs compose |
+| `serverDocker` | Backend host | `SERVER_DOCKER_DB_IP` or one-off `DB_IP` | Backend-only compose |
+| `serverDockerDB` | DB host | n/a | MariaDB + MongoDB compose only |
+
+### Configure Once
+
+Set these once in `.env` if you use the switchers often:
+
+- `DEVLOCAL_DB_HOST`
+- `DEVLOCAL_MONGO_HOST`
+- `SERVER_DOCKER_DB_IP`
+
+Then use:
+
+```bash
+pnpm up:devLocal
+pnpm up:devDocker
+pnpm up:serverDocker
+pnpm up:serverDockerDB
+```
+
+The `up:*` commands bootstrap `.env` from the matching example file when needed, patch the selected mode, rewrite `docker-compose.yml` when needed, and start the services.
+
+The older `env:*` commands still exist if you only want to switch files without starting services.
+
+Optional one-off overrides:
+
+```bash
+LOCAL_DB_HOST=<HOST> LOCAL_MONGO_HOST=<HOST> pnpm env:devLocal
+DB_IP=<REAL_DB_IP> pnpm env:serverDocker
+```
+
+### Interactive Shortcut Menu
+
+The menu groups setup, mode switching, backups, recovery, and quick commands.
+
+```bash
+pnpm run menu
+```
+
+Main flow:
+
+1. `0) Initial setup wizard (Flow B)`
+2. `1) Mode switching`
+3. `2) Backups`
+4. `3) Recovery`
+5. `4) Quick commands`
+
+Flow B is the guided setup for Debian machines that need the full toolchain installed.
+
+## Flow B: Guided Setup for Debian Machines
+
+Use this when the machine is blank or nearly blank and you want the quickest path with the least manual decisions.
+
+### Step 1. Bootstrap the machine
+
+```bash
+pnpm run bootstrap:server
+```
+
+This installs and enables the platform tools used by the rest of the workflow.
+
+### Step 2. Open the setup menu
+
+```bash
+pnpm run menu
+```
+
+Then choose `0) Initial setup wizard (Flow B)`.
+
+### Step 3. Choose the role
+
+- Backend host: choose `serverDocker`
+- DB host: choose `serverDockerDB`
+
+The DB host flow also installs or updates the backup cron automatically.
+
+### Step 4. Run the checks
+
+```bash
+docker compose ps
 docker compose logs -f backend
 ```
 
-Stop services:
+## Backups and Restore
 
-```sh
-docker compose down
+Backup and restore are handled by scripts in `backup_scripts/`.
+
+The full step-by-step backup and restore workflow, including cron installation, remote sync, failure signatures, and recovery checks, lives in [backup_scripts/BACKUP_SETUP.md](backup_scripts/BACKUP_SETUP.md).
+
+Important files:
+
+- `backup_scripts/backup.env.example`
+- `backup_scripts/backup-mariadb.sh`
+- `backup_scripts/mongodb_backup.sh`
+- `backup_scripts/backup-all.sh`
+- `backup_scripts/install-backup-cron.sh`
+- `backup_scripts/restore-all.sh`
+
+Quick DB host setup:
+
+```bash
+cd backup_scripts
+cp -n backup.env.example backup.env
+chmod +x *.sh
+BACKUP_CONFIG=./backup.env ./install-backup-cron.sh
+BACKUP_CONFIG=./backup.env ./backup-all.sh
 ```
 
-## System Endpoints
+## Certificates
 
-The backend exposes operational endpoints under `/api/system` that do not require authentication:
+HTTPS certificate generation lives in `certs/`.
 
-- `GET /api/system/health`: Returns service health status, uptime, and metadata.
-- `GET /api/system/version`: Returns service version metadata.
-
-Example health response:
-
-```json
-{
-	"status": "ok",
-	"uptime_seconds": 31.46,
-	"service": "tc3005b-501-backend",
-	"version": "0.1.0",
-	"timestamp": "2026-02-26T23:00:00.000Z"
-}
+```bash
+cd certs
+chmod +x create_certs.sh
+./create_certs.sh
 ```
+
+The OpenSSL configuration file provided by the team must be placed in the `certs/` directory before running the script.
+
+## Email Configuration
+
+This system uses SMTP to send emails.
+
+1. Create a dedicated email account for the system.
+2. Enable 2-factor authentication.
+3. Create an app password from the provider control panel.
+4. Set `MAIL_USER` and `MAIL_PASSWORD` in `.env`.
+
+## Running
+
+### Native
+
+```bash
+pnpm run dev
+```
+
+or:
+
+```bash
+npm run dev
+```
+
+### Docker
+
+```bash
+pnpm up:devDocker
+docker compose exec -T backend npx prisma migrate deploy
+```
+
+### Split deployment / server mode
+
+Use these when the backend and the databases are not on the same machine:
+
+```bash
+pnpm up:serverDocker
+pnpm up:serverDockerDB
+```
+
+## Operational Endpoints
+
+The backend exposes system endpoints under `/api/system` that are useful for health checks:
+
+- `GET /api/system/health`
+- `GET /api/system/version`
+
+## Split Deployment Reference
+
+If you really are deploying the backend and database containers on separate hosts, follow [CLOUD_DEPLOYMENT.md](CLOUD_DEPLOYMENT.md).
+
+That guide is secondary to the local-first workflow in this README.
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for project rules and collaboration notes.

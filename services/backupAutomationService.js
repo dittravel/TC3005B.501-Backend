@@ -17,16 +17,6 @@ const APPLY_CRON_ON_SAVE = ['true', '1', 'yes'].includes(
   String(process.env.BACKUP_APPLY_CRON_ON_SAVE || '').trim().toLowerCase()
 );
 
-const REMOTE_SYNC_ENABLED = ['true', '1', 'yes'].includes(
-  String(process.env.BACKUP_REMOTE_SYNC_ENABLED || '').trim().toLowerCase()
-);
-const REMOTE_SYNC_HOST = String(process.env.BACKUP_REMOTE_SYNC_HOST || '').trim();
-const REMOTE_SYNC_USER = String(process.env.BACKUP_REMOTE_SYNC_USER || '').trim();
-const REMOTE_SYNC_TARGET_DIR = String(
-  process.env.BACKUP_REMOTE_SYNC_TARGET_DIR || '/home/dittravel/TC3005B.501-Backend'
-).trim();
-const REMOTE_SYNC_SSH_KEY = String(process.env.BACKUP_REMOTE_SYNC_SSH_KEY || '').trim();
-
 function parseEnvLines(content) {
   return content.split(/\r?\n/);
 }
@@ -75,29 +65,49 @@ function isValidCronExpression(value) {
   return parts.every((part) => /^[0-9*/,-]+$/.test(part));
 }
 
-function buildSshOptions() {
+function buildSshOptions(remoteSync) {
   const sshOptions = ['-o', 'BatchMode=yes', '-o', 'StrictHostKeyChecking=accept-new'];
-  if (REMOTE_SYNC_SSH_KEY) {
-    sshOptions.push('-i', REMOTE_SYNC_SSH_KEY);
+  if (remoteSync.sshKey) {
+    sshOptions.push('-i', remoteSync.sshKey);
   }
   return sshOptions;
 }
 
-async function syncConfigToRemoteDbVm(configFile) {
-  if (!REMOTE_SYNC_ENABLED) {
+function resolveRemoteSyncConfig(lines) {
+  const enabledRaw = getEnvValue(lines, 'BACKUP_REMOTE_SYNC_ENABLED') || process.env.BACKUP_REMOTE_SYNC_ENABLED || '';
+  const host = (getEnvValue(lines, 'BACKUP_REMOTE_SYNC_HOST') || process.env.BACKUP_REMOTE_SYNC_HOST || '').trim();
+  const user = (getEnvValue(lines, 'BACKUP_REMOTE_SYNC_USER') || process.env.BACKUP_REMOTE_SYNC_USER || '').trim();
+  const targetDir = (
+    getEnvValue(lines, 'BACKUP_REMOTE_SYNC_TARGET_DIR') ||
+    process.env.BACKUP_REMOTE_SYNC_TARGET_DIR ||
+    '/home/dittravel/TC3005B.501-Backend'
+  ).trim();
+  const sshKey = (getEnvValue(lines, 'BACKUP_REMOTE_SYNC_SSH_KEY') || process.env.BACKUP_REMOTE_SYNC_SSH_KEY || '').trim();
+
+  return {
+    enabled: ['true', '1', 'yes'].includes(String(enabledRaw).trim().toLowerCase()),
+    host,
+    user,
+    targetDir,
+    sshKey,
+  };
+}
+
+async function syncConfigToRemoteDbVm(configFile, remoteSync) {
+  if (!remoteSync.enabled) {
     return { applied: false, target: null };
   }
 
-  if (!REMOTE_SYNC_HOST || !REMOTE_SYNC_USER) {
+  if (!remoteSync.host || !remoteSync.user) {
     throw new Error(
       'BACKUP_REMOTE_SYNC_HOST and BACKUP_REMOTE_SYNC_USER must be set to sync the backup config to the DB VM.'
     );
   }
 
-  const sshOptions = buildSshOptions();
-  const remoteRepoDir = REMOTE_SYNC_TARGET_DIR.replaceAll('\\', '/');
+  const sshOptions = buildSshOptions(remoteSync);
+  const remoteRepoDir = remoteSync.targetDir.replaceAll('\\', '/');
   const remoteConfigFile = path.posix.join(remoteRepoDir, 'backup_scripts', 'backup.env');
-  const remoteTarget = `${REMOTE_SYNC_USER}@${REMOTE_SYNC_HOST}`;
+  const remoteTarget = `${remoteSync.user}@${remoteSync.host}`;
 
   await execFileAsync('ssh', [...sshOptions, remoteTarget, `mkdir -p '${path.posix.dirname(remoteConfigFile)}'`], {
     cwd: process.cwd(),
@@ -189,6 +199,7 @@ export async function updateBackupAutomationConfig(input) {
   await ensureConfigFileExists();
   const content = await fs.readFile(BACKUP_CONFIG_FILE, 'utf-8');
   const lines = parseEnvLines(content);
+  const remoteSync = resolveRemoteSyncConfig(lines);
 
   upsertEnvValue(lines, 'BACKUP_AUTOMATION_ENABLED', enabled ? 'true' : 'false');
   upsertEnvValue(lines, 'BACKUP_CRON_SCHEDULE', schedule);
@@ -201,9 +212,9 @@ export async function updateBackupAutomationConfig(input) {
   let cronInstallError = null;
   let cronInstallTarget = null;
 
-  if (REMOTE_SYNC_ENABLED) {
+  if (remoteSync.enabled) {
     try {
-      const syncResult = await syncConfigToRemoteDbVm(BACKUP_CONFIG_FILE);
+      const syncResult = await syncConfigToRemoteDbVm(BACKUP_CONFIG_FILE, remoteSync);
       cronApplied = syncResult.applied;
       cronInstallTarget = syncResult.target;
     } catch (error) {
@@ -228,9 +239,9 @@ export async function updateBackupAutomationConfig(input) {
     cronApplied,
     cronInstallTarget,
     cronInstallError,
-    cronInstallationAttempted: REMOTE_SYNC_ENABLED || APPLY_CRON_ON_SAVE,
-    remoteSyncEnabled: REMOTE_SYNC_ENABLED,
-    remoteSyncTargetDir: REMOTE_SYNC_TARGET_DIR,
+    cronInstallationAttempted: remoteSync.enabled || APPLY_CRON_ON_SAVE,
+    remoteSyncEnabled: remoteSync.enabled,
+    remoteSyncTargetDir: remoteSync.targetDir,
   };
 }
 

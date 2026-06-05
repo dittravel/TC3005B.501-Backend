@@ -1,378 +1,422 @@
-# Dittravel Cloud Deployment (3 Debian Instances, Docker-only)
+# Cloud Deployment Runbook (3 VMs, least interaction)
 
-## Quick Reference
+This guide is the exact order to deploy Dittravel on a split-host setup with minimum trial/error.
 
-Preferred first-time setup path (Flow B, backend repo):
+## Quick Orientation
 
-```bash
-cd ~/TC3005B.501-Backend
-pnpm run bootstrap:server
-# logout/login once
-pnpm run menu
-# choose 0) Initial setup wizard, then pick Backend VM or DB VM setup
-```
+Use this guide only when you are deploying backend and database containers on separate hosts.
 
-Manual path is still supported below.
+The local 3-container Docker topology on a single machine is still the default path for regular development. This document is the secondary reference for the split deployment case.
 
-Daily update loop on any VM (after `git pull`):
+The workflow in this guide is:
 
-```bash
-# DB VM
-cd ~/TC3005B.501-Backend  && git pull && bash switch-env.sh serverDockerDB
+1. Prepare SSH access from your operator machine.
+2. Clone the repositories on each host.
+3. Bootstrap the backend and DB hosts.
+4. Bring up the DB host first.
+5. Configure DB backups.
+6. Bring up the backend host.
+7. Enable remote sync if the backend should push backup settings to the DB host.
+8. Bring up the frontend host.
 
-# Backend VM
-cd ~/TC3005B.501-Backend  && git pull && bash switch-env.sh serverDocker
+## TCP Ports and Network Rules
 
-# Frontend VM
-cd ~/TC3005B.501-Frontend && git pull && bash switch-env.sh serverDocker
-```
+The split-host setup depends on fixed TCP ports. Keep these consistent on both the host firewall and the Docker port mappings.
 
-If Node and pnpm are installed on a local/dev machine, the equivalent one-shot commands are:
+| Service | Port | Who connects | Notes |
+| --- | --- | --- | --- |
+| Backend API | `3000/tcp` | Frontend and operator checks | HTTPS or TLS-terminated backend traffic depending on your compose/cert setup |
+| MariaDB | `3306/tcp` | Backend host and backup scripts | Database traffic from backend to DB host |
+| MongoDB | `27017/tcp` | Backend host and backup scripts | MongoDB traffic from backend to DB host |
+| Frontend | `4321/tcp` | Browser clients | Local frontend dev/default Astro port |
 
-```bash
-# Backend repo
-pnpm up:devLocal
-pnpm up:devDocker
-pnpm up:serverDocker
-pnpm up:serverDockerDB
+Use private network access only. Do not expose `3306` or `27017` to the public internet.
 
-# Frontend repo
-pnpm up:devLocal
-pnpm up:devDocker
-pnpm up:serverDocker
-```
+On the DB host, `serverDockerDB` maps the containers directly to those ports on the host network.
+On the backend host, `serverDocker` expects `SERVER_DOCKER_DB_IP` to resolve the DB host address on the private network.
 
-These `up:*` commands auto-create `.env` from the matching example file when missing, apply the mode switch, rewrite compose files when needed, and bring services up.
+## Keys and Certificates
 
-Force a full container down/up (rare):
+Each host needs the right material before you try to start services.
 
-```bash
-FORCE_DOWN=1 bash switch-env.sh <mode>
-```
+- Operator machine: SSH private key that can reach `serverDockerDB`, `serverDocker`, and `serverFrontend`.
+- Backend host: SSH private key for remote sync to the DB host, mounted or available at `/home/dittravel/.ssh/dittravel`.
+- Backend repo: HTTPS certificates generated from `certs/create_certs.sh` and the shared OpenSSL config file placed in `certs/`.
+- Frontend host: `PUBLIC_API_BASE_URL` pointing at the backend host; if the frontend terminates HTTPS itself, its own compose/cert setup must match the frontend repo instructions.
 
-Apply backend DB migrations after deploy:
+If any of these are missing, fix them before trying to validate the network flow, because missing keys or certs usually look like application failures later.
 
-```bash
-docker compose exec -T backend npx prisma migrate deploy
-```
+## Getting Started
 
-Disaster recovery (run on DB VM, no UI required):
+### 1. Prepare SSH access
 
-```bash
-cd ~/TC3005B.501-Backend
-BACKUP_CONFIG=./backup_scripts/backup.env ./backup_scripts/restore-all.sh
-```
-
-Optional shortcuts when Node+pnpm are installed on that VM:
-
-```bash
-pnpm restore:all
-pnpm restore:mariadb
-pnpm restore:mongodb
-```
-
-Validate from your laptop:
-
-```bash
-ssh puertos          # opens tunnels 4321 and 3000
-# then browse https://localhost:4321 and https://localhost:3000
-```
-
-Common checks per VM:
-
-```bash
-docker compose ps
-docker compose logs -f <service>     # mariadb | mongodb | backend | frontend
-ss -ltnp | grep -E '3306|27017|3000|4321'
-nc -zv 172.16.60.115 3306            # from backend VM
-nc -zv <BACKEND_PRIVATE_IP> 3000     # from frontend VM
-```
-
-Full setup details below.
-
----
-
-Three Debian VMs, all using Docker. Each instance runs one role.
-
-| Role | Repo cloned | Mode |
-|------|-------------|------|
-| DB   | TC3005B.501-Backend | `serverDockerDB` (MariaDB + MongoDB containers) |
-| Backend | TC3005B.501-Backend | `serverDocker` (backend container) |
-| Frontend | TC3005B.501-Frontend | `serverDocker` (frontend container) |
-
-Needed known IPs:
-
-- DB:       `172.16.60.115`
-- Backend:  `<BACKEND_PRIVATE_IP>`
-- Frontend: `<FRONTEND_PRIVATE_IP>`
-
-## 1. One-Time Local Setup
-
-### SSH config (`~/.ssh/config`)
+Edit `~/.ssh/config` on your operator machine and validate that each host resolves.
 
 ```sshconfig
-Host jumpserver
-  HostName 10.49.12.24
-  User dittravel
-  IdentityFile ~/.ssh/dittravel
-  Port 49666
-
-Host dittdb
+Host serverDockerDB
   HostName 172.16.60.115
   User dittravel
   IdentityFile ~/.ssh/dittravel
-  ProxyJump jumpserver
 
-Host dittback
-  HostName <BACKEND_PRIVATE_IP>
+Host serverDocker
+  HostName 172.16.60.186
   User dittravel
   IdentityFile ~/.ssh/dittravel
-  ProxyJump jumpserver
 
-Host dittfront
-  HostName <FRONTEND_PRIVATE_IP>
+Host serverFrontend
+  HostName 172.16.60.106
   User dittravel
   IdentityFile ~/.ssh/dittravel
-  ProxyJump jumpserver
-
-Host puertos
-  HostName <FRONTEND_PRIVATE_IP>
-  User dittravel
-  IdentityFile ~/.ssh/dittravel
-  ProxyJump jumpserver
-  LocalForward 4321 localhost:4321
-  LocalForward 3000 <BACKEND_PRIVATE_IP>:3000
 ```
-
-### Key permissions
-
-Linux/macOS:
 
 ```bash
-chmod 600 ~/.ssh/dittravel
-chmod 644 ~/.ssh/dittravel.pub
-chmod 700 ~/.ssh
-chmod 600 ~/.ssh/config
+ssh serverDockerDB 'hostname'
+ssh serverDocker 'hostname'
+ssh serverFrontend 'hostname'
 ```
 
-Windows PowerShell:
+### 2. Clone the repositories
 
-```powershell
-icacls $env:USERPROFILE\.ssh\dittravel /inheritance:r /grant:r "$env:USERNAME`:F"
-```
+Clone the repository on each host that will run it. The DB host and backend host both use the backend repo; the frontend host uses the frontend repo.
 
-## 2. Common Base Install (run ONCE per fresh VM)
+### 3. Bootstrap the backend and DB hosts
 
-You can use either:
-
-- Flow B automation: `pnpm run bootstrap:server` (from backend repo), or
-- the manual commands in this section.
-
-If you use `bootstrap:server`, keep this section as reference/troubleshooting.
-
-Run on all three VMs:
+On both backend and DB hosts, run the bootstrap script after cloning the backend repository.
 
 ```bash
-sudo apt-get update
-sudo apt-get install -y ca-certificates curl gnupg lsb-release git openssh-client netcat-openbsd
-
-sudo install -m 0755 -d /etc/apt/keyrings
-DISTRO_ID=$(. /etc/os-release && echo "$ID")
-DISTRO_CODENAME=$(. /etc/os-release && echo "$VERSION_CODENAME")
-
-curl -fsSL "https://download.docker.com/linux/${DISTRO_ID}/gpg" | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
-sudo chmod a+r /etc/apt/keyrings/docker.gpg
-
-echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/${DISTRO_ID} ${DISTRO_CODENAME} stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
-
-sudo apt-get update
-sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
-
-sudo systemctl enable --now docker
-sudo usermod -aG docker "$USER"
+cd /home/dittravel/TC3005B.501-Backend
+bash scripts/bootstrap-server.sh
 ```
 
-Log out and back in once, then verify:
+After bootstrap, log out and log back in so Docker group membership is applied.
+
+## 1. VM roles
+
+Use these role names consistently:
+
+1. `serverDockerDB`: DB VM (MariaDB + MongoDB + backup cron)
+2. `serverDocker`: Backend VM (API)
+3. Frontend VM: frontend repo service
+
+Example private IPs:
+- DB VM: `172.16.60.115`
+- Backend VM: `172.16.60.186`
+- Frontend VM: `172.16.60.106`
+
+Expected port reachability on the private network:
+
+- Backend VM -> DB VM: `172.16.60.115:3306` and `172.16.60.115:27017`
+- Frontend clients -> Backend VM: `172.16.60.186:3000`
+- Browser -> Frontend VM: `172.16.60.106:4321` if you run the frontend container separately
+
+## 2. Clone repositories on each VM
+
+### DB VM
 
 ```bash
-git --version
-docker --version
-docker compose version
+ssh serverDockerDB
+mkdir -p /home/dittravel && cd /home/dittravel
+git clone https://github.com/dittravel/TC3005B.501-Backend.git
+cd TC3005B.501-Backend
 ```
 
-> Node.js / pnpm are NOT required on any instance. The switch scripts are plain bash; everything else runs in containers.
-
-## 3. Per-Instance Setup (one-time)
-
-Flow B equivalent:
-
-- Run `pnpm run menu`
-- Enter `0) Initial setup wizard (Flow B)`
-- On DB VM choose DB setup (`serverDockerDB`)
-- On Backend VM choose Backend setup (`serverDocker`)
-- Frontend VM keeps its own frontend repo switcher flow (`bash switch-env.sh serverDocker`)
-
-In DB setup, backup cron is installed/updated automatically from `backup_scripts/backup.env`.
-
-Manual commands remain below.
-
-### 3.1 DB Instance (`dittdb`, 172.16.60.115)
+### Backend VM
 
 ```bash
-git clone <BACKEND_REPO_URL> ~/TC3005B.501-Backend
-cd ~/TC3005B.501-Backend
-cp .env.example .env
+ssh serverDocker
+mkdir -p /home/dittravel && cd /home/dittravel
+git clone https://github.com/dittravel/TC3005B.501-Backend.git
+cd TC3005B.501-Backend
 ```
 
-Edit `.env` and set at minimum:
+### Frontend VM
 
-- `DB_NAME=CocoScheme`
-- `DB_USER=travel_user`
-- `DB_PASSWORD=<strong_password>`
-- `DB_ROOT_PASSWORD=<strong_root_password>`
+```bash
+ssh serverFrontend
+mkdir -p /home/dittravel && cd /home/dittravel
+git clone https://github.com/dittravel/TC3005B.501-Frontend.git
+cd TC3005B.501-Frontend
+```
 
-Then:
+## 3. Deploy DB VM first
+
+On DB VM:
+
+```bash
+cd /home/dittravel/TC3005B.501-Backend
+cp -n .env.example .env
+```
+
+Set DB values in `.env`:
+
+```dotenv
+DB_NAME=CocoScheme
+DB_USER=travel_user
+DB_PASSWORD=<strong_password>
+DB_ROOT_PASSWORD=<strong_root_password>
+```
+
+Switch mode and start:
 
 ```bash
 bash switch-env.sh serverDockerDB
 docker compose ps
-ss -ltnp | grep -E '3306|27017'
 ```
 
-Backup setup on DB VM (required):
+Expected:
+- `mariadb` healthy
+- `mongodb` healthy
+
+## 4. Configure backups on DB VM
 
 ```bash
-cd ~/TC3005B.501-Backend
-cp -n backup_scripts/backup.env.example backup_scripts/backup.env
-chmod +x backup_scripts/*.sh
-pnpm run backup:all
+cd /home/dittravel/TC3005B.501-Backend/backup_scripts
+cp -n backup.env.example backup.env
+chmod +x *.sh
+```
+
+Edit `backup.env` minimum:
+
+```dotenv
+BACKUP_BASE_DIR=/var/backups/dittravel
+BACKUP_LOG_FILE=/var/backups/dittravel/backup.log
+
+MARIADB_SOURCE=docker
+MONGODB_SOURCE=docker
+COMPOSE_PROJECT_DIR=/home/dittravel/TC3005B.501-Backend
+
+MARIADB_DB_NAME=CocoScheme
+MARIADB_USER=travel_user
+MARIADB_PASSWORD=<same_as_db_env>
+MONGODB_DB_NAME=fileStorage
+
+BACKUP_AUTOMATION_ENABLED=true
+BACKUP_CRON_SCHEDULE="0 */6 * * *"
+```
+
+Install cron and validate:
+
+```bash
+cd /home/dittravel/TC3005B.501-Backend
 pnpm run backup:cron:install
+crontab -l | grep dittravel-backup-job
+pnpm run backup:all
+tail -n 100 /var/backups/dittravel/backup.log
 ```
 
-### 3.2 Backend Instance (`dittback`)
+## 5. Deploy backend VM
+
+On backend VM:
 
 ```bash
-git clone <BACKEND_REPO_URL> ~/TC3005B.501-Backend
-cd ~/TC3005B.501-Backend
-cp .env.example .env
+cd /home/dittravel/TC3005B.501-Backend
+cp -n .env.example .env
 ```
 
-Edit `.env` and set:
+Edit `.env`:
 
-- `SERVER_DOCKER_DB_IP=172.16.60.115`
-- `DB_NAME`, `DB_USER`, `DB_PASSWORD` (must match DB instance)
-- `JWT_SECRET`, `AES_SECRET_KEY`, `AES_IV`, `MAIL_USER`, `MAIL_PASSWORD`
-
-Verify DB reachability:
-
-```bash
-nc -zv 172.16.60.115 3306
-nc -zv 172.16.60.115 27017
+```dotenv
+SERVER_DOCKER_DB_IP=172.16.60.115
+DB_NAME=CocoScheme
+DB_USER=travel_user
+DB_PASSWORD=<same_as_db_env>
+JWT_SECRET=<secret>
+AES_SECRET_KEY=<32 chars>
+AES_IV=<16 chars>
+MAIL_USER=<mail_user>
+MAIL_PASSWORD=<mail_password>
 ```
 
-Then:
+Switch mode and start:
 
 ```bash
+bash switch-env.sh serverDocker
+docker compose ps
+```
+
+Run migrations:
+
+```bash
+docker compose exec -T backend npx prisma migrate deploy
+```
+
+Health checks:
+
+```bash
+curl -k https://localhost:3000/api/system/health
+curl -k https://localhost:3000/api/system/version
+```
+
+## 6. Enable backend -> DB VM remote sync (recommended)
+
+This allows UI backup automation changes to apply directly on DB VM cron.
+
+### 6.1 Prepare key on backend VM host
+
+```bash
+mkdir -p /home/dittravel/.ssh
+chmod 700 /home/dittravel/.ssh
+# put private key in /home/dittravel/.ssh/dittravel
+chmod 600 /home/dittravel/.ssh/dittravel
+```
+
+Validate host-level SSH:
+
+```bash
+ssh -i /home/dittravel/.ssh/dittravel -o BatchMode=yes dittravel@172.16.60.115 'echo REMOTE_OK'
+```
+
+### 6.2 Configure backend VM `backup_scripts/backup.env`
+
+```dotenv
+BACKUP_REMOTE_SYNC_ENABLED=true
+BACKUP_REMOTE_SYNC_HOST=172.16.60.115
+BACKUP_REMOTE_SYNC_USER=dittravel
+BACKUP_REMOTE_SYNC_TARGET_DIR=/home/dittravel/TC3005B.501-Backend
+BACKUP_REMOTE_SYNC_SSH_KEY=/home/dittravel/.ssh/dittravel
+```
+
+### 6.3 Recreate backend container
+
+```bash
+cd /home/dittravel/TC3005B.501-Backend
+docker compose up -d --force-recreate backend
+```
+
+### 6.4 Validate from UI/API
+
+Save backup automation settings from superadmin panel, then verify on DB VM:
+
+```bash
+ssh serverDockerDB "crontab -l | grep dittravel-backup-job"
+```
+
+## 7. Deploy frontend VM
+
+On frontend VM:
+
+```bash
+cd /home/dittravel/TC3005B.501-Frontend
+cp -n .env.example .env
+```
+
+Set backend target:
+
+```dotenv
+SERVER_DOCKER_BACKEND_IP=172.16.60.186
+PUBLIC_API_BASE_URL=https://172.16.60.186:3000/api
+PUBLIC_IS_DEV=false
+```
+
+Start frontend in server mode:
+
+```bash
+bash switch-env.sh serverDocker
+docker compose ps
+```
+
+Validate:
+- Open frontend URL
+- login
+- confirm API calls hit backend VM
+
+## 10. Daily update sequence (safe)
+
+Always update in this order.
+
+### 10.1 DB VM
+
+```bash
+ssh serverDockerDB
+cd /home/dittravel/TC3005B.501-Backend
+git pull
+bash switch-env.sh serverDockerDB
+chmod +x backup_scripts/*.sh
+pnpm run backup:cron:install
+pnpm run backup:all
+```
+
+### 10.2 Backend VM
+
+```bash
+ssh serverDocker
+cd /home/dittravel/TC3005B.501-Backend
+git pull
 bash switch-env.sh serverDocker
 docker compose exec -T backend npx prisma migrate deploy
-docker compose ps
 ```
 
-Optional seed (wipes data):
+### 10.3 Frontend VM
 
 ```bash
-docker compose exec -T backend npm run prisma:seed
-# or
-docker compose exec -T backend npm run prisma:seed:dummy
-```
-
-### 3.3 Frontend Instance (`dittfront`)
-
-```bash
-git clone <FRONTEND_REPO_URL> ~/TC3005B.501-Frontend
-cd ~/TC3005B.501-Frontend
-cp .env.example .env
-```
-
-Edit `.env` and set:
-
-- `SERVER_DOCKER_BACKEND_IP=<BACKEND_PRIVATE_IP>`
-
-Then:
-
-```bash
-bash switch-env.sh serverDocker
-docker compose ps
-```
-
-## 4. Daily Workflow
-
-After you push changes from your laptop:
-
-```bash
-# On the relevant VM
-cd ~/TC3005B.501-Backend     # or ~/TC3005B.501-Frontend on the frontend VM
+ssh serverFrontend
+cd /home/dittravel/TC3005B.501-Frontend
 git pull
-bash switch-env.sh <mode>    # serverDockerDB | serverDocker | serverDocker
+bash switch-env.sh serverDocker
 ```
 
-Modes per VM:
+## 11. Verification checklist
 
-- DB VM:       `serverDockerDB`
-- Backend VM:  `serverDocker`
-- Frontend VM: `serverDocker`
-
-Default behavior avoids a full `docker compose down`. Force a full stop/start only when needed:
+Run after deployment:
 
 ```bash
-FORCE_DOWN=1 bash switch-env.sh <mode>
+ssh serverDockerDB "docker compose -f /home/dittravel/TC3005B.501-Backend/docker-compose.yml ps"
+ssh serverDocker "docker compose -f /home/dittravel/TC3005B.501-Backend/docker-compose.yml ps"
+ssh serverDockerDB "crontab -l | grep dittravel-backup-job"
+ssh serverDockerDB "tail -n 80 /var/backups/dittravel/backup.log"
 ```
 
-Menu-based daily operation (if Node+pnpm is available on VM):
+## 12. Common failures and exact fixes
+
+### 12.1 `spawn ssh ENOENT` on backend API
+Cause:
+- backend container lacks ssh client or not recreated after image change.
+
+Fix:
 
 ```bash
-pnpm run menu
+ssh serverDocker
+cd /home/dittravel/TC3005B.501-Backend
+docker compose up -d --build --force-recreate backend
 ```
 
-Use menu options for mode switching, backups, recovery, and quick checks.
+### 12.2 `Permission denied (publickey)` remote sync
+Cause:
+- wrong key path/permissions/user.
 
-## 5. Validation From Your Laptop
+Fix:
 
 ```bash
-ssh puertos
+chmod 700 /home/dittravel/.ssh
+chmod 600 /home/dittravel/.ssh/dittravel
+ssh -i /home/dittravel/.ssh/dittravel dittravel@172.16.60.115 'echo OK'
 ```
 
-Open in browser:
+### 12.3 Cron job points to relative `BACKUP_CONFIG`
+Cause:
+- old install script/old crontab entry.
 
-- `https://localhost:4321`
-- `https://localhost:3000`
+Fix:
 
-## 6. Required Network Rules (OpenStack Security Groups)
+```bash
+ssh serverDockerDB
+cd /home/dittravel/TC3005B.501-Backend
+pnpm run backup:cron:install
+crontab -l | grep dittravel-backup-job
+```
 
-- DB VM: allow TCP `3306` and `27017` from backend VM
-- Backend VM: allow TCP `3000` from frontend VM
-- Frontend VM: allow TCP `4321` from your jump/tunnel path
+### 12.4 `mariadb-dump: 1045`
+Cause:
+- credential mismatch in DB VM `backup.env` vs actual DB user.
 
-## 7. Change Management
+Fix:
+- align `MARIADB_USER` and `MARIADB_PASSWORD`
+- rerun `pnpm run backup:all`
 
-- DB IP changes: update `SERVER_DOCKER_DB_IP` in backend `.env`, then `bash switch-env.sh serverDocker`.
-- Backend IP changes: update `SERVER_DOCKER_BACKEND_IP` in frontend `.env`, then `bash switch-env.sh serverDocker`.
-- DB credentials change: update `.env` on both DB and backend VMs, then re-run their respective switchers.
+## 13. Notes about mode switchers
 
-## 8. Troubleshooting
+`switch-env.sh` rewrites `docker-compose.yml` per mode.
 
-Backend can’t reach DB:
-
-- Recheck `SERVER_DOCKER_DB_IP` in backend `.env`.
-- Recheck DB VM security group allows backend VM.
-- On DB VM: `docker compose ps` and `ss -ltnp | grep -E '3306|27017'`.
-
-Frontend can’t reach backend:
-
-- Recheck `SERVER_DOCKER_BACKEND_IP` in frontend `.env`.
-- Recheck backend VM security group allows frontend VM.
-- On backend VM: `docker compose ps` and `docker compose logs -f backend`.
-
-Prisma error `Unknown authentication plugin 'sha256_password'`:
-
-- DB user uses an incompatible auth plugin. Use a MariaDB user with `mysql_native_password`.
+Operational consequence:
+- manual compose edits can be lost after each mode switch.
+- keep custom behavior in scripts/templates tracked in git, not manual local edits.
