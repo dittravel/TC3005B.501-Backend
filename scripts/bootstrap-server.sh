@@ -62,11 +62,12 @@ if ! command -v corepack >/dev/null 2>&1; then
   $SUDO npm install -g corepack
 fi
 
-if [[ "$TARGET_USER" == "root" ]]; then
+if [[ -n "$SUDO" ]]; then
+  $SUDO corepack enable || true
+  $SUDO corepack prepare pnpm@10.10.0 --activate || true
+else
   corepack enable || true
   corepack prepare pnpm@10.10.0 --activate || true
-else
-  $SUDO -u "$TARGET_USER" bash -lc "corepack enable && corepack prepare pnpm@10.10.0 --activate" || true
 fi
 
 echo "Bootstrap completed."
