@@ -5,9 +5,29 @@ set -euo pipefail
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 BACKUP_CONFIG="${BACKUP_CONFIG:-$SCRIPT_DIR/backup.env}"
 
+read_config_value() {
+  local key="$1"
+  local raw_value
+
+  raw_value="$({ grep -E "^${key}=" "$BACKUP_CONFIG" | tail -n 1 | sed "s/^${key}=//"; } 2>/dev/null || true)"
+  raw_value="${raw_value%$'\r'}"
+
+  if [[ -z "$raw_value" ]]; then
+    printf '%s' ""
+    return 0
+  fi
+
+  if [[ ( "$raw_value" == '"'*'"' ) || ( "$raw_value" == "'"*"'" ) ]]; then
+    raw_value="${raw_value:1:${#raw_value}-2}"
+  fi
+
+  printf '%s' "$raw_value"
+}
+
 if [[ -f "$BACKUP_CONFIG" ]]; then
-  # shellcheck disable=SC1090
-  source "$BACKUP_CONFIG"
+  BACKUP_AUTOMATION_ENABLED="$(read_config_value BACKUP_AUTOMATION_ENABLED)"
+  BACKUP_CRON_SCHEDULE="$(read_config_value BACKUP_CRON_SCHEDULE)"
+  BACKUP_LOG_FILE="$(read_config_value BACKUP_LOG_FILE)"
 fi
 
 BACKUP_AUTOMATION_ENABLED="${BACKUP_AUTOMATION_ENABLED:-true}"

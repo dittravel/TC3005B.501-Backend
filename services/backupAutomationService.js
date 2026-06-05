@@ -24,11 +24,19 @@ function parseEnvLines(content) {
 function getEnvValue(lines, key) {
   const line = lines.find((entry) => entry.startsWith(`${key}=`));
   if (!line) return '';
-  return line.slice(key.length + 1).trim();
+  const value = line.slice(key.length + 1).trim();
+  if (
+    (value.startsWith('"') && value.endsWith('"')) ||
+    (value.startsWith("'") && value.endsWith("'"))
+  ) {
+    return value.slice(1, -1);
+  }
+  return value;
 }
 
 function upsertEnvValue(lines, key, value) {
-  const expected = `${key}=${value}`;
+  const serializedValue = key === 'BACKUP_CRON_SCHEDULE' ? `"${value}"` : value;
+  const expected = `${key}=${serializedValue}`;
   const index = lines.findIndex((entry) => entry.startsWith(`${key}=`));
   if (index >= 0) {
     lines[index] = expected;
