@@ -9,6 +9,7 @@ import { stdin as input, stdout as output } from 'node:process';
 const root = resolve(import.meta.dirname, '..');
 const backupConfigPath = resolve(root, 'backup_scripts', 'backup.env');
 const envPath = resolve(root, '.env');
+const pnpmCommand = process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm';
 
 const rl = createInterface({ input, output });
 
@@ -54,10 +55,9 @@ function printContext() {
 
 function runPnpmScript(scriptName) {
   console.log(`\nRunning: pnpm run ${scriptName}\n`);
-  const result = spawnSync('pnpm', ['run', scriptName], {
+  const result = spawnSync(pnpmCommand, ['run', scriptName], {
     cwd: root,
     stdio: 'inherit',
-    shell: true,
     env: process.env,
   });
   return result.status ?? 1;
