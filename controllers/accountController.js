@@ -58,11 +58,11 @@ export async function updateAccount(req, res) {
     await AuditLogService.recordAuditLogFromRequest(req, {
       actionType: 'ACCOUNT_UPDATED',
       entityType: 'Account',
-      entityId: account.id,
+      entityId: account.account_id,
       metadata: {
-        code: account.code,
-        name: account.name,
-        type: account.type,
+        code: account.account_code,
+        name: account.account_name,
+        type: account.account_type,
       },
     });
     return res.status(200).json(account);
@@ -78,11 +78,11 @@ export async function deleteAccount(req, res) {
     await AuditLogService.recordAuditLogFromRequest(req, {
       actionType: 'ACCOUNT_DELETED',
       entityType: 'Account',
-      entityId: deletedAccount.id,
+      entityId: deletedAccount.account_id,
       metadata: {
-        code: deletedAccount.code,
-        name: deletedAccount.name,
-        type: deletedAccount.type,
+        code: deletedAccount.account_code,
+        name: deletedAccount.account_name,
+        type: deletedAccount.account_type,
       },
     });
     return res.status(204).send();

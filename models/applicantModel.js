@@ -488,7 +488,7 @@ const Applicant = {
           plane_needed,
           hotel_needed,
         },
-        additionalRoutes,
+        additionalRoutes
       );
 
       const request_days = getRequestDays(allRoutes);
