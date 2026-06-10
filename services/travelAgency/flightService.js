@@ -8,11 +8,17 @@
 
 import { Duffel } from "@duffel/api";
 
-const duffel = new Duffel({
-  token: process.env.DUFFEL_TOKEN
-});
-
 const DEFAULT_FLIGHT_SEARCH_PAGE_SIZE = Number.parseInt(process.env.FLIGHT_SEARCH_PAGE_SIZE, 10) || 10;
+
+function getDuffelClient() {
+  const token = process.env.DUFFEL_TOKEN;
+
+  if (!token) {
+    throw new Error("DUFFEL_TOKEN is not configured");
+  }
+
+  return new Duffel({ token });
+}
 
 /**
  * Search available flight offers from Duffel API
@@ -42,9 +48,7 @@ export const searchFlights = async ({
   limit,
 }) => {
   try {
-    if (!process.env.DUFFEL_TOKEN) {
-      throw new Error("DUFFEL_TOKEN is not configured");
-    }
+    const duffel = getDuffelClient();
 
     const normalizedPage = Number.isInteger(page) && page > 0 ? page : 1;
     const requestedPageSize = pageSize ?? limit ?? DEFAULT_FLIGHT_SEARCH_PAGE_SIZE;

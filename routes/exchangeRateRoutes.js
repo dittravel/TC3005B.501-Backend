@@ -17,8 +17,8 @@ import { authenticateToken } from '../middleware/auth.js';
 
 const router = express.Router();
 
-router.get('/catalog', generalRateLimiter, authenticateToken, exchangeRateController.getCatalog);
-router.get('/', generalRateLimiter, authenticateToken, exchangeRateController.getCurrentExchangeRate);
+router.get('/catalog', generalRateLimiter, exchangeRateController.getCatalog);
+router.get('/', generalRateLimiter, exchangeRateController.getCurrentExchangeRate);
 router.post('/clear-cache', generalRateLimiter, authenticateToken, exchangeRateController.clearCache);
 
 export default router;

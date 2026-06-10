@@ -1,272 +1,280 @@
-# Backup Script Instructions
+# Backup and Restore Runbook (DB VM first)
 
-## MariaDB
+This document explains exactly how to configure backups, cron, and restore with minimum ambiguity.
 
-### Location
+## Quick Orientation
 
-In the VM hosting your mariadb database, create the backup script by running:
+Use this guide when you are setting up backups on the host that runs MariaDB and MongoDB.
 
-```bash
-sudo vim /usr/local/bin/backup-mariadb.sh
-```
+The backup cron belongs on the DB host, not on the backend host. The backend may update the DB host backup settings through remote sync, but the actual cron execution still happens on the DB host.
 
-### Shell Script
+## Getting Started
 
-### 1. Add the following content to the script, changing the user and password, as well as the paths as necessary:
+### 1. Bootstrap the DB host
 
-```bash
-#!/bin/bash
-echo "[$(date)] Inicio del script" >> ~/debug_cron.log
-USER="CocoAdmin"
-PASSWORD="CocoPassword"
-DATABASE="CocoScheme"
-BACKUP_DIR="/var/backups/mariadb"
-DATE=$(date +"%Y%m%d_%H%M%S")
-FILENAME="${DATABASE}_${DATE}.sql"
-
-# Remove old backup (if it exists)
-rm -fr $BACKUP_DIR
-mkdir -p $BACKUP_DIR
-
-# Create backup
-echo "Ejecutando mysqldump..." >> /var/backups/mariadb/debug_cron.log
-mysqldump -u $USER -p$PASSWORD $DATABASE > "$BACKUP_DIR/$FILENAME"
-echo "mysqldump finalizado" >> /var/backups/mariadb/debug_cron.log
-
-# SCP transfer to remote VM
-REMOTE_USER="backupUser"
-REMOTE_PASSWORD="backupPassword"
-REMOTE_HOST="172.16.61.151"
-REMOTE_DIR="~/backups"
-
-# Clean up remote backup directory before transferring new backup
-echo "Limpiando directorio remoto..." >> /var/backups/mariadb/debug_cron.log
-sshpass -p "${REMOTE_PASSWORD}" ssh ${REMOTE_USER}@${REMOTE_HOST} "rm -fr ${REMOTE_DIR}/* && mkdir -p ${REMOTE_DIR}"
-SSH_STATUS=$?
-
-if [ $SSH_STATUS -ne 0 ]; then
-    echo "Error al limpiar directorio remoto (c—digo: $SSH_STATUS)" >> ~/debug_cron.log
-fi
-
-echo "Iniciando transferencia SCP..." >> /var/backups/mariadb/debug_cron.log
-sshpass -p "${REMOTE_PASSWORD}" scp "$BACKUP_DIR/$FILENAME" ${REMOTE_USER}@${REMOTE_HOST}:${REMOTE_DIR}/
-SCP_STATUS=$?
-
-if [ $SCP_STATUS -eq 0 ]; then
-    echo "Transferencia SCP completada exitosamente" >> /var/backups/mariadb/debug_cron.log
-else
-    echo "Error en la transferencia SCP (c?digo: $SCP_STATUS)" >/var/backups/mariadb/debug_cron.log
-fi
-```
-
-### 2. Make the script an executable:
+On the DB host, run the backend bootstrap script after cloning the backend repository.
 
 ```bash
-sudo chmod +x /usr/local/bin/backup-mariadb.sh
+cd /home/dittravel/TC3005B.501-Backend
+bash scripts/bootstrap-server.sh
+bash switch-env.sh serverDockerDB
+docker compose ps
 ```
 
-### 3. Verify the script runs:
+Expected services healthy:
+
+- `mariadb`
+- `mongodb`
+
+### 2. Create the backup config
 
 ```bash
-sudo /usr/local/bin/backup-mariadb.sh
+cd /home/dittravel/TC3005B.501-Backend/backup_scripts
+cp -n backup.env.example backup.env
+chmod +x *.sh
 ```
 
-### 4. Check the backup was created succesfully locally and in the remote backup machine:
+### 3. Fill in the required backup values
 
-#### Locally
+Fill in the required backup values in `backup.env` using the template below, then install cron.
+
+Primary host for this runbook:
+- DB VM (`serverDockerDB`)
+- repository path: `/home/dittravel/TC3005B.501-Backend`
+
+## 1. Scope and ownership
+
+1. Backup scripts run on DB VM.
+2. Cron job that executes backups is installed on DB VM.
+3. Backend VM may update DB VM backup settings only through remote sync.
+
+## 2. Required `backup.env` baseline (DB VM)
+
+Use this as the minimum functional template.
+
+```dotenv
+# Base paths
+BACKUP_BASE_DIR=/var/backups/dittravel
+BACKUP_LOG_FILE=/var/backups/dittravel/backup.log
+
+# Where DBs are read from during backup
+MARIADB_SOURCE=docker
+MONGODB_SOURCE=docker
+COMPOSE_PROJECT_DIR=/home/dittravel/TC3005B.501-Backend
+
+# MariaDB backup credentials
+MARIADB_DB_NAME=CocoScheme
+MARIADB_USER=travel_user
+MARIADB_PASSWORD=<db_password>
+
+# Mongo backup target database
+MONGODB_DB_NAME=fileStorage
+
+# Retention
+MARIADB_RETENTION_DAYS=14
+MONGODB_RETENTION_DAYS=14
+
+# Automation
+BACKUP_AUTOMATION_ENABLED=true
+BACKUP_CRON_SCHEDULE="0 */6 * * *"
+```
+
+## 3. Install or update cron from config
 
 ```bash
-ls -la /var/backups/mariadb
+cd /home/dittravel/TC3005B.501-Backend
+pnpm run backup:cron:install
 ```
 
-#### Remote machine
+Verify:
 
 ```bash
-ls -la /your/backup/path
+crontab -l | grep dittravel-backup-job
 ```
 
-### 5. Schedule the script to run as you need:
+Expected characteristics:
+- includes marker `# dittravel-backup-job`
+- uses absolute `BACKUP_CONFIG=/home/dittravel/TC3005B.501-Backend/backup_scripts/backup.env`
+- calls absolute backup script path
 
-- Install cron and crontab in the VM using
-
-    ```bash
-    sudo apt install crontab
-    ```
-
-- Run
-
-    ```bash
-    sudo crontab -e
-    ```
-
-    and choose the editor of your choice (nano by default).
-
-- At the beginning of the file, add
-
-    ```bash
-    0 3 * * * /usr/local/bin/backup-mariadb.sh
-    ```
-
-    This will create a backup everyday at 3am and send the cron logs to the
-    file in the home directory for your user.
-
-- Run `sudo systemctl enable --now`. You may need to install or specify a locale for crontab to be able to interpret the executable properly.
-You can use the following commands for this.
-
-```Shell
-sudo apt-get update
-sudo apt-get install locales
-sudo locale-gen en_US.UTF-8
-```
-
-Then run `sudo dpkg-reconfigure locales`. In the menu, select `"en_US.UTF-8 UTF-8"` and `"en_US.UTF-8"` as the default locale.
-
-Now you can update your locale with `sudo update-locale LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8`.
-
-## MongoDB
-
-In the VM hosting your mongodb database, create the backup script by running:
+## 4. Test backup manually before trusting cron
 
 ```bash
-sudo vim /usr/local/bin/backup-mongodb.sh
+cd /home/dittravel/TC3005B.501-Backend
+pnpm run backup:all
 ```
 
-### Shell Script
-
-### 1. Add the following content to the script, changing the user and password, as well as the paths as necessary:
+Validate outputs:
 
 ```bash
-#!/bin/bash
-echo "[$(date)] Inicio del script de backup MongoDB" >> ~/debug_cron.log
-
-# MongoDB connection parameters
-MONGO_HOST="localhost"
-MONGO_PORT="27017"
-MONGO_DB="fileStorage"
-# If authentication is required, uncomment and set these
-#MONGO_USER="db_user"
-#MONGO_PASSWORD="your_secure_password"
-
-# Backup settings
-BACKUP_DIR="/var/backups/mongodb"
-DATE=$(date +"%Y%m%d_%H%M%S")
-FILENAME="${MONGO_DB}_${DATE}"
-
-# Remote server settings
-REMOTE_USER="remote_username"
-REMOTE_HOST="remote_vm_ip_or_hostname"
-REMOTE_DIR="/path/to/backup/destination"
-
-# Remove old backup locally (if it exists)
-echo "Limpiando directorio local de backups..." >> ~/debug_cron.log
-rm -fr $BACKUP_DIR
-mkdir -p $BACKUP_DIR
-
-# Create MongoDB backup
-echo "Ejecutando mongodump..." >> ~/debug_cron.log
-
-# Choose one of these commands based on whether you need authentication
-# Without authentication:
-mongodump --host $MONGO_HOST --port $MONGO_PORT --db $MONGO_DB --out "$BACKUP_DIR/$FILENAME"
-
-# With authentication (uncomment if needed):
-#mongodump --host $MONGO_HOST --port $MONGO_PORT --username $MONGO_USER --password $MONGO_PASSWORD --authenticationDatabase admin --db $MONGO_DB --out "$BACKUP_DIR/$FILENAME"
-
-DUMP_STATUS=$?
-if [ $DUMP_STATUS -eq 0 ]; then
-    echo "mongodump completado exitosamente" >> ~/debug_cron.log
-else
-    echo "Error en mongodump (c¿¿digo: $DUMP_STATUS)" >> ~/debug_cron.log
-    exit 1
-fi
-
-# Compress the backup
-echo "Comprimiendo backup..." >> ~/debug_cron.log
-tar -czf "$BACKUP_DIR/${FILENAME}.tar.gz" -C "$BACKUP_DIR" "$FILENAME"
-rm -rf "$BACKUP_DIR/$FILENAME"  # Remove uncompressed directory
-
-# Clean up remote backup directory before transferring new backup
-echo "Limpiando directorio remoto..." >> ~/debug_cron.log
-ssh ${REMOTE_USER}@${REMOTE_HOST} "rm -fr ${REMOTE_DIR}/* && mkdir -p ${REMOTE_DIR}"
-SSH_STATUS=$?
-
-if [ $SSH_STATUS -ne 0 ]; then
-    echo "Error al limpiar directorio remoto (c¿¿digo: $SSH_STATUS)" >> ~/debug_cron.log
-fi
-
-# Transfer new backup file
-echo "Iniciando transferencia SCP..." >> ~/debug_cron.log
-scp "$BACKUP_DIR/${FILENAME}.tar.gz" ${REMOTE_USER}@${REMOTE_HOST}:${REMOTE_DIR}/
-SCP_STATUS=$?
-
-if [ $SCP_STATUS -eq 0 ]; then
-    echo "Transferencia SCP completada exitosamente" >> ~/debug_cron.log
-else
-    echo "Error en la transferencia SCP (c¿¿digo: $SCP_STATUS)" >> ~/debug_cron.log
-fi
+tail -n 120 /var/backups/dittravel/backup.log
+ls -lt /var/backups/dittravel/mariadb | head -n 5
+ls -lt /var/backups/dittravel/mongodb | head -n 5
 ```
 
-### 2. Make the script an executable:
+## 5. Validate cron execution
+
+Use temporary high frequency schedule:
+
+```dotenv
+BACKUP_CRON_SCHEDULE="*/5 * * * *"
+```
+
+Apply:
 
 ```bash
-sudo chmod +x /usr/local/bin/backup-mongodb.sh
+pnpm run backup:cron:install
 ```
 
-### 3. Verify the script runs:
+Wait one cycle and verify log growth:
 
 ```bash
-sudo /usr/local/bin/backup-mongodb.sh
+tail -n 120 /var/backups/dittravel/backup.log
 ```
 
-### 4. Check the backup was created succesfully locally and in the remote backup machine:
+Restore to production schedule after validation.
 
-#### Locally
+## 6. Remote sync from backend VM (optional but recommended)
+
+When superadmin saves backup automation in UI, backend can push config+cron update to DB VM.
+
+### 8.1 Backend VM `backup.env` keys
+
+In backend VM repo `backup_scripts/backup.env` set:
+
+```dotenv
+BACKUP_REMOTE_SYNC_ENABLED=true
+BACKUP_REMOTE_SYNC_HOST=172.16.60.115
+BACKUP_REMOTE_SYNC_USER=dittravel
+BACKUP_REMOTE_SYNC_TARGET_DIR=/home/dittravel/TC3005B.501-Backend
+BACKUP_REMOTE_SYNC_SSH_KEY=/home/dittravel/.ssh/dittravel
+```
+
+### 8.2 Backend VM SSH prerequisites
 
 ```bash
-ls -la /var/backups/mongodb
+mkdir -p /home/dittravel/.ssh
+chmod 700 /home/dittravel/.ssh
+chmod 600 /home/dittravel/.ssh/dittravel
+ssh -i /home/dittravel/.ssh/dittravel -o BatchMode=yes dittravel@172.16.60.115 'echo OK'
 ```
 
-#### Remote machine
+### 8.3 Backend container recreation
 
 ```bash
-ls -la /your/backup/path
+cd /home/dittravel/TC3005B.501-Backend
+docker compose up -d --force-recreate backend
 ```
 
-### 5. Schedule the script to run as you need:
+### 8.4 End-to-end verification
 
-- Install cron and crontab in the VM using
+1. Save backup automation config from UI.
+2. On DB VM:
 
-    ```bash
-    sudo apt install crontab
-    ```
-
-- Run
-
-    ```bash
-    sudo crontab -e
-    ```
-
-    and choose the editor of your choice (nano by default).
-
-- At the beginning of the file, add
-
-    ```bash
-    0 3 * * * /usr/local/bin/backup-mongodb.sh
-    ```
-
-    This will create a backup everyday at 3am and send the cron logs to the
-    file in the home directory for your user.
-
-- Run `sudo systemctl enable --now`. You may need to install or specify a locale for crontab to be able to interpret the executable properly.
-You can use the following commands for this.
-
-```Shell
-sudo apt-get update
-sudo apt-get install locales
-sudo locale-gen en_US.UTF-8
+```bash
+crontab -l | grep dittravel-backup-job
+tail -n 80 /var/backups/dittravel/backup.log
 ```
 
-Then run `sudo dpkg-reconfigure locales`. In the menu, select `"en_US.UTF-8 UTF-8"` and `"en_US.UTF-8"` as the default locale.
+## 7. Restore procedures
 
-Now you can update your locale with `sudo update-locale LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8`.
+Run from DB VM in backend repo root.
 
+### 7.1 Restore all
+
+```bash
+pnpm run restore:all
+```
+
+### 7.2 Restore MariaDB only
+
+```bash
+pnpm run restore:mariadb
+```
+
+### 7.3 Restore MongoDB only
+
+```bash
+pnpm run restore:mongodb
+```
+
+## 8. Restore safety checklist
+
+Before restore:
+1. Confirm target environment (DB VM host and repo path).
+2. Confirm backup file/date selected is correct.
+3. Ensure application traffic is controlled for consistency.
+
+After restore:
+1. Verify API health from backend VM.
+2. Verify critical business queries in app.
+3. Keep backup + restore logs for audit.
+
+## 9. Failure signatures and fixes
+
+### 9.1 `spawn ssh ENOENT`
+
+Meaning:
+- backend container cannot find `ssh` binary.
+
+Fix:
+
+```bash
+cd /home/dittravel/TC3005B.501-Backend
+docker compose up -d --build --force-recreate backend
+```
+
+### 9.2 `Permission denied (publickey)`
+
+Meaning:
+- remote sync key/permissions/user/host mismatch.
+
+Fix:
+
+```bash
+chmod 700 /home/dittravel/.ssh
+chmod 600 /home/dittravel/.ssh/dittravel
+ssh -i /home/dittravel/.ssh/dittravel dittravel@172.16.60.115 'echo OK'
+```
+
+### 9.3 `mariadb-dump ... 1045`
+
+Meaning:
+- wrong MariaDB credentials in `backup.env`.
+
+Fix:
+1. align `MARIADB_USER` and `MARIADB_PASSWORD` with DB VM `.env`/container credentials
+2. rerun `pnpm run backup:all`
+
+### 9.4 No new backups from cron
+
+Meaning:
+- cron disabled, stale entry, or wrong path.
+
+Fix:
+
+```bash
+cd /home/dittravel/TC3005B.501-Backend
+pnpm run backup:cron:install
+crontab -l | grep dittravel-backup-job
+```
+
+## 10. Operator quick commands
+
+```bash
+# show cron
+crontab -l
+
+# install cron from backup.env
+pnpm run backup:cron:install
+
+# run immediate backup
+pnpm run backup:all
+
+# inspect latest log
+tail -n 120 /var/backups/dittravel/backup.log
+
+# check latest artifacts
+ls -lt /var/backups/dittravel/mariadb | head -n 5
+ls -lt /var/backups/dittravel/mongodb | head -n 5
+```

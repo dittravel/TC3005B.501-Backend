@@ -28,28 +28,28 @@ In order to properly setup MariaDB, the following steps are required:
 
 #### Apply the scripts
 
-1. Go to the [/database/Scheme](/database/Scheme) directory.
+1. Go to the [/database/Schema](/database/Schema) directory.
    ```sh
-   cd database/Scheme
+   cd database/Schema
    ```
 2. [Run the `mariadb` client in batch mode](https://mariadb.com/kb/en/mariadb-command-line-client/). With `DB_USER` and `DB_USER_PASSWORD` being your created `mariadb` user and its password.
-   1. Load database scheme [/database/Scheme/Scheme.sql](/database/Scheme/Scheme.sql).
+   1. Load database scheme [/database/Schema/Scheme.sql](/database/Schema/Scheme.sql).
       ```sh
       mariadb -u DB_USER -p DB_USER_PASSWORD < Scheme.sql
       ```
-   2. Load database initial prepopulation [/database/Scheme/Prepopulate.sql](/database/Scheme/Prepopulate.sql).
+   2. Load database initial prepopulation [/database/Schema/Prepopulate.sql](/database/Schema/Prepopulate.sql).
       ```sh
       mariadb -u DB_USER -p DB_USER_PASSWORD < Prepopulate.sql
       ```
-   3. Load database triggers [/database/Scheme/Triggers.sql](/database/Scheme/Triggers.sql).
+   3. Load database triggers [/database/Schema/Triggers.sql](/database/Schema/Triggers.sql).
       ```sh
       mariadb -u DB_USER -p DB_USER_PASSWORD < Triggers.sql
       ```
-   4. Load database views [/database/Scheme/Views.sql](/database/Scheme/Views.sql).
+   4. Load database views [/database/Schema/Views.sql](/database/Schema/Views.sql).
       ```sh
       mariadb -u DB_USER -p DB_USER_PASSWORD < Views.sql
       ```
-   5. Load database dummy data [/database/Scheme/Dummy.sql](/database/Scheme/Dummy.sql).
+   5. Load database dummy data [/database/Schema/Dummy.sql](/database/Schema/Dummy.sql).
       ```sh
       mariadb -u DB_USER -p DB_USER_PASSWORD < Dummy.sql
       ```
@@ -72,7 +72,7 @@ Finally, it is crucial that a local `.env` file is created. Based off of the [`.
 
    # Database Configuration
    DB_HOST=localhost
-   DB_PORT=27017
+   DB_PORT=3306
    DB_NAME=travel_management  # Change this
    DB_USER=username  # Change this
    DB_PASSWORD=password  # Change this
@@ -89,5 +89,5 @@ Finally, it is crucial that a local `.env` file is created. Based off of the [`.
    # API_KEY=your_api_key
 
    # Other Configuration
-   # CORS_ORIGIN=http://localhost:3000
+   # CORS_ORIGIN=https://localhost:3000
    ```

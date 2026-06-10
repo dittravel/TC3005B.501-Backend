@@ -9,8 +9,7 @@ import express from "express";
 import multer from "multer";
 import * as adminController from "../controllers/adminController.js";
 import { authenticateToken, authorizePermission, validateSocietyAccess } from "../middleware/auth.js";
-import { validateCreateUser, validateInputs } from "../middleware/validation.js";
-import { validateAuthorizationRule } from "../middleware/validation.js";
+import { validateCreateUser, validateInputs, validateAuthorizationRule } from "../middleware/validation.js";
 import { generalRateLimiter } from "../middleware/rateLimiters.js";
 
 const router = express.Router();
@@ -165,5 +164,10 @@ router.route("/preview-import")
     upload.single("file"),
     adminController.previewImport
   );
+
+// Backup automation settings (superadmin)
+router.route('/backup-automation-config')
+  .get(generalRateLimiter, authenticateToken, adminController.getBackupAutomationConfig)
+  .put(generalRateLimiter, authenticateToken, validateInputs, adminController.updateBackupAutomationConfig);
 
 export default router;

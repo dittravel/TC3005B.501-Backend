@@ -544,7 +544,7 @@ export const REQUESTS = [
 export const ROUTES = [
   { fromCountry: 'México', fromCity: 'CDMX', toCountry: 'México', toCity: 'Guadalajara', date: '2025-05-01', begin: '08:00:00', end: '11:00:00', plane_needed: true, hotel_needed: false },
   { fromCountry: 'México', fromCity: 'Monterrey', toCountry: 'México', toCity: 'Mérida', date: '2025-05-02', begin: '10:30:00', end: '14:30:00', plane_needed: true, hotel_needed: true },
-  { fromCountry: 'México', fromCity: 'Guadalajara', toCountry: 'México', toCity: 'CDMX', date: '2026-06-01', begin: '10:00:00', end: '13:00:00', plane_needed: true, hotel_needed: true },
+  { fromCountry: 'México', fromCity: 'Guadalajara', toCountry: 'México', toCity: 'CDMX', date: '2026-06-15', begin: '10:00:00', end: '13:00:00', plane_needed: true, hotel_needed: true },
   { fromCountry: 'México', fromCity: 'Monterrey', toCountry: 'México', toCity: 'Guadalajara', date: '2025-05-04', begin: '06:00:00', end: '09:00:00', plane_needed: true, hotel_needed: false },
   { fromCountry: 'México', fromCity: 'CDMX', toCountry: 'Estados Unidos', toCity: 'Nueva York', date: '2025-05-05', begin: '14:00:00', end: '18:00:00', plane_needed: true, hotel_needed: true },
   { fromCountry: 'Estados Unidos', fromCity: 'Nueva York', toCountry: 'México', toCity: 'CDMX', date: '2025-05-06', begin: '11:00:00', end: '13:00:00', plane_needed: false, hotel_needed: false },

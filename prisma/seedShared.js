@@ -119,14 +119,13 @@ export const SUPERADMIN_EMAIL = 'superadmin@empresa.local';
 export const SUPERADMIN_WORKSTATION = 'SUPERADMIN-WS';
 
 
-const AES_SECRET_KEY = process.env.AES_SECRET_KEY;
-
 /**
  * Encrypt a value using AES-256-CBC with a random IV.
  * @param {string} value The plaintext value to encrypt.
  * @return {string} The encrypted value, encoded as iv:encryptedData in base64.
  */
 export const encryptSeedValue = (value) => {
+  const AES_SECRET_KEY = process.env.AES_SECRET_KEY;
   if (!AES_SECRET_KEY) {
     throw new Error('AES_SECRET_KEY is required for seed encryption');
   }

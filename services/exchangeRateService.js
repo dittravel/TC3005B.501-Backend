@@ -11,9 +11,13 @@ import { findSeriesById } from './exchangeRateCatalog.js';
 
 let exchangeRateCache = {};
 
-const BANXICO_API_URL = process.env.BANXICO_API_URL;
-const BANXICO_API_KEY = process.env.BANXICO_API_KEY;
-const CACHE_TTL = parseInt(process.env.BANXICO_CACHE_TTL) || 3600; // seconds
+function getBanxicoConfig() {
+  return {
+    apiUrl: process.env.BANXICO_API_URL,
+    apiKey: process.env.BANXICO_API_KEY,
+    cacheTtl: Number.parseInt(process.env.BANXICO_CACHE_TTL, 10) || 3600,
+  };
+}
 
 /**
  * Checks whether the cached value for a series is still within the TTL window.
@@ -21,9 +25,63 @@ const CACHE_TTL = parseInt(process.env.BANXICO_CACHE_TTL) || 3600; // seconds
  * @returns {boolean} True if the cache is valid, false otherwise.
  */
 function isCacheValid(seriesId) {
+  const { cacheTtl } = getBanxicoConfig();
   if (!exchangeRateCache[seriesId]) return false;
   const cacheAge = (Date.now() - exchangeRateCache[seriesId].timestamp) / 1000;
-  return cacheAge < CACHE_TTL;
+  return cacheAge < cacheTtl;
+}
+
+// Banxico returns an empty datos[] for weekends, holidays, and any non-publication
+// day. We back off this many days to guarantee we capture at least one observation
+// (covers long holiday stretches for daily series and any day-of-month for monthly).
+const HISTORICAL_LOOKBACK_DAYS = 90;
+
+function toISODate(value) {
+  if (value instanceof Date) return value.toISOString().split('T')[0];
+  return String(value).split('T')[0];
+}
+
+function subtractDays(isoDate, days) {
+  const d = new Date(`${isoDate}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() - days);
+  return d.toISOString().split('T')[0];
+}
+
+function buildBanxicoUrl(apiUrl, seriesId, date) {
+  if (date) {
+    const endDate = toISODate(date);
+    const startDate = subtractDays(endDate, HISTORICAL_LOOKBACK_DAYS);
+    return {
+      url: `${apiUrl}series/${seriesId}/datos/${startDate}/${endDate}`,
+      dateStr: endDate,
+    };
+  }
+
+  return {
+    url: `${apiUrl}series/${seriesId}/datos/oportuno`,
+    dateStr: null,
+  };
+}
+
+function buildNoExchangeRateError(seriesId, dateStr) {
+  const suffix = dateStr ? ` on or before ${dateStr}` : '';
+  return new Error(`No exchange rate data available for ${seriesId}${suffix}`);
+}
+
+// Banxico returns dates as "dd/mm/yyyy". Parse to a sortable yyyy-mm-dd string.
+function banxicoDateToISO(banxicoDate) {
+  const [dd, mm, yyyy] = banxicoDate.split('/');
+  return `${yyyy}-${mm.padStart(2, '0')}-${dd.padStart(2, '0')}`;
+}
+
+// Picks the most recent valid observation from a Banxico datos[] array.
+// Banxico marks missing values as "N/E" — we skip those.
+function pickLatestObservation(datos) {
+  const valid = datos
+    .filter(d => d?.dato && d.dato !== 'N/E')
+    .map(d => ({ iso: banxicoDateToISO(d.fecha), dato: d.dato, fecha: d.fecha }))
+    .sort((a, b) => a.iso.localeCompare(b.iso));
+  return valid.length ? valid[valid.length - 1] : null;
 }
 
 /**
@@ -36,6 +94,12 @@ function isCacheValid(seriesId) {
  */
 export async function getExchangeRate(seriesId = 'SF43718', date = null) {
   try {
+    const { apiUrl, apiKey, cacheTtl } = getBanxicoConfig();
+
+    if (!apiUrl || !apiKey) {
+      throw new Error('BANXICO_API_URL or BANXICO_API_KEY is not configured');
+    }
+
     // Validate against the DB catalog before hitting Banxico — avoids unnecessary API calls
     const series = await findSeriesById(seriesId);
     if (!series) throw new Error(`Series ${seriesId} not found in catalog`);
@@ -47,40 +111,46 @@ export async function getExchangeRate(seriesId = 'SF43718', date = null) {
       return { rate: cached.rate, timestamp: cached.timestamp, source: 'cache', seriesId, seriesName: series.name };
     }
 
-    let url;
-    let dateStr = null;
-    if (date) {
-      // Format date as YYYY-MM-DD for historical rates
-      dateStr = date instanceof Date ? date.toISOString().split('T')[0] : String(date);
-      url = `${BANXICO_API_URL}series/${seriesId}/datos/${dateStr}/${dateStr}`;
-      console.log(`[ExchangeRate] Fetching HISTORICAL rate for ${seriesId} on DATE: ${dateStr}`);
-    } else {
-      // /datos/oportuno returns the most recent available data point for the series
-      url = `${BANXICO_API_URL}series/${seriesId}/datos/oportuno`;
-      console.log(`[ExchangeRate] Fetching CURRENT rate for ${seriesId}`);
-    }
+    const { url, dateStr } = buildBanxicoUrl(apiUrl, seriesId, date);
+    console.log(
+      dateStr
+        ? `[ExchangeRate] Fetching HISTORICAL rate for ${seriesId} on DATE: ${dateStr}`
+        : `[ExchangeRate] Fetching CURRENT rate for ${seriesId}`
+    );
 
     const response = await axios.get(
       url,
-      { headers: { 'Bmx-Token': BANXICO_API_KEY } }
+      { headers: { 'Bmx-Token': apiKey } }
     );
 
-    // Banxico wraps the value in bmx.series[0].datos[0].dato as a string
-    if (!response.data?.bmx?.series?.[0]?.datos?.[0]?.dato) {
-      throw new Error(`No exchange rate data available for ${seriesId}${dateStr ? ` on ${dateStr}` : ''}`);
+    const datos = response.data?.bmx?.series?.[0]?.datos;
+    if (!Array.isArray(datos) || datos.length === 0) {
+      throw buildNoExchangeRateError(seriesId, dateStr);
     }
 
-    const rate = parseFloat(response.data.bmx.series[0].datos[0].dato);
+    const observation = pickLatestObservation(datos);
+    if (!observation) {
+      throw buildNoExchangeRateError(seriesId, dateStr);
+    }
+
+    const rate = Number.parseFloat(observation.dato);
     const timestamp = Date.now();
 
-    console.log(`Exchange rate for ${seriesId}: ${rate}`);
+    console.log(`Exchange rate for ${seriesId}: ${rate} (fecha ${observation.fecha})`);
 
     // Store in cache only for current rates (not historical dates)
     if (!date) {
-      exchangeRateCache[seriesId] = { rate, timestamp, ttl: CACHE_TTL };
+      exchangeRateCache[seriesId] = { rate, timestamp, ttl: cacheTtl };
     }
 
-    return { rate, timestamp, source: 'banxico', seriesId, seriesName: series.name };
+    return {
+      rate,
+      timestamp,
+      source: 'banxico',
+      seriesId,
+      seriesName: series.name,
+      fecha: observation.fecha,
+    };
 
   } catch (error) {
     console.error(`Error fetching exchange rate for ${seriesId}:`, error.message);

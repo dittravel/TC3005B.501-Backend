@@ -1,84 +1,132 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
-# ============================================================================
-# MongoDB Backup Script
-# ============================================================================
-# This script creates a backup of a MongoDB database, compresses it, and
-# transfers it to a remote server using SCP. Old backups are automatically
-# cleaned up both locally and remotely to conserve disk space.
-# ============================================================================
+set -euo pipefail
 
-# Log script start time for debugging and monitoring
-echo "[$(date)] Inicio del script de backup MongoDB" >> /var/backups/mongodb/debug_cron.log
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+BACKUP_CONFIG="${BACKUP_CONFIG:-$SCRIPT_DIR/backup.env}"
 
-# MongoDB connection parameters
-mongoHost="172.16.61.137"       # IP address or hostname of the MongoDB server
-mongoPort="27017"               # MongoDB port (default is 27017)
-mongoDatabase="fileStorage"     # Name of the MongoDB database to backup
-
-# MongoDB authentication (if required, uncomment and configure these)
-#mongoUser="db_user"            # MongoDB username with read access to the database
-#mongoPassword="your_secure_password"  # MongoDB user password
-
-# Local backup configuration
-backupDir="/var/backups/mongodb"              # Local directory for storing backups
-timestamp=$(date +"%Y%m%d_%H%M%S")            # Current timestamp for unique filenames
-backupFilename="${mongoDatabase}_${timestamp}"  # Backup folder name (before compression)
-
-# Remote server configuration for SCP transfer
-remoteUser="backupUser"         # SSH user on the remote backup server
-remotePassword="backupPassword" # SSH password for remote server authentication
-remoteHost="172.16.61.151"      # IP address of the remote backup server
-remoteDir="~/backupsmongo"      # Directory on remote server for MongoDB backups
-
-# Remove old backup locally (if it exists) to free up disk space
-echo "Limpiando directorio local de backups..." >> /var/backups/mongodb/debug_cron.log
-rm -fr $backupDir
-mkdir -p $backupDir
-
-# Create MongoDB backup using mongodump
-echo "Ejecutando mongodump..." >> /var/backups/mongodb/debug_cron.log
-
-# Choose one of these commands based on whether you need authentication:
-# Without authentication (current configuration):
-mongodump --host $mongoHost --port $mongoPort --db $mongoDatabase --out "$backupDir/$backupFilename"
-
-# With authentication (uncomment and configure mongoUser/mongoPassword if needed):
-#mongodump --host $mongoHost --port $mongoPort --username $mongoUser --password $mongoPassword --authenticationDatabase admin --db $mongoDatabase --out "$backupDir/$backupFilename"
-
-# Check if mongodump completed successfully
-dumpStatus=$?
-if [ $dumpStatus -eq 0 ]; then
-    echo "mongodump completado exitosamente" >> /var/backups/mongodb/debug_cron.log
-else
-    echo "Error en mongodump (código: $dumpStatus)" >> /var/backups/mongodb/debug_cron.log
-    exit 1  # Exit script if backup creation failed
+if [[ -f "$BACKUP_CONFIG" ]]; then
+    # shellcheck disable=SC1090
+    source "$BACKUP_CONFIG"
 fi
 
-# Compress the backup to save storage space and reduce transfer time
-echo "Comprimiendo backup..." >> /var/backups/mongodb/debug_cron.log
-tar -czf "$backupDir/${backupFilename}.tar.gz" -C "$backupDir" "$backupFilename"
-rm -rf "$backupDir/$backupFilename"  # Remove uncompressed directory after compression
+BACKUP_ENVIRONMENT="${BACKUP_ENVIRONMENT:-development}"
+BACKUP_BASE_DIR="${BACKUP_BASE_DIR:-/var/backups/dittravel}"
+MONGODB_BACKUP_SUBDIR="${MONGODB_BACKUP_SUBDIR:-mongodb}"
+MONGODB_RETENTION_DAYS="${MONGODB_RETENTION_DAYS:-14}"
+MONGODB_SOURCE="${MONGODB_SOURCE:-auto}"
+MONGODB_DB_NAME="${MONGODB_DB_NAME:-fileStorage}"
+MONGODB_HOST="${MONGODB_HOST:-127.0.0.1}"
+MONGODB_PORT="${MONGODB_PORT:-27017}"
+MONGODB_USER="${MONGODB_USER:-}"
+MONGODB_PASSWORD="${MONGODB_PASSWORD:-}"
+MONGODB_AUTH_DB="${MONGODB_AUTH_DB:-admin}"
+MONGODB_DOCKER_SERVICE="${MONGODB_DOCKER_SERVICE:-mongodb}"
+COMPOSE_PROJECT_DIR="${COMPOSE_PROJECT_DIR:-$(cd "$SCRIPT_DIR/.." && pwd)}"
+REMOTE_BACKUP_ENABLED="${REMOTE_BACKUP_ENABLED:-false}"
+REMOTE_BACKUP_TARGET_DIR="${REMOTE_BACKUP_TARGET_DIR:-/var/backups/dittravel}"
+REMOTE_BACKUP_HOST="${REMOTE_BACKUP_HOST:-}"
+REMOTE_BACKUP_USER="${REMOTE_BACKUP_USER:-}"
+REMOTE_BACKUP_SSH_KEY="${REMOTE_BACKUP_SSH_KEY:-}"
+BACKUP_LOG_FILE="${BACKUP_LOG_FILE:-$BACKUP_BASE_DIR/backup.log}"
 
-# Clean up remote backup directory before transferring new backup
-# This ensures only the latest backup is kept on the remote server
-echo "Limpiando directorio remoto..." >> /var/backups/mongodb/debug_cron.log
-sshpass -p "${remotePassword}" ssh -o StrictHostKeyChecking=no ${remoteUser}@${remoteHost} "rm -fr ${remoteDir}/* && mkdir -p ${remoteDir}"
-sshStatus=$?
+timestamp="$(date +"%Y%m%d_%H%M%S")"
+backup_dir="$BACKUP_BASE_DIR/$MONGODB_BACKUP_SUBDIR"
+backup_file="$backup_dir/${MONGODB_DB_NAME}_${BACKUP_ENVIRONMENT}_${timestamp}.archive.gz"
 
-# Check if remote cleanup was successful
-if [ $sshStatus -ne 0 ]; then
-    echo "Error al limpiar directorio remoto (código: $sshStatus)" >> /var/backups/mongodb/debug_cron.log
-fi
+mkdir -p "$backup_dir"
+mkdir -p "$(dirname "$BACKUP_LOG_FILE")"
 
-# Transfer compressed backup file to remote server using SCP
-echo "Iniciando transferencia SCP..." >> /var/backups/mongodb/debug_cron.log
-sshpass -p "${remotePassword}" scp -o StrictHostKeyChecking=no "$backupDir/${backupFilename}.tar.gz" ${remoteUser}@${remoteHost}:${remoteDir}/
-scpStatus=$?
+log() {
+    local line
+    line="[$(date +"%Y-%m-%d %H:%M:%S")] [mongodb] $*"
+    printf '%s\n' "$line" >> "$BACKUP_LOG_FILE"
+    if [[ -t 1 ]]; then
+        printf '%s\n' "$line"
+    fi
+}
 
-# Verify SCP transfer success and log the result
-if [ $scpStatus -eq 0 ]; then
-    echo "Transferencia SCP completada exitosamente" >> /var/backups/mongodb/debug_cron.log
-else
-    echo "Error en la transferencia SCP (código: $scpStatus)" >> /var/backups/mongodb/debug_cron.log
-fi
+has_docker_service_running() {
+    if ! command -v docker >/dev/null 2>&1; then
+        return 1
+    fi
+    if ! docker compose -f "$COMPOSE_PROJECT_DIR/docker-compose.yml" ps "$MONGODB_DOCKER_SERVICE" >/dev/null 2>&1; then
+        return 1
+    fi
+    return 0
+}
+
+build_auth_args() {
+    if [[ -n "$MONGODB_USER" && -n "$MONGODB_PASSWORD" ]]; then
+        echo "--username=$MONGODB_USER --password=$MONGODB_PASSWORD --authenticationDatabase=$MONGODB_AUTH_DB"
+    fi
+}
+
+run_local_backup() {
+    local auth_args
+    auth_args="$(build_auth_args)"
+    log "Creating local MongoDB backup from ${MONGODB_HOST}:${MONGODB_PORT}/${MONGODB_DB_NAME}."
+    mongodump \
+        --host "$MONGODB_HOST" \
+        --port "$MONGODB_PORT" \
+        --db "$MONGODB_DB_NAME" \
+        --archive="$backup_file" \
+        --gzip \
+        ${auth_args}
+}
+
+run_docker_backup() {
+    local auth_args
+    auth_args="$(build_auth_args)"
+    log "Creating Docker MongoDB backup from service '$MONGODB_DOCKER_SERVICE'."
+    # shellcheck disable=SC2086
+    docker compose -f "$COMPOSE_PROJECT_DIR/docker-compose.yml" exec -T \
+        "$MONGODB_DOCKER_SERVICE" \
+        mongodump --db "$MONGODB_DB_NAME" --archive --gzip ${auth_args} > "$backup_file"
+}
+
+upload_remote_backup() {
+    if [[ "$REMOTE_BACKUP_ENABLED" != "true" ]]; then
+        return 0
+    fi
+
+    if [[ -z "$REMOTE_BACKUP_HOST" || -z "$REMOTE_BACKUP_USER" ]]; then
+        log "REMOTE_BACKUP_ENABLED=true but REMOTE_BACKUP_HOST/REMOTE_BACKUP_USER are missing."
+        return 1
+    fi
+
+    local remote_dir="$REMOTE_BACKUP_TARGET_DIR/$MONGODB_BACKUP_SUBDIR"
+    local ssh_opts=()
+    if [[ -n "$REMOTE_BACKUP_SSH_KEY" ]]; then
+        ssh_opts=(-i "$REMOTE_BACKUP_SSH_KEY")
+    fi
+
+    log "Uploading MongoDB backup to ${REMOTE_BACKUP_USER}@${REMOTE_BACKUP_HOST}:${remote_dir}."
+    ssh "${ssh_opts[@]}" "${REMOTE_BACKUP_USER}@${REMOTE_BACKUP_HOST}" "mkdir -p '$remote_dir'"
+    scp "${ssh_opts[@]}" "$backup_file" "${REMOTE_BACKUP_USER}@${REMOTE_BACKUP_HOST}:$remote_dir/"
+}
+
+case "$MONGODB_SOURCE" in
+    local)
+        run_local_backup
+        ;;
+    docker)
+        run_docker_backup
+        ;;
+    auto)
+        if has_docker_service_running; then
+            run_docker_backup
+        else
+            run_local_backup
+        fi
+        ;;
+    *)
+        log "Invalid MONGODB_SOURCE='$MONGODB_SOURCE'. Use local|docker|auto."
+        exit 1
+        ;;
+esac
+
+find "$backup_dir" -type f -name '*.archive.gz' -mtime +"$MONGODB_RETENTION_DAYS" -delete
+upload_remote_backup
+
+log "Backup created: $backup_file"
